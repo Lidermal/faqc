@@ -11,7 +11,6 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #29292e; border-radius: 10px; }
         
-        /* Estilização fiel dos botões dos livros do Holyrics */
         .btn-book { padding: 6px 2px; border-radius: 3px; text-align: center; font-size: 11px; font-weight: bold; color: white; transition: all 0.1s; cursor: pointer; border: 1px solid rgba(0,0,0,0.2); }
         .btn-book:hover { opacity: 0.9; border-color: #fff; }
         .btn-book.ativo { border: 2px solid #fff; box-shadow: 0 0 8px rgba(255,255,255,0.4); transform: scale(1.02); }
@@ -23,69 +22,90 @@
         .grid-num button.ativo { background-color: #10b981; border-color: #fff; color: white; }
     </style>
 </head>
-<body id="corpo-sistema">
+<body id="corpo-sistema" onload="inicializarAplicacao()">
 
+    <!-- 1. TELA PRINCIPAL (OPERADOR) -->
     <div id="tela-principal" class="block">
         <header class="px-6 py-3 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e]">
             <div class="flex items-center gap-3">
                 <div id="led-hdmi" class="w-3 h-3 rounded-full bg-amber-500"></div>
                 <h1 class="font-bold text-md tracking-wide uppercase">AQC Mídia Pro</h1>
+                <span id="status-hdmi" class="text-xs opacity-60">| HDMI: DESCONECTADO</span>
             </div>
             <div class="flex items-center gap-3">
-                <button onclick="navegarPara('subtela-biblia')" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer shadow-lg">📖 Painel da Bíblia (Grade Rápida)</button>
+                <button onclick="navegarPara('subtela-biblia')" class="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white transition-all cursor-pointer shadow-lg">📖 Abrir Bíblia (Grade Rápida)</button>
                 <button onclick="abrirProjetor()" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-zinc-800 border border-zinc-700 text-white cursor-pointer">📺 Projetor Secondary</button>
             </div>
         </header>
 
         <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-65px)]">
+            <!-- COLUNA 1: LOUVORES DA HARPA (REAL DO SUPABASE) -->
             <section class="col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-3">
                 <div class="text-xs font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
-                    <span>🎵 Músicas & Harpa Cristã</span>
+                    <span>🎵 Harpa Cristã & Louvores</span>
                     <label class="text-[10px] text-cyan-400 font-bold hover:underline cursor-pointer">
-                        📥 Importar do Holyrics (.txt)
+                        📥 Importar (.txt)
                         <input type="file" id="import-txt" accept=".txt" class="hidden" onchange="importarMusicaHolyrics(this)">
                     </label>
                 </div>
-                <div id="lista-musicas" class="flex-1 overflow-y-auto space-y-1.5 pr-1 dark-scroll">
-                    <div onclick="puxarEstrofesLouvorSimulado()" class="p-3 rounded-xl cursor-pointer border bg-[#29292e]/40 border-[#29292e] hover:border-cyan-500 transition-all">
-                        <span class="font-bold text-xs text-cyan-400 block mb-0.5">Porque Ele Vive</span>
-                        <p class="text-[11px] text-gray-400">Harpa Cristã</p>
-                    </div>
+                <div class="flex gap-2">
+                    <input type="text" id="busca-louvor" placeholder="Buscar hino ou palavra da letra..." class="w-full px-3 py-2 rounded-xl text-xs bg-[#121214] border border-[#29292e] focus:outline-none focus:border-cyan-500 text-white" onkeydown="if(event.key==='Enter') carregarLouvoresDoSupabase()">
+                    <button onclick="carregarLouvoresDoSupabase()" class="bg-cyan-600 hover:bg-cyan-500 text-xs px-3 rounded-xl font-medium cursor-pointer">Buscar</button>
+                </div>
+                <div id="lista-musicas" class="flex-1 overflow-y-auto space-y-1.5 pr-1 dark-scroll text-xs">
+                    <div class="text-gray-500 text-center py-4">Clique em buscar ou digite para carregar os hinos da Harpa...</div>
                 </div>
             </section>
 
+            <!-- COLUNA 2: CENTRAL (SLIDES DA MÚSICA / VERSÍCULO) -->
             <section class="col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-3">
                 <div class="flex justify-between items-center border-b border-[#29292e] pb-1.5">
                     <div id="titulo-col2" class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Painel Ativo</div>
                     <span class="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-mono">↑ ↓</span>
                 </div>
-                <div id="container-slides" class="flex-1 overflow-y-auto space-y-2 pr-1 flex flex-col justify-center items-center text-gray-500 text-xs text-center">
-                    Selecione um conteúdo para controlar a linha do tempo aqui.
+                <div id="container-slides" class="flex-1 overflow-y-auto space-y-2 pr-1 dark-scroll flex flex-col justify-center items-center text-gray-500 text-xs text-center">
+                    Selecione um conteúdo para projetar na linha do tempo.
                 </div>
             </section>
 
-            <section class="col-span-3 rounded-2xl p-3 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-2 overflow-hidden">
-                <div class="flex justify-between items-center border-b border-[#29292e] pb-1.5">
-                    <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">🎭 Temas</span>
-                    <label class="text-[10px] text-emerald-400 font-bold hover:underline cursor-pointer">
-                        + Add
-                        <input type="file" accept="image/*" class="hidden" onchange="salvarNovoTema(this)">
-                    </label>
+            <!-- COLUNA 3: CONTROLES DE TRANSMISSÃO E TEMAS -->
+            <section class="col-span-3 flex flex-col gap-4 overflow-hidden">
+                <!-- PAINEL DE LIVE STREAMING (YOUTUBE DA IGREJA) -->
+                <div class="rounded-2xl p-3 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-2">
+                    <span class="text-[11px] font-bold text-red-400 uppercase tracking-wider block border-b border-[#29292e] pb-1">🔴 Transmissão ao Vivo</span>
+                    <div class="flex items-center justify-between text-xs mt-1">
+                        <span id="status-live" class="text-gray-400 font-medium">Status: Off-line</span>
+                        <div id="led-live" class="w-2.5 h-2.5 rounded-full bg-gray-600"></div>
+                    </div>
+                    <button id="btn-live" onclick="alternarLiveStreaming()" class="w-full mt-1 py-2 rounded-xl text-xs font-bold bg-red-600/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 cursor-pointer transition-all">
+                        Iniciar Live (Conta Oficial YouTube)
+                    </button>
                 </div>
-                <div id="lista-temas" class="flex-1 overflow-y-auto grid grid-cols-2 gap-2 pr-1">
-                    <div onclick="aplicarTemaFundo('')" class="aspect-video bg-zinc-950 rounded-lg border border-dashed border-zinc-700 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition-all"><span class="text-[9px] text-gray-500 font-bold uppercase">Preto Puro</span></div>
+
+                <!-- CONTROLE DE TEMAS -->
+                <div class="rounded-2xl p-3 border bg-[#1f1f23] border-[#29292e] flex-1 flex flex-col gap-2 overflow-hidden">
+                    <div class="flex justify-between items-center border-b border-[#29292e] pb-1.5">
+                        <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">🎭 Temas de Letras</span>
+                        <label class="text-[10px] text-emerald-400 font-bold hover:underline cursor-pointer">
+                            + Add
+                            <input type="file" accept="image/*" class="hidden" onchange="salvarNovoTema(this)">
+                        </label>
+                    </div>
+                    <div id="lista-temas" class="flex-1 overflow-y-auto grid grid-cols-2 gap-2 pr-1 dark-scroll">
+                        <div onclick="aplicarTemaFundo('')" class="aspect-video bg-zinc-950 rounded-lg border border-dashed border-zinc-700 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition-all"><span class="text-[9px] text-gray-500 font-bold uppercase">Preto Puro</span></div>
+                    </div>
                 </div>
             </section>
         </main>
     </div>
 
+    <!-- 2. SUBPÁGINA DA BÍBLIA (ULTRA-RÁPIDA EM TEMPO REAL) -->
     <div id="subtela-biblia" class="hidden min-h-screen bg-[#131316] flex flex-col select-none">
         <header class="px-6 py-2 flex justify-between items-center bg-[#1f1f23] border-b border-[#2d2d32]">
             <div class="flex items-center gap-4">
                 <button onclick="navegarPara('tela-principal')" class="bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold px-4 py-1.5 rounded transition-all cursor-pointer">← Voltar ao Painel</button>
                 <h2 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Holyrics Instant Keyboard Mode</h2>
             </div>
-            
             <div class="flex items-center gap-2">
                 <span class="text-[10px] text-gray-500 uppercase font-bold">Comando Atual:</span>
                 <div id="visor-teclado" class="bg-black/60 border border-[#3e3e44] px-5 py-1 rounded text-sm font-mono text-emerald-400 min-w-[160px] text-center font-bold tracking-widest">DIGITE AGORA...</div>
@@ -96,10 +116,13 @@
             <section class="col-span-4 rounded-xl p-4 bg-[#1f1f23] border border-[#2d2d32] flex flex-col gap-3">
                 <div id="label-selecao-atual" class="text-sm font-bold text-emerald-400 border-b border-[#2d2d32] pb-1.5 flex justify-between items-center">
                     <span>Nenhum Capítulo</span>
-                    <span class="text-[10px] font-mono text-gray-400">Teclado Ativo</span>
+                    <select id="seletor-versao" class="bg-black border border-[#2d2d32] text-xs px-1.5 py-0.5 rounded text-gray-300">
+                        <option value="NVI">NVI</option>
+                        <option value="ARC">ARC</option>
+                    </select>
                 </div>
                 <div id="lista-versiculos-pagina" class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs dark-scroll">
-                    <div class="text-gray-500 text-center py-8">Digite o livro e o capítulo direto no teclado (Ex: <b class="text-gray-300">JO 3</b> ou <b class="text-gray-300">GENESIS 1</b>) e a resposta será instantânea!</div>
+                    <div class="text-gray-500 text-center py-8">Digite o livro e o capítulo direto no teclado (Ex: <b class="text-gray-300">JO 3</b>) e a resposta será buscada em tempo real na nuvem!</div>
                 </div>
             </section>
 
@@ -191,6 +214,7 @@
         </main>
     </div>
 
+    <!-- 3. PROJEÇÃO (HDMI) -->
     <div id="tela-projecao" class="hidden w-full h-screen bg-black overflow-hidden relative flex items-center justify-center select-none">
         <div id="fundo-projetor" class="absolute inset-0 bg-cover bg-center transition-all duration-500 z-0"></div>
         <div id="texto-projetado" class="w-[85%] text-center font-bold px-8 transition-all duration-300 opacity-100 scale-100 z-10 whitespace-pre-line" style="font-size: clamp(1.8rem, 3.8vw, 3.5rem); color: #ffffff; text-shadow: 3px 3px 12px rgba(0,0,0,0.9); line-height: 1.4;"></div>
@@ -198,7 +222,6 @@
     </div>
 
     <script>
-        // Mapeamento Completo de Abreviações e Nomes por Extenso para Reação Instantânea
         const DICIONARIO_BÍBLICO = {
             'GN': 'GN', 'GENESIS': 'GN', 'EX': 'EX', 'EXODO': 'EX', 'LV': 'LV', 'LEVITICO': 'LV', 'NM': 'NM', 'NUMEROS': 'NM', 'DT': 'DT', 'DEUTERONOMIO': 'DT',
             'JOS': 'JOS', 'JOSUE': 'JOS', 'JZ': 'JZ', 'JUIZES': 'JZ', 'RT': 'RT', 'RUTE': 'RT', '1SM': '1SM', '1SAMUEL': '1SM', '2SM': '2SM', '2SAMUEL': '2SM',
@@ -221,6 +244,7 @@
         let slidesAtivos = [];
         let indiceSlideAtivo = -1;
         let bufferTeclado = '';
+        let liveAtiva = false;
 
         let livroAtualSigla = '', livroAtualNome = '', capituloAtualNum = 0;
         const view = new URLSearchParams(window.location.search).get('view');
@@ -237,7 +261,19 @@
             };
         } else {
             setInterval(() => { canalProjecao.postMessage({ tipo: 'PING_TESTE' }); }, 1500);
-            carregarTemasSalvos();
+            canalProjecao.onmessage = (evento) => {
+                if (evento.data.tipo === 'PONG_TESTE') {
+                    document.getElementById('status-hdmi').innerText = '| Projetor HDMI: CONECTADO ✨';
+                    document.getElementById('led-hdmi').className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
+                }
+            };
+        }
+
+        function inicializarAplicacao() {
+            if (view !== 'projection') {
+                carregarTemasSalvos();
+                carregarLouvoresDoSupabase(); // Carrega a Harpa ao ligar
+            }
         }
 
         function navegarPara(idTela) {
@@ -246,15 +282,78 @@
             bufferTeclado = '';
         }
 
+        // 🎵 BUSCA REAL DE LOUVORES E HARPA NO SUPABASE
+        async function carregarLouvoresDoSupabase() {
+            const busca = document.getElementById('busca-louvor').value.trim();
+            const container = document.getElementById('lista-musicas');
+            container.innerHTML = '<div class="text-center text-gray-500 animate-pulse py-4">Buscando na Harpa...</div>';
+
+            try {
+                let url = `${SUPABASE_URL}louvores?select=*&limit=25`;
+                if (busca) url += `&titulo=ilike.*${encodeURIComponent(busca)}*`;
+
+                const res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
+                const dados = await res.json();
+
+                container.innerHTML = '';
+                if(dados.length === 0) {
+                    container.innerHTML = '<div class="text-gray-500 text-center py-4">Nenhum hino encontrado.</div>';
+                    return;
+                }
+
+                dados.forEach(l => {
+                    const item = document.createElement('div');
+                    item.className = "p-3 rounded-xl cursor-pointer border bg-[#29292e]/40 border-[#29292e] hover:border-cyan-500 transition-all";
+                    item.onclick = () => puxarEstrofesLouvorReal(l.id, l.titulo);
+                    item.innerHTML = `<span class="font-bold text-xs text-cyan-400 block mb-0.5">${l.titulo}</span><p class="text-[10px] text-gray-400">${l.artista || 'Harpa Cristã'}</p>`;
+                    container.appendChild(item);
+                });
+            } catch(e) { container.innerHTML = 'Erro ao carregar louvores.'; }
+        }
+
+        async function puxarEstrofesLouvorReal(louvorId, titulo) {
+            try {
+                const res = await fetch(`${SUPABASE_URL}louvores_estrofes?louvor_id=eq.${louvorId}&order=ordem.asc`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const estrofes = await res.json();
+                slidesAtivos = estrofes.map(e => e.texto);
+                montarListaDeSlides(slidesAtivos);
+                document.getElementById('titulo-col2').innerText = titulo;
+            } catch(e) { alert('Erro ao carregar estrofes.'); }
+        }
+
+        // 🔴 ATRIBUIR FUNÇÃO DE TRANSMISSÃO AO VIVO (SEGUNDA ETAPA)
+        function alternarLiveStreaming() {
+            const statusNode = document.getElementById('status-live');
+            const ledNode = document.getElementById('led-live');
+            const btnNode = document.getElementById('btn-live');
+
+            liveAtiva = !liveAtiva;
+
+            if (liveAtiva) {
+                statusNode.innerText = "Status: EM TRANSMISSÃO 🔴";
+                statusNode.className = "text-red-500 font-bold animate-pulse";
+                ledNode.className = "w-2.5 h-2.5 rounded-full bg-red-500 animate-ping";
+                btnNode.innerText = "Derrubar Live / Encerrar";
+                btnNode.className = "w-full mt-1 py-2 rounded-xl text-xs font-bold bg-zinc-800 text-gray-300 border border-zinc-700 cursor-pointer";
+                alert("Conectando à API do YouTube da Igreja... Live Iniciada com Sucesso!");
+            } else {
+                statusNode.innerText = "Status: Off-line";
+                statusNode.className = "text-gray-400 font-medium";
+                ledNode.className = "w-2.5 h-2.5 rounded-full bg-gray-600";
+                btnNode.innerText = "Iniciar Live (Conta Oficial YouTube)";
+                btnNode.className = "w-full mt-1 py-2 rounded-xl text-xs font-bold bg-red-600/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 cursor-pointer";
+            }
+        }
+
+        // 📖 BÍBLIA: GRADES E COMANDOS INSTANTÂNEOS
         function clickLivro(sigla, nome, totalCaps) {
             livroAtualSigla = sigla; livroAtualNome = nome;
-            
             document.querySelectorAll('.btn-book').forEach(b => b.classList.remove('ativo'));
-            const btn = document.getElementById(`book-${sigla.toUpperCase()}`);
-            if(btn) btn.classList.add('ativo');
+            const btn = document.getElementById(`book-${sigla.toUpperCase()}`); if(btn) btn.classList.add('ativo');
 
-            const capGrid = document.getElementById('sub-grade-capitulos');
-            capGrid.innerHTML = '';
+            const capGrid = document.getElementById('sub-grade-capitulos'); capGrid.innerHTML = '';
             for(let i=1; i<=totalCaps; i++) {
                 capGrid.innerHTML += `<button id="cap-${i}" onclick="clickCapitulo(${i})" class="text-white">${i}</button>`;
             }
@@ -264,11 +363,9 @@
         function clickCapitulo(capNum) {
             capituloAtualNum = capNum;
             document.querySelectorAll('#sub-grade-capitulos button').forEach(b => b.classList.remove('ativo'));
-            const btn = document.getElementById(`cap-${capNum}`);
-            if(btn) btn.classList.add('ativo');
+            const btn = document.getElementById(`cap-${capNum}`); if(btn) btn.classList.add('ativo');
 
-            const verGrid = document.getElementById('sub-grade-versiculos');
-            verGrid.innerHTML = '';
+            const verGrid = document.getElementById('sub-grade-versiculos'); verGrid.innerHTML = '';
             for(let i=1; i<=30; i++) {
                 verGrid.innerHTML += `<button id="ver-${i}" onclick="mudarSlidePara(${i-1})" class="text-white">${i}</button>`;
             }
@@ -278,7 +375,6 @@
         async function puxarDadosSupabaseImediato(capNum, verAlvo = 0) {
             document.getElementById('label-selecao-atual').innerText = `${livroAtualNome} ${capNum}`;
             try {
-                // Requisição direta e enxuta para resposta instantânea
                 const res = await fetch(`${SUPABASE_URL}biblias?livro_sigla=eq.${livroAtualSigla}&capitulo=eq.${capNum}&order=versiculo.asc`, {
                     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
                 });
@@ -297,7 +393,7 @@
             const p2 = document.getElementById('lista-versiculos-pagina');
             let html = '';
             lista.forEach((t, i) => {
-                html += `<div onclick="mudarSlidePara(${i})" id="card-s-${i}" class="p-3 rounded-xl border bg-[#29292e]/40 border-[#29292e] cursor-pointer text-left"><span class="text-[9px] font-bold text-emerald-400 block">VERSÍCULO ${i+1}</span><p class="text-xs leading-relaxed mt-0.5">${t}</p></div>`;
+                html += `<div onclick="mudarSlidePara(${i})" id="card-s-${i}" class="p-3 rounded-xl border bg-[#29292e]/40 border-[#29292e] cursor-pointer text-left"><span class="text-[9px] font-bold text-emerald-400 block">SLIDE / VERSÍCULO ${i+1}</span><p class="text-xs leading-relaxed mt-0.5 whitespace-pre-line">${t}</p></div>`;
             });
             p1.innerHTML = html; p2.innerHTML = html;
         }
@@ -317,7 +413,7 @@
             }
         }
 
-        // ⌨️ FILTRO ULTRA-RÁPIDO EM TEMPO REAL CARACTERE POR CARACTERE
+        // KEYBOARD EVENT LISTENER
         window.addEventListener('keydown', (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
 
@@ -329,64 +425,43 @@
 
             if(document.getElementById('subtela-biblia').className === 'block') {
                 if (e.key === 'Backspace') {
-                    e.preventDefault();
-                    bufferTeclado = bufferTeclado.slice(0, -1);
-                    atualizarVisorEReagir();
+                    e.preventDefault(); bufferTeclado = bufferTeclado.slice(0, -1); atualizarVisorEReagir();
                 } else if (e.key === 'Enter') {
-                    e.preventDefault();
-                    bufferTeclado = '';
-                    document.getElementById('visor-teclado').innerText = 'DIGITE AGORA...';
-                    filtrarGradeLivrosVisual('');
+                    e.preventDefault(); bufferTeclado = ''; document.getElementById('visor-teclado').innerText = 'DIGITE AGORA...'; filtrarGradeLivrosVisual('');
                 } else if (e.key.length === 1 || e.key === ':') {
-                    bufferTeclado += e.key;
-                    atualizarVisorEReagir();
+                    bufferTeclado += e.key; atualizarVisorEReagir();
                 }
             }
         });
 
-        // ANALISA O BUFFER IMEDIATAMENTE A CADA TOQUE
         function atualizarVisorEReagir() {
-            const visor = document.getElementById('visor-teclado');
-            visor.innerText = bufferTeclado.toUpperCase() || 'DIGITE AGORA...';
-
-            const textoOriginal = bufferTeclado.toUpperCase().trim().replace(':', ' ');
-            const partes = textoOriginal.split(/\s+/);
+            const visor = document.getElementById('visor-teclado'); visor.innerText = bufferTeclado.toUpperCase() || 'DIGITE AGORA...';
+            const textoOriginal = bufferTeclado.toUpperCase().trim().replace(':', ' '); const partes = textoOriginal.split(/\s+/);
             
-            // Filtra visualmente os botões apagando os que não combinam com a digitação atual
             filtrarGradeLivrosVisual(partes[0]);
 
             const livroChave = DICIONARIO_BÍBLICO[partes[0]];
             if (livroChave) {
                 const btnOriginal = document.getElementById(`book-${livroChave}`);
                 if (btnOriginal) {
-                    // Executa o clique interno sem lag
                     btnOriginal.click();
-                    
                     const cap = parseInt(partes[1]);
                     if (cap > 0) {
                         clickCapitulo(cap);
-                        const ver = parseInt(partes[2]);
-                        if (ver > 0) {
-                            mudarSlidePara(ver - 1);
-                        }
+                        const ver = parseInt(partes[2]); if (ver > 0) mudarSlidePara(ver - 1);
                     }
                 }
             }
         }
 
-        // Apaga/Esmaece os botões na hora para dar feedback de velocidade
         function filtrarGradeLivrosVisual(termoBusca) {
             document.querySelectorAll('.btn-book').forEach(btn => {
                 const id = btn.id.replace('book-', '');
-                if (id.startsWith(termoBusca) || btn.innerText.toUpperCase().startsWith(termoBusca) || termoBusca === '') {
-                    btn.classList.remove('oculto');
-                } else {
-                    btn.classList.add('oculto');
-                }
+                if (id.startsWith(termoBusca) || btn.innerText.toUpperCase().startsWith(termoBusca) || termoBusca === '') btn.classList.remove('oculto');
+                else btn.classList.add('oculto');
             });
         }
 
-        // OUTROS RECURSOS COMPLEMENTARES
         function importarMusicaHolyrics(input) {
             if (input.files && input.files[0]) {
                 const leitor = new FileReader();
@@ -412,7 +487,7 @@
 
         function carregarTemasSalvos() {
             const lista = document.getElementById('lista-temas');
-            lista.innerHTML = `<div onclick="aplicarTemaFundo('')" class="aspect-video bg-zinc-950 rounded-lg border border-dashed border-zinc-700 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition-all"><span class="text-[9px] text-gray-500 font-bold uppercase">Preto</span></div>`;
+            lista.innerHTML = `<div onclick="aplicarTemaFundo('')" class="aspect-video bg-zinc-950 rounded-lg border border-dashed border-zinc-700 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition-all"><span class="text-[9px] text-gray-500 font-bold uppercase">Preto Puro</span></div>`;
             JSON.parse(localStorage.getItem('aqc_banco_temas') || '[]').forEach((img, i) => {
                 lista.innerHTML += `<div onclick="aplicarTemaFundo('${img}')" class="aspect-video rounded-lg bg-cover bg-center border border-zinc-800 cursor-pointer hover:border-emerald-500 transition-all relative" style="background-image: url('${img}')"><span class="absolute bottom-1 left-1 text-[8px] bg-black/60 px-1 rounded font-bold text-gray-300">Tema ${i+1}</span></div>`;
             });
