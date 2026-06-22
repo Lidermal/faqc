@@ -4,11 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AQC Mídia Pro</title>
-    
     <script src="https://cdn.tailwindcss.com"></script>
-
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
+        body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; select-none: none; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         .dark-scroll::-webkit-scrollbar-thumb { background: #29292e; border-radius: 10px; }
@@ -22,11 +20,11 @@
             <div class="flex items-center gap-3">
                 <div id="led-hdmi" class="w-3 h-3 rounded-full bg-amber-500"></div>
                 <h1 class="font-bold text-lg tracking-wide uppercase">AQC Mídia Pro</h1>
-                <span id="status-hdmi" class="text-xs opacity-60">| Sinal HDMI: DESCONECTADO</span>
+                <span id="status-hdmi" class="text-xs opacity-60">| Projetor HDMI: DESCONECTADO</span>
             </div>
             <div class="flex items-center gap-4">
-                <button onclick="abrirProjetor()" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer">
-                    📺 Abrir Tela do Projetor
+                <button onclick="abrirProjetor()" class="px-4 py-1.5 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer font-semibold">
+                    📺 Abrir Projetor Secondary
                 </button>
                 <button onclick="alternarTema()" id="btn-tema" class="p-2 rounded-xl border bg-[#29292e] border-[#3e3e44] text-sm cursor-pointer">
                     ☀️ Modo Claro
@@ -35,53 +33,70 @@
         </header>
 
         <main class="grid grid-cols-12 gap-5 p-5 h-[calc(100vh-73px)]">
+            
             <section id="col1" class="col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4">
-                <input type="text" placeholder="Buscar na Bíblia (Simulação inicial)..." class="w-full px-4 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-[#121214] border-[#29292e] text-white">
+                <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">Painel de Pesquisa</div>
+                <input type="text" placeholder="Buscar na Bíblia (Simulação)..." class="w-full px-4 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-[#121214] border-[#29292e] text-white">
                 <div class="flex-1 overflow-y-auto space-y-2 pr-1 dark-scroll">
-                    <div onclick="disparar('Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.')" class="p-3 rounded-xl cursor-pointer border bg-[#29292e]/40 border-[#29292e] hover:border-emerald-500 transition-all">
-                        <span class="font-bold text-xs text-emerald-500 block mb-1">João 3:16</span>
+                    <div onclick="carregarNoMeio('João 3:16', ['Porque Deus amou o mundo', 'de tal maneira que deu o', 'seu Filho unigênito, para que', 'todo aquele que nele crê', 'não pereça, mas tenha', 'a vida eterna.'])" class="p-3 rounded-xl cursor-pointer border bg-[#29292e]/40 border-[#29292e] hover:border-emerald-500 transition-all group">
+                        <span class="font-bold text-xs text-emerald-500 block mb-1 group-hover:text-emerald-400">João 3:16</span>
                         <p class="text-sm opacity-90">Porque Deus amou o mundo de tal maneira...</p>
                     </div>
-                    <div onclick="disparar('No princípio, criou Deus os céus e a terra.')" class="p-3 rounded-xl cursor-pointer border bg-[#29292e]/40 border-[#29292e] hover:border-emerald-500 transition-all">
-                        <span class="font-bold text-xs text-emerald-500 block mb-1">Gênesis 1:1</span>
+                    <div onclick="carregarNoMeio('Gênesis 1:1', ['No princípio, criou Deus', 'os céus e a terra.'])" class="p-3 rounded-xl cursor-pointer border bg-[#29292e]/40 border-[#29292e] hover:border-emerald-500 transition-all group">
+                        <span class="font-bold text-xs text-emerald-500 block mb-1 group-hover:text-emerald-400">Gênesis 1:1</span>
                         <p class="text-sm opacity-90">No princípio, criou Deus os céus e a terra.</p>
                     </div>
                 </div>
             </section>
 
-            <section id="col2" class="col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col justify-center items-center">
-                <p class="text-gray-400 text-sm text-center px-6">
-                    ✨ <strong>Modo de Teste:</strong> Clique em um dos dois versículos da esquerda. Eles aparecerão instantaneamente na tela do projetor se ela estiver aberta!
-                </p>
+            <section id="col2" class="col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4">
+                <div class="flex justify-between items-center border-b border-[#29292e] pb-2">
+                    <div id="titulo-col2" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Slides do Item Selecionado</div>
+                    <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/20 font-mono">Setas ↑ ↓ controlam</span>
+                </div>
+                <div id="container-slides" class="flex-1 overflow-y-auto space-y-2 pr-1 dark-scroll flex flex-col justify-center items-center text-gray-500 text-sm text-center">
+                    Nenhum louvor ou versículo selecionado para o painel de slides.
+                </div>
             </section>
 
             <section id="col3" class="col-span-3 flex flex-col gap-5">
                 <div id="card-controles" class="rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-[#1f1f23] border-[#29292e]">
-                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Controles Rápidos (Holyrics)</h3>
-                    <button onmousedown="alternarF5(true)" onmouseup="alternarF5(false)" class="w-full py-3 rounded-xl font-medium text-sm bg-amber-500/10 text-amber-500 border border-amber-500/30 active:bg-amber-500/20 cursor-pointer select-none">
-                        F5 - Ocultar Texto (Segure)
+                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Controles Rápidos (Teclado)</h3>
+                    
+                    <button onclick="alternarF5(true)" class="w-full py-2.5 rounded-xl font-medium text-xs bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 transition-all cursor-pointer flex justify-between px-4 items-center">
+                        <span>Ocultar Texto</span> <kbd class="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Alt + L</kbd>
                     </button>
-                    <button onclick="alternarF6(true)" class="w-full py-3 rounded-xl font-medium text-sm bg-red-500/10 text-red-500 border border-red-500/30 active:bg-red-500/20 cursor-pointer">
-                        F6 - Blackout Total (Ligar)
+                    
+                    <button onclick="alternarF6(true)" class="w-full py-2.5 rounded-xl font-medium text-xs bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-all cursor-pointer flex justify-between px-4 items-center">
+                        <span>Blackout Total</span> <kbd class="bg-red-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Alt + B</kbd>
                     </button>
-                    <button onclick="alternarF6(false)" class="w-full py-3 rounded-xl font-medium text-sm bg-gray-500/10 text-gray-400 border border-gray-500/30 cursor-pointer">
-                        Restaurar Telas
+                    
+                    <button onclick="restaurarTelas()" class="w-full py-2.5 rounded-xl font-medium text-xs bg-gray-500/10 text-gray-400 border border-gray-500/30 hover:bg-gray-500/20 transition-all cursor-pointer flex justify-between px-4 items-center">
+                        <span>Restaurar Projeção</span> <kbd class="bg-gray-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Alt + R</kbd>
                     </button>
+
+                    <div class="mt-4 border-t border-[#29292e] pt-4 text-[11px] text-gray-400 space-y-1.5">
+                        <div class="font-bold text-gray-300 uppercase text-[10px] tracking-wider mb-1">Navegação Rápida:</div>
+                        <div>• <kbd class="bg-[#121214] border border-[#29292e] px-1 rounded font-mono text-white">Espaço</kbd> ou <kbd class="bg-[#121214] border border-[#29292e] px-1 rounded font-mono text-white">↓</kbd> : Próximo Slide</div>
+                        <div>• <kbd class="bg-[#121214] border border-[#29292e] px-1 rounded font-mono text-white">↑</kbd> : Slide Anterior</div>
+                        <div>• <kbd class="bg-[#121214] border border-[#29292e] px-1 rounded font-mono text-white">1 ao 9</kbd> : Pula direto para o slide correspondente</div>
+                    </div>
                 </div>
             </section>
         </main>
     </div>
 
     <div id="tela-projecao" class="hidden w-full h-screen bg-black overflow-hidden relative flex items-center justify-center select-none">
-        <div id="texto-projetado" class="w-[85%] text-center font-bold px-8 transition-all duration-300 opacity-100 scale-100" style="font-size: clamp(2rem, 4.5vw, 4rem); color: #ffffff; text-shadow: 3px 3px 12px rgba(0,0,0,0.9); railroad-line-height: 1.3;"></div>
+        <div id="texto-projetado" class="w-[85%] text-center font-bold px-8 transition-all duration-300 opacity-100 scale-100" style="font-size: clamp(2rem, 4.5vw, 4rem); color: #ffffff; text-shadow: 3px 3px 12px rgba(0,0,0,0.9); line-height: 1.3;"></div>
         <div id="camada-blackout" class="absolute inset-0 bg-black z-50 hidden"></div>
     </div>
 
     <script>
         const canalProjecao = new BroadcastChannel('amor_que_cura_projection');
         let modoEscuro = true;
+        let slidesAtivos = [];
+        let indiceSlideAtivo = -1;
 
-        // Verifica se a URL pede a tela do projetor
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view');
 
@@ -89,7 +104,6 @@
             document.getElementById('painel-operador').className = 'hidden';
             document.getElementById('tela-projecao').className = 'flex w-full h-screen bg-black overflow-hidden relative items-center justify-center select-none';
             
-            // Ouvinte do Projetor
             canalProjecao.onmessage = (evento) => {
                 const { tipo, payload } = evento.data;
                 const txtNode = document.getElementById('texto-projetado');
@@ -108,44 +122,104 @@
                     if (payload.ativo) blkNode.classList.remove('hidden');
                     else blkNode.classList.add('hidden');
                 }
-                if (tipo === 'PING_TESTE') {
-                    canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
-                }
+                if (tipo === 'PING_TESTE') canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
             };
-            // Avisa o painel que está ativo ao abrir
             canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
 
         } else {
-            // Ouvinte do Operador
+            // Código do Operador
             canalProjecao.onmessage = (evento) => {
                 if (evento.data.tipo === 'PONG_TESTE') {
-                    document.getElementById('status-hdmi').innerText = '| Sinal HDMI: CONECTADO ✨';
+                    document.getElementById('status-hdmi').innerText = '| Projetor HDMI: CONECTADO ✨';
                     document.getElementById('led-hdmi').className = 'w-3 h-3 rounded-full bg-emerald-500 animate-pulse';
                 }
             };
 
-            // Loop de checagem do HDMI virtual
             setInterval(() => {
                 canalProjecao.postMessage({ tipo: 'PING_TESTE' });
             }, 1500);
         }
 
-        // Funções do Operador
-        function abrirProjetor() {
-            window.open('?view=projection', '_blank', 'width=1280,height=720');
+        // Preenche o meio da tela com os blocos/slides
+        function carregarNoMeio(titulo, listaSlides) {
+            slidesAtivos = listaSlides;
+            indiceSlideAtivo = 0;
+            document.getElementById('titulo-col2').innerText = titulo;
+            
+            renderizarSlidesMeio();
+            disparar(slidesAtivos[indiceSlideAtivo]);
         }
 
-        function disparar(texto) {
-            canalProjecao.postMessage({ tipo: 'PROJETAR_TEXTO', payload: { texto } });
+        function renderizarSlidesMeio() {
+            const container = document.getElementById('container-slides');
+            container.innerHTML = '';
+            container.className = "flex-1 overflow-y-auto space-y-2 pr-1 text-left dark-scroll";
+
+            slidesAtivos.forEach((slide, idx) => {
+                const item = document.createElement('div');
+                const isActive = idx === indiceSlideAtivo;
+                
+                item.className = `p-4 rounded-xl cursor-pointer border transition-all flex gap-3 items-center ${
+                    isActive 
+                    ? 'bg-emerald-500/10 border-emerald-500 text-white font-medium' 
+                    : modoEscuro ? 'bg-[#29292e]/40 border-[#29292e] text-gray-300 hover:bg-[#29292e]' : 'bg-gray-50 border-gray-150 text-gray-700 hover:bg-gray-100'
+                }`;
+                
+                item.onclick = () => mudarSlidePara(idx);
+                item.innerHTML = `<span class="text-[10px] font-mono px-1.5 py-0.5 rounded ${isActive ? 'bg-emerald-500 text-white' : 'bg-gray-500/20 text-gray-400'}">${idx + 1}</span> <p class="text-sm">${slide}</p>`;
+                container.appendChild(item);
+            });
         }
 
-        function alternarF5(status) {
-            canalProjecao.postMessage({ tipo: 'F5_TEXTO', payload: { ativo: status } });
+        function mudarSlidePara(idx) {
+            if (idx >= 0 && idx < slidesAtivos.length) {
+                indiceSlideAtivo = idx;
+                renderizarSlidesMeio();
+                disparar(slidesAtivos[indiceSlideAtivo]);
+            }
         }
 
-        function alternarF6(status) {
-            canalProjecao.postMessage({ tipo: 'F6_BLACKOUT', payload: { ativo: status } });
-        }
+        // CAPTURA DOS NOVOS ATALHOS INTELIGENTES
+        window.addEventListener('keydown', (e) => {
+            // Ignora atalhos se o usuário estiver digitando no campo de busca
+            if (document.activeElement.tagName === 'INPUT') return;
+
+            // Avançar: Espaço ou Seta para Baixo
+            if (e.key === ' ' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                mudarSlidePara(indiceSlideAtivo + 1);
+            }
+            // Voltar: Seta para Cima
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                mudarSlidePara(indiceSlideAtivo - 1);
+            }
+            // Números de 1 a 9 pulam direto para o slide
+            if (e.key >= '1' && e.key <= '9') {
+                const num = parseInt(e.key) - 1;
+                mudarSlidePara(num);
+            }
+
+            // Combinações com ALT para evitar conflitos nativos do navegador
+            if (e.altKey && e.key.toLowerCase() === 'l') {
+                e.preventDefault();
+                alternarF5(true); // Ocultar Texto
+            }
+            if (e.altKey && e.key.toLowerCase() === 'b') {
+                e.preventDefault();
+                alternarF6(true); // Blackout
+            }
+            if (e.altKey && e.key.toLowerCase() === 'r') {
+                e.preventDefault();
+                restaurarTelas();
+            }
+        });
+
+        function abrirProjetor() { window.open('?view=projection', '_blank', 'width=1280,height=720'); }
+        function disparar(texto) { canalProjecao.postMessage({ tipo: 'PROJETAR_TEXTO', payload: { texto } }); }
+        function alternarF5(status) { canalProjecao.postMessage({ tipo: 'F5_TEXTO', payload: { ativo: status } }); }
+        function alternarF6(status) { canalProjecao.postMessage({ tipo: 'F6_BLACKOUT', payload: { ativo: status } }); }
+        function restaurarTelas() { alternarF5(false); alternarF6(false); }
 
         function alternarTema() {
             modoEscuro = !modoEscuro;
@@ -160,7 +234,7 @@
                 corpo.className = "bg-[#121214] text-white transition-colors duration-300";
                 header.className = "px-6 py-4 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e] shadow-sm";
                 col1.className = "col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4";
-                col2.className = "col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col justify-center items-center";
+                col2.className = "col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4";
                 cardCtrl.className = "rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-[#1f1f23] border-[#29292e]";
                 btn.className = "p-2 rounded-xl border bg-[#29292e] border-[#3e3e44] text-sm cursor-pointer";
                 btn.innerText = "☀️ Modo Claro";
@@ -168,11 +242,12 @@
                 corpo.className = "bg-[#f0f2f5] text-[#1c1c1e] transition-colors duration-300";
                 header.className = "px-6 py-4 flex justify-between items-center border-b bg-white border-gray-200 shadow-sm";
                 col1.className = "col-span-4 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col gap-4";
-                col2.className = "col-span-5 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col justify-center items-center";
+                col2.className = "col-span-5 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col gap-4";
                 cardCtrl.className = "rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-white border-gray-200";
                 btn.className = "p-2 rounded-xl border bg-gray-100 border-gray-300 text-sm cursor-pointer";
                 btn.innerText = "🌙 Modo Escuro";
             }
+            renderizarSlidesMeio();
         }
     </script>
 </body>
