@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         .dark-scroll::-webkit-scrollbar-thumb { background: #29292e; border-radius: 10px; }
         .light-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -17,77 +17,113 @@
 
     <!-- PAINEL DO OPERADOR -->
     <div id="painel-operador" class="block">
-        <header id="header-operador" class="px-6 py-4 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e] shadow-sm">
+        <header id="header-operador" class="px-6 py-3 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e] shadow-sm">
             <div class="flex items-center gap-3">
                 <div id="led-hdmi" class="w-3 h-3 rounded-full bg-amber-500"></div>
-                <h1 class="font-bold text-lg tracking-wide uppercase">AQC Mídia Pro</h1>
+                <h1 class="font-bold text-md tracking-wide uppercase">AQC Mídia Pro</h1>
                 <span id="status-hdmi" class="text-xs opacity-60">| Projetor HDMI: DESCONECTADO</span>
             </div>
-            
-            <div class="flex items-center gap-4">
-                <button onclick="abrirProjetor()" class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer">
+            <div class="flex items-center gap-3">
+                <button onclick="abrirProjetor()" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer">
                     📺 Abrir Projetor
                 </button>
-                <button onclick="alternarTema()" id="btn-tema" class="p-2 rounded-xl border bg-[#29292e] border-[#3e3e44] text-sm cursor-pointer">
+                <button onclick="alternarTema()" id="btn-tema" class="p-1.5 rounded-xl border bg-[#29292e] border-[#3e3e44] text-xs cursor-pointer">
                     ☀️ Modo Claro
                 </button>
             </div>
         </header>
 
-        <main class="grid grid-cols-12 gap-5 p-5 h-[calc(100vh-73px)]">
+        <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-65px)]">
             
-            <!-- COLUNA 1: BUSCA UNIFICADA -->
-            <section id="col1" class="col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4">
-                <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">Painel de Pesquisa Global</div>
-                <div class="flex gap-2">
-                    <input type="text" id="campo-busca" placeholder="Busque por versículo, música ou frase..." class="w-full px-4 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-[#121214] border-[#29292e] text-white" onkeydown="if(event.key === 'Enter') realizarBuscaGeral()">
-                    <button onclick="realizarBuscaGeral()" class="bg-emerald-600 hover:bg-emerald-500 px-4 rounded-xl text-sm font-medium cursor-pointer transition-all">Buscar</button>
+            <!-- COLUNA 1: SELETOR BÍBLIA ESTILO HOLYRICS (4 COLUNAS) -->
+            <section id="col1" class="col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-3 overflow-hidden">
+                <div class="text-xs font-bold text-gray-400 uppercase tracking-wider flex justify-between items-center">
+                    <span>📖 Painel Go To Bible</span>
+                    <select id="seletor-versao" class="bg-[#121214] border border-[#29292e] text-[11px] px-1.5 py-0.5 rounded text-emerald-400 focus:outline-none">
+                        <option value="NVI">NVI</option>
+                        <option value="ARC">ARC</option>
+                    </select>
                 </div>
-                <div id="lista-resultados" class="flex-1 overflow-y-auto space-y-2 pr-1 dark-scroll">
-                    <div class="text-xs text-center text-gray-500 py-4">Digite algo acima para pesquisar no banco da igreja.</div>
+
+                <!-- 1. GRADE DE LIVROS (Cores Clássicas do Holyrics) -->
+                <div class="grid grid-cols-4 gap-1.5 text-[11px] font-bold">
+                    <button onclick="selecionarLivro('Gn', 'Gênesis', 'bg-amber-700')" class="p-1.5 rounded bg-amber-800 hover:bg-amber-700 transition-all text-center">Gn</button>
+                    <button onclick="selecionarLivro('Ex', 'Êxodo', 'bg-amber-700')" class="p-1.5 rounded bg-amber-800 hover:bg-amber-700 transition-all text-center">Ex</button>
+                    <button onclick="selecionarLivro('Sl', 'Salmos', 'bg-purple-800')" class="p-1.5 rounded bg-purple-900 hover:bg-purple-800 transition-all text-center">Sl</button>
+                    <button onclick="selecionarLivro('Pv', 'Provérbios', 'bg-purple-800')" class="p-1.5 rounded bg-purple-900 hover:bg-purple-800 transition-all text-center">Pv</button>
+                    <button onclick="selecionarLivro('Mt', 'Mateus', 'bg-sky-800')" class="p-1.5 rounded bg-sky-900 hover:bg-sky-800 transition-all text-center">Mt</button>
+                    <button onclick="selecionarLivro('Mc', 'Marcos', 'bg-sky-800')" class="p-1.5 rounded bg-sky-900 hover:bg-sky-800 transition-all text-center">Mc</button>
+                    <button onclick="selecionarLivro('Jo', 'João', 'bg-blue-800')" class="p-1.5 rounded bg-blue-900 hover:bg-blue-800 transition-all text-center">Jo</button>
+                    <button onclick="selecionarLivro('At', 'Atos', 'bg-blue-800')" class="p-1.5 rounded bg-blue-900 hover:bg-blue-800 transition-all text-center">At</button>
+                    <button onclick="selecionarLivro('Rm', 'Romanos', 'bg-emerald-800')" class="p-1.5 rounded bg-emerald-900 hover:bg-emerald-800 transition-all text-center">Rm</button>
+                    <button onclick="selecionarLivro('Ef', 'Efésios', 'bg-emerald-800')" class="p-1.5 rounded bg-emerald-900 hover:bg-emerald-800 transition-all text-center">Ef</button>
+                    <button onclick="selecionarLivro('Ap', 'Apocalipse', 'bg-lime-800')" class="p-1.5 rounded bg-lime-900 hover:bg-lime-800 transition-all text-center">Ap</button>
+                    <button onclick="realizarBuscaPorTexto()" class="p-1.5 rounded bg-zinc-800 text-gray-300 hover:bg-zinc-700 text-center">Filtro 🔍</button>
+                </div>
+
+                <!-- Input complementar caso queira digitar por texto -->
+                <input type="text" id="campo-busca" placeholder="Ou digite termo para busca geral..." class="w-full px-3 py-1.5 rounded-lg text-xs border bg-[#121214] border-[#29292e] text-white focus:outline-none">
+
+                <!-- 2. GRADES DE CAPÍTULO E VERSÍCULO -->
+                <div class="grid grid-cols-2 gap-3 border-t border-[#29292e] pt-2">
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-gray-500 block mb-1">Capítulo</span>
+                        <div class="grid grid-cols-4 gap-1 h-20 overflow-y-auto pr-0.5 dark-scroll text-[11px]" id="grid-capitulos">
+                            <!-- Gerado via JS ao clicar no livro -->
+                        </div>
+                    </div>
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-gray-500 block mb-1">Versículo</span>
+                        <div class="grid grid-cols-4 gap-1 h-20 overflow-y-auto pr-0.5 dark-scroll text-[11px]" id="grid-versiculos">
+                            <!-- Gerado via JS ao clicar no capítulo -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lista rápida de resultados abaixo -->
+                <div id="lista-resultados" class="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs dark-scroll border-t border-[#29292e] pt-2">
+                    <div class="text-gray-500 text-center py-2">Selecione as opções acima para carregar passagens.</div>
                 </div>
             </section>
 
-            <!-- COLUNA 2: GERENCIADOR DE SLIDES -->
-            <section id="col2" class="col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4">
-                <div class="flex justify-between items-center border-b border-[#29292e] pb-2">
-                    <div id="titulo-col2" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Slides / Letras Ativas</div>
-                    <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/20 font-mono">Setas ↑ ↓ controlam</span>
+            <!-- COLUNA 2: GERENCIADOR DE SLIDES CENTRAL (5 COLUNAS) -->
+            <section id="col2" class="col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-3">
+                <div class="flex justify-between items-center border-b border-[#29292e] pb-1.5">
+                    <div id="titulo-col2" class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Nenhum Item Ativo</div>
+                    <span class="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded font-mono">Setas ↑ ↓</span>
                 </div>
-                <div id="container-slides" class="flex-1 overflow-y-auto space-y-2 pr-1 dark-scroll flex flex-col justify-center items-center text-gray-500 text-sm text-center">
-                    Nenhum conteúdo disparado para a linha do tempo de projeção.
+                <div id="container-slides" class="flex-1 overflow-y-auto space-y-2 pr-1 dark-scroll flex flex-col justify-center items-center text-gray-500 text-xs text-center">
+                    Clique em um conteúdo para desmembrar os slides de exibição aqui.
                 </div>
             </section>
 
-            <!-- COLUNA 3: CONTROLES E SELEÇÃO DE FUNDO -->
-            <section id="col3" class="col-span-3 flex flex-col gap-5">
-                <div id="card-controles" class="rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-[#1f1f23] border-[#29292e]">
-                    <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Controles Rápidos (Teclado)</h3>
-                    
-                    <button onclick="alternarF5(true)" class="w-full py-2.5 rounded-xl font-medium text-xs bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 transition-all cursor-pointer flex justify-between px-4 items-center">
-                        <span>Ocultar Texto</span> <kbd class="bg-amber-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Alt + L</kbd>
-                    </button>
-                    
-                    <button onclick="alternarF6(true)" class="w-full py-2.5 rounded-xl font-medium text-xs bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-all cursor-pointer flex justify-between px-4 items-center">
-                        <span>Blackout Total</span> <kbd class="bg-red-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Alt + B</kbd>
-                    </button>
-                    
-                    <button onclick="restaurarTelas()" class="w-full py-2.5 rounded-xl font-medium text-xs bg-gray-500/10 text-gray-400 border border-gray-500/30 hover:bg-gray-500/20 transition-all cursor-pointer flex justify-between px-4 items-center">
-                        <span>Restaurar Projeção</span> <kbd class="bg-gray-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Alt + R</kbd>
-                    </button>
+            <!-- COLUNA 3: CONTROLES E HISTÓRICO DE TEMAS DE LETRAS (3 COLUNAS) -->
+            <section id="col3" class="col-span-3 flex flex-col gap-4 overflow-hidden">
+                <!-- Botões de Blackout rápidos -->
+                <div id="card-controles" class="rounded-2xl p-3 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-2">
+                    <div class="flex gap-2">
+                        <button onclick="alternarF5(true)" class="flex-1 py-2 rounded-xl text-[11px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20 hover:bg-amber-500/20">Alt+L (Limpar)</button>
+                        <button onclick="alternarF6(true)" class="flex-1 py-2 rounded-xl text-[11px] font-bold bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500/20">Alt+B (Black)</button>
+                        <button onclick="restaurarTelas()" class="p-2 rounded-xl text-[11px] bg-zinc-800 border border-zinc-700 text-gray-300 hover:bg-zinc-700">🔄</button>
+                    </div>
+                </div>
 
-                    <!-- SELEÇÃO DE FUNDOS -->
-                    <div class="mt-4 border-t border-[#29292e] pt-4">
-                        <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Plano de Fundo das Letras</h4>
-                        <label class="w-full py-3 rounded-xl border border-dashed border-[#3e3e44] bg-[#121214] flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-all">
-                            <span class="text-xs font-medium text-gray-300">🖼️ Escolher Imagem do PC</span>
-                            <input type="file" id="upload-fundo" accept="image/*" class="hidden" onchange="processarUploadFundo(this)">
+                <!-- BANCO DE TEMAS SALVOS (Estilo Painel de Temas do Holyrics) -->
+                <div class="rounded-2xl p-3 border bg-[#1f1f23] border-[#29292e] flex-1 flex flex-col gap-2 overflow-hidden">
+                    <div class="flex justify-between items-center border-b border-[#29292e] pb-1.5">
+                        <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">🎭 Temas de Letras</span>
+                        <label class="text-[10px] text-emerald-400 font-bold hover:text-emerald-300 cursor-pointer">
+                            + Adicionar
+                            <input type="file" id="upload-fundo" accept="image/*" class="hidden" onchange="salvarNovoTema(this)">
                         </label>
                     </div>
-
-                    <div class="mt-4 border-t border-[#29292e] pt-4 text-[11px] text-gray-400 space-y-1">
-                        <div>• <kbd class="bg-[#121214] border border-[#29292e] px-1 rounded font-mono text-white">Espaço</kbd> ou <kbd class="bg-[#121214] border border-[#29292e] px-1 rounded font-mono text-white">↓</kbd> : Próximo Slide</div>
-                        <div>• <kbd class="bg-[#121214] border border-[#29292e] px-1 rounded font-mono text-white">↑</kbd> : Slide Anterior</div>
+                    
+                    <!-- Grade vertical rolável de miniaturas de temas salvos -->
+                    <div id="lista-temas" class="flex-1 overflow-y-auto grid grid-cols-2 gap-2 pr-1 dark-scroll">
+                        <!-- Temas padrão iniciais -->
+                        <div onclick="aplicarTemaFundo('')" class="aspect-video bg-zinc-950 rounded-lg border border-dashed border-zinc-700 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition-all">
+                            <span class="text-[9px] text-gray-500 font-bold uppercase">Preto Puro</span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -110,6 +146,10 @@
         let slidesAtivos = [];
         let indiceSlideAtivo = -1;
 
+        // Estado do seletor Holyrics
+        let livroSelecionadoSigla = '';
+        let livroSelecionadoNome = '';
+
         const params = new URLSearchParams(window.location.search);
         const view = params.get('view');
 
@@ -123,12 +163,8 @@
                 const blkNode = document.getElementById('camada-blackout');
                 const bgNode = document.getElementById('fundo-projetor');
 
-                if (tipo === 'PROJETAR_TEXTO') {
-                    txtNode.innerText = payload.texto;
-                    txtNode.classList.remove('opacity-0', 'scale-95');
-                    blkNode.classList.add('hidden');
-                }
-                if (tipo === 'MUDAR_FUNDO') bgNode.style.backgroundImage = `url('${payload.imagem}')`;
+                if (tipo === 'PROJETAR_TEXTO') { txtNode.innerText = payload.texto; txtNode.classList.remove('opacity-0', 'scale-95'); blkNode.classList.add('hidden'); }
+                if (tipo === 'MUDAR_FUNDO') bgNode.style.backgroundImage = payload.imagem ? `url('${payload.imagem}')` : 'none';
                 if (tipo === 'F5_TEXTO') payload.ativo ? txtNode.classList.add('opacity-0', 'scale-95') : txtNode.classList.remove('opacity-0', 'scale-95');
                 if (tipo === 'F6_BLACKOUT') payload.ativo ? blkNode.classList.remove('hidden') : blkNode.classList.add('hidden');
                 if (tipo === 'PING_TESTE') canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
@@ -142,113 +178,136 @@
                 }
             };
             setInterval(() => { canalProjecao.postMessage({ tipo: 'PING_TESTE' }); }, 1500);
+            carregarTemasSalvos();
         }
 
-        // BUSCA MULTI-TABELAS (BÍBLIA + LOUVORES)
-        async function realizarBuscaGeral() {
-            const termo = document.getElementById('campo-busca').value.trim();
-            if (!termo) return;
+        // 🟢 INTERFACE HOLYRICS: MAPEIA SELEÇÃO DE LIVRO
+        function selecionarLivro(sigla, nome, corClasse) {
+            livroSelecionadoSigla = sigla;
+            livroSelecionadoNome = nome;
+            
+            // Renderiza 5 capítulos na grade padrão (pode expandir conforme banco)
+            const capContainer = document.getElementById('grid-capitulos');
+            capContainer.innerHTML = '';
+            for(let i=1; i<=5; i++) {
+                capContainer.innerHTML += `<button onclick="selecionarCapitulo(${i})" class="p-1 rounded bg-[#121214] border border-[#29292e] text-center hover:border-emerald-500 transition-all font-medium">${i}</button>`;
+            }
+            document.getElementById('grid-versiculos').innerHTML = '';
+        }
 
+        function selecionarCapitulo(cap) {
+            // Ao clicar no capítulo, renderiza 10 versículos rápidos na grade
+            const verContainer = document.getElementById('grid-versiculos');
+            verContainer.innerHTML = '';
+            for(let i=1; i<=10; i++) {
+                verContainer.innerHTML += `<button onclick="buscarPassagemDireta(${cap}, ${i})" class="p-1 rounded bg-[#121214] border border-[#29292e] text-center hover:bg-emerald-500 text-white transition-all font-medium">${i}</button>`;
+            }
+        }
+
+        // BUSCA DIRETA PELA GRADE DO HOLYRICS
+        async function buscarPassagemDireta(cap, ver) {
+            const versao = document.getElementById('seletor-versao').value;
             const lista = document.getElementById('lista-resultados');
-            lista.innerHTML = '<div class="text-xs text-center text-gray-400 py-4 animate-pulse">Buscando na base de dados...</div>';
+            lista.innerHTML = '<div class="text-center text-gray-500 animate-pulse">Buscando...</div>';
 
             try {
-                // 1. Busca na tabela de Bíblias
-                const resBiblia = await fetch(`${SUPABASE_URL}biblias?texto=ilike.*${encodeURIComponent(termo)}*&select=*&limit=10`, {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                const biblias = await resBiblia.json();
-
-                // 2. Busca na tabela de Louvores
-                const resLouvores = await fetch(`${SUPABASE_URL}louvores?titulo=ilike.*${encodeURIComponent(termo)}*&select=*&limit=10`, {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                const louvores = await resLouvores.json();
+                const url = `${SUPABASE_URL}biblias?versao=eq.${versao}&livro_sigla=eq.${livroSelecionadoSigla}&capitulo=eq.${cap}&versiculo=eq.${ver}&select=*`;
+                const res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
+                const dados = await res.json();
 
                 lista.innerHTML = '';
-
-                if (biblias.length === 0 && louvores.length === 0) {
-                    lista.innerHTML = '<div class="text-xs text-center text-gray-500 py-4">Nenhum resultado encontrado.</div>';
+                if(dados.length === 0) {
+                    lista.innerHTML = '<div class="text-gray-500 text-center">Versículo não encontrado na base.</div>';
+                    // Fallback para teste caso o banco esteja limpo
+                    carregarNoMeio(`${livroSelecionadoNome} ${cap}:${ver}`, [`[Modo de Teste] Texto completo simulado para o versículo de ${livroSelecionadoNome} capítulo ${cap} e versículo ${ver}.`]);
                     return;
                 }
 
-                // Renderiza resultados da Bíblia (Manda o versículo completo)
-                biblias.forEach(v => {
-                    const item = document.createElement('div');
-                    item.className = "p-3 rounded-xl cursor-pointer border bg-[#29292e]/20 border-[#29292e] hover:border-emerald-500 transition-all";
-                    item.onclick = () => carregarNoMeio(`${v.livro_nome} ${v.capitulo}:{v.versiculo}`, [v.texto]);
-                    item.innerHTML = `<span class="text-[10px] font-bold text-emerald-500 block mb-1">📖 BÍBLIA • {v.livro_nome} {v.capitulo}:{v.versiculo}</span><p class="text-sm opacity-90">${v.texto}</p>`;
-                    lista.appendChild(item);
+                dados.forEach(v => {
+                    carregarNoMeio(`${v.livro_nome} ${v.capitulo}:${v.versiculo}`, [v.texto]);
                 });
-
-                // Renderiza resultados de Louvores
-                louvores.forEach(l => {
-                    const item = document.createElement('div');
-                    item.className = "p-3 rounded-xl cursor-pointer border bg-[#29292e]/20 border-[#29292e] hover:border-cyan-500 transition-all";
-                    item.onclick = () => puxarEstrofesLouvor(l.id, l.titulo);
-                    item.innerHTML = `<span class="text-[10px] font-bold text-cyan-400 block mb-1">🎵 LOUVOR • ${l.titulo}</span><p class="text-xs text-gray-400">${l.artista || 'Artista Desconhecido'}</p>`;
-                    lista.appendChild(item);
-                });
-
-            } catch (erro) {
-                lista.innerHTML = '<div class="text-xs text-center text-red-400 py-4">Erro de conexão com o Supabase.</div>';
+            } catch(e) {
+                lista.innerHTML = '<div class="text-red-400 text-center">Erro ao conectar no Supabase.</div>';
             }
         }
 
-        // Puxa as estrofes vinculadas ao louvor clicado
-        async function puxarEstrofesLouvor(louvorId, titulo) {
+        // BUSCA TEXTUAL SEGUNDA ETAPA
+        async function realizarBuscaPorTexto() {
+            const termo = document.getElementById('campo-busca').value.trim();
+            if(!termo) return;
+            const lista = document.getElementById('lista-resultados');
+            lista.innerHTML = '<div class="text-center text-gray-500 animate-pulse">Buscando termo...</div>';
+
             try {
-                const res = await fetch(`${SUPABASE_URL}louvores_estrofes?louvor_id=eq.${louvorId}&order=ordem.asc`, {
-                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
-                });
-                const estrofes = await res.json();
+                const url = `${SUPABASE_URL}biblias?texto=ilike.*${encodeURIComponent(termo)}*&select=*&limit=10`;
+                const res = await fetch(url, { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } });
+                const dados = await res.json();
+                lista.innerHTML = '';
                 
-                const listaLetras = estrofes.map(e => e.texto);
-                carregarNoMeio(titulo, listaLetras);
-            } catch (erro) {
-                alert('Erro ao carregar estrofes do louvor.');
-            }
+                dados.forEach(v => {
+                    const item = document.createElement('div');
+                    item.className = "p-2 rounded bg-[#29292e]/40 border border-[#29292e] cursor-pointer hover:border-emerald-500 text-left";
+                    item.onclick = () => carregarNoMeio(`${v.livro_nome} ${v.capitulo}:${v.versiculo}`, [v.texto]);
+                    item.innerHTML = `<span class="font-bold text-emerald-400 block">${v.livro_sigla} ${v.capitulo}:${v.versiculo}</span><p class="opacity-80">${v.texto}</p>`;
+                    lista.appendChild(item);
+                });
+            } catch(e) { lista.innerHTML = 'Erro.'; }
         }
 
-        function processarUploadFundo(input) {
+        // 🎭 GERENCIADOR DE TEMAS SALVOS (HOLYRICS COMPLETO)
+        function salvarNovoTema(input) {
             if (input.files && input.files[0]) {
                 const leitor = new FileReader();
                 leitor.onload = function(e) {
-                    canalProjecao.postMessage({ tipo: 'MUDAR_FUNDO', payload: { imagem: e.target.result } });
+                    const arrayTemas = JSON.parse(localStorage.getItem('aqc_banco_temas') || '[]');
+                    arrayTemas.push(e.target.result);
+                    localStorage.setItem('aqc_banco_temas', JSON.stringify(arrayTemas));
+                    carregarTemasSalvos();
                 };
                 leitor.readAsDataURL(input.files[0]);
             }
         }
 
+        function carregarTemasSalvos() {
+            const lista = document.getElementById('lista-temas');
+            lista.innerHTML = `<div onclick="aplicarTemaFundo('')" class="aspect-video bg-zinc-950 rounded-lg border border-dashed border-zinc-700 flex items-center justify-center cursor-pointer hover:border-emerald-500 transition-all"><span class="text-[9px] text-gray-500 font-bold uppercase">Preto Puro</span></div>`;
+            
+            const arrayTemas = JSON.parse(localStorage.getItem('aqc_banco_temas') || '[]');
+            arrayTemas.forEach((imgBase64, index) => {
+                const item = document.createElement('div');
+                item.className = "aspect-video rounded-lg bg-cover bg-center border border-zinc-800 cursor-pointer hover:border-emerald-500 transition-all relative group shadow-md";
+                item.style.backgroundImage = `url('${imgBase64}')`;
+                item.onclick = () => aplicarTemaFundo(imgBase64);
+                item.innerHTML = `<span class="absolute bottom-1 left-1 text-[8px] bg-black/60 px-1 rounded font-bold text-gray-300">Tema ${index+1}</span>`;
+                lista.appendChild(item);
+            });
+        }
+
+        function aplicarTemaFundo(imgBase64) {
+            canalProjecao.postMessage({ tipo: 'MUDAR_FUNDO', payload: { imagem: imgBase64 } });
+        }
+
         function carregarNoMeio(titulo, listaSlides) {
-            slidesAtivos = listaSlides;
-            indiceSlideAtivo = 0;
+            slidesAtivos = listaSlides; indiceSlideAtivo = 0;
             document.getElementById('titulo-col2').innerText = titulo;
             renderizeMeio();
             disparar(slidesAtivos[indiceSlideAtivo]);
         }
 
         function renderizeMeio() {
-            const container = document.getElementById('container-slides');
-            container.innerHTML = '';
+            const container = document.getElementById('container-slides'); container.innerHTML = '';
             container.className = "flex-1 overflow-y-auto space-y-2 pr-1 text-left dark-scroll";
-
             slidesAtivos.forEach((slide, idx) => {
-                const item = document.createElement('div');
-                const isActive = idx === indiceSlideAtivo;
+                const item = document.createElement('div'); const isActive = idx === indiceSlideAtivo;
                 item.className = `p-4 rounded-xl cursor-pointer border transition-all ${isActive ? 'bg-emerald-500/10 border-emerald-500 text-white font-medium' : modoEscuro ? 'bg-[#29292e]/40 border-[#29292e] text-gray-300 hover:bg-[#29292e]' : 'bg-gray-50 border-gray-150 text-gray-700'}`;
                 item.onclick = () => mudarSlidePara(idx);
-                item.innerHTML = `<span class="text-[9px] font-bold block opacity-60 mb-1">SLIDE ${idx + 1}</span><p class="text-sm leading-relaxed whitespace-pre-line">${slide}</p>`;
+                item.innerHTML = `<span class="text-[9px] font-bold block opacity-60 mb-1">VERSÍCULO / SLIDE ${idx + 1}</span><p class="text-sm leading-relaxed whitespace-pre-line">${slide}</p>`;
                 container.appendChild(item);
             });
         }
 
         function mudarSlidePara(idx) {
-            if (idx >= 0 && idx < slidesAtivos.length) {
-                indiceSlideAtivo = idx;
-                renderizeMeio();
-                disparar(slidesAtivos[indiceSlideAtivo]);
-            }
+            if (idx >= 0 && idx < slidesAtivos.length) { indiceSlideAtivo = idx; renderizeMeio(); disparar(slidesAtivos[indiceSlideAtivo]); }
         }
 
         window.addEventListener('keydown', (e) => {
@@ -271,17 +330,17 @@
             const corpo = document.getElementById('corpo-sistema'), header = document.getElementById('header-operador'), col1 = document.getElementById('col1'), col2 = document.getElementById('col2'), cardCtrl = document.getElementById('card-controles'), btn = document.getElementById('btn-tema');
             if (modoEscuro) {
                 corpo.className = "bg-[#121214] text-white transition-colors duration-300";
-                header.className = "px-6 py-4 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e]";
-                col1.className = "col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4";
-                col2.className = "col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4";
-                cardCtrl.className = "rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-[#1f1f23] border-[#29292e]";
+                header.className = "px-6 py-3 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e]";
+                col1.className = "col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-3";
+                col2.className = "col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-3";
+                cardCtrl.className = "rounded-2xl p-3 border bg-[#1f1f23] border-[#29292e]";
                 btn.innerText = "☀️ Modo Claro";
             } else {
                 corpo.className = "bg-[#f0f2f5] text-[#1c1c1e] transition-colors duration-300";
-                header.className = "px-6 py-4 flex justify-between items-center border-b bg-white border-gray-200";
-                col1.className = "col-span-4 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col gap-4";
-                col2.className = "col-span-5 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col gap-4";
-                cardCtrl.className = "rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-white border-gray-200";
+                header.className = "px-6 py-3 flex justify-between items-center border-b bg-white border-gray-200";
+                col1.className = "col-span-4 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col gap-3";
+                col2.className = "col-span-5 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col gap-3";
+                cardCtrl.className = "rounded-2xl p-3 border bg-white border-gray-200";
                 btn.innerText = "🌙 Modo Escuro";
             }
             renderizeMeio();
