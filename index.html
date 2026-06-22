@@ -4,10 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AQC Mídia Pro</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <style>
         body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -33,14 +37,12 @@
             ]);
 
             React.useEffect(() => {
-                // Escuta respostas da tela do projetor
                 canalProjecao.onmessage = (evento) => {
                     if (evento.data.tipo === 'PONG_TESTE') {
                         setConexaoHDMI('CONECTADO ✨');
                     }
                 };
 
-                // Pergunta periodicamente se o projetor está aberto
                 const intervalo = setInterval(() => {
                     canalProjecao.postMessage({ tipo: 'PING_TESTE' });
                 }, 2000);
@@ -63,7 +65,7 @@
                 <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#121214] text-white' : 'bg-[#f0f2f5] text-[#1c1c1e]'}`}>
                     
                     {/* BARRA SUPERIOR (HEADER) */}
-                    <header className={`px-6 py-4 flex justify-between items-center border-b ${darkMode ? 'bg-[#1f1f23]/80 border-[#29292e]' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <header className={`px-6 py-4 flex justify-between items-center border-b ${darkMode ? 'bg-[#1f1f23] border-[#29292e]' : 'bg-white border-gray-200 shadow-sm'}`}>
                         <div className="flex items-center gap-3">
                             <div className={`w-3 h-3 rounded-full ${conexaoHDMI.includes('CONECTADO') ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                             <h1 className="font-bold text-lg tracking-wide uppercase">AQC Mídia Pro</h1>
@@ -163,7 +165,6 @@
                     if (tipo === 'PING_TESTE') canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
                 };
 
-                // Avisa que abriu ao ser inicializado
                 canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
             }, []);
 
@@ -180,7 +181,7 @@
                     >
                         {texto}
                     </div>
-                    {blackout && <div className="absolute inset-0 bg-black z-50 transition-opacity duration-300" />}
+                    {blackout && <div className="absolute inset-0 bg-black z-50" />}
                 </div>
             );
         }
@@ -197,7 +198,6 @@
             return <Operator darkMode={darkMode} setDarkMode={setDarkMode} />;
         }
 
-        // CORREÇÃO DA RENDERIZAÇÃO DO DOM:
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
