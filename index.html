@@ -4,18 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AQC Mídia Pro</title>
-    <!-- Tailwind CSS para o design sofisticado -->
     <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- React e React DOM para a inteligência do sistema -->
-    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-    <!-- Babel para compilar o código direto no navegador -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         .dark-scroll::-webkit-scrollbar-thumb { background: #29292e; border-radius: 10px; }
+        .light-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -26,78 +24,116 @@
         const canalProjecao = new BroadcastChannel('amor_que_cura_projection');
 
         // --- COMPONENTE 1: PAINEL DO OPERADOR ---
-        function Operator({ alternarTela, darkMode, setDarkMode }) {
+        function Operator({ darkMode, setDarkMode }) {
             const [busca, setBusca] = React.useState('');
             const [conexaoHDMI, setConexaoHDMI] = React.useState('DESCONECTADO');
             const [resultados, setResultados] = React.useState([
-                { id: 1, livro_nome: 'João', capitulo: 3, versiculo: 16, texto: 'Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito...' },
+                { id: 1, livro_nome: 'João', capitulo: 3, versiculo: 16, texto: 'Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.' },
                 { id: 2, livro_nome: 'Gênesis', capitulo: 1, versiculo: 1, texto: 'No princípio, criou Deus os céus e a terra.' }
             ]);
 
             React.useEffect(() => {
+                // Escuta respostas da tela do projetor
                 canalProjecao.onmessage = (evento) => {
-                    if (evento.data.tipo === 'PONG_TESTE') setConexaoHDMI('CONECTADO ✨');
+                    if (evento.data.tipo === 'PONG_TESTE') {
+                        setConexaoHDMI('CONECTADO ✨');
+                    }
                 };
+
+                // Pergunta periodicamente se o projetor está aberto
+                const intervalo = setInterval(() => {
+                    canalProjecao.postMessage({ tipo: 'PING_TESTE' });
+                }, 2000);
+
+                return () => clearInterval(intervalo);
             }, []);
 
             const abrirProjetor = () => {
                 window.open('?view=projection', '_blank', 'width=1280,height=720');
-                setTimeout(() => canalProjecao.postMessage({ tipo: 'PING_TESTE' }), 500);
             };
 
-            const disparar = (texto) => canalProjecao.postMessage({ tipo: 'PROJETAR_TEXTO', payload: { texto } });
+            const disparar = (texto) => {
+                canalProjecao.postMessage({ tipo: 'PROJETAR_TEXTO', payload: { texto } });
+            };
+
             const alternarF5 = (status) => canalProjecao.postMessage({ tipo: 'F5_TEXTO', payload: { ativo: status } });
             const alternarF6 = (status) => canalProjecao.postMessage({ tipo: 'F6_BLACKOUT', payload: { ativo: status } });
 
             return (
                 <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-[#121214] text-white' : 'bg-[#f0f2f5] text-[#1c1c1e]'}`}>
-                    <header className={`px-6 py-4 flex justify-between items-center border-b ${darkMode ? 'bg-[#1f1f23]/80 border-[#29292e]' : 'bg-white border-gray-200'}`}>
+                    
+                    {/* BARRA SUPERIOR (HEADER) */}
+                    <header className={`px-6 py-4 flex justify-between items-center border-b ${darkMode ? 'bg-[#1f1f23]/80 border-[#29292e]' : 'bg-white border-gray-200 shadow-sm'}`}>
                         <div className="flex items-center gap-3">
                             <div className={`w-3 h-3 rounded-full ${conexaoHDMI.includes('CONECTADO') ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
                             <h1 className="font-bold text-lg tracking-wide uppercase">AQC Mídia Pro</h1>
-                            <span className="text-xs opacity-60">| Status: {conexaoHDMI}</span>
+                            <span className="text-xs opacity-60">| Sinal HDMI: {conexaoHDMI}</span>
                         </div>
                         <div className="flex items-center gap-4">
-                            <button onClick={abrirProjetor} className="px-4 py-1.5 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all">
+                            <button onClick={abrirProjetor} className="px-4 py-1.5 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg transition-all cursor-pointer">
                                 📺 Abrir Tela do Projetor
                             </button>
-                            <button onClick={() => setDarkMode(!darkMode)} className={`p-2 rounded-xl border ${darkMode ? 'bg-[#29292e] border-[#3e3e44]' : 'bg-gray-200 border-gray-300'}`}>
-                                {darkMode ? '☀️ Claro' : '🌙 Escuro'}
+                            <button onClick={() => setDarkMode(!darkMode)} className={`p-2 rounded-xl border cursor-pointer ${darkMode ? 'bg-[#29292e] border-[#3e3e44]' : 'bg-gray-100 border-gray-300'}`}>
+                                {darkMode ? '☀️ Modo Claro' : '🌙 Modo Escuro'}
                             </button>
                         </div>
                     </header>
 
+                    {/* PAINEL PRINCIPAL DE 3 COLUNAS */}
                     <main className="grid grid-cols-12 gap-5 p-5 h-[calc(100vh-73px)]">
-                        <section className={`col-span-4 rounded-2xl p-4 border flex flex-col gap-4 ${darkMode ? 'bg-[#1f1f23] border-[#29292e]' : 'bg-white'}`}>
+                        
+                        {/* COLUNA 1: BUSCA DINÂMICA */}
+                        <section className={`col-span-4 rounded-2xl p-4 border flex flex-col gap-4 ${darkMode ? 'bg-[#1f1f23] border-[#29292e]' : 'bg-white border-gray-200'}`}>
                             <input 
                                 type="text" 
-                                placeholder="Buscar na Bíblia (Simulação)..." 
-                                className={`w-full px-4 py-2.5 rounded-xl text-sm border focus:outline-none ${darkMode ? 'bg-[#121214] border-[#29292e]' : 'bg-gray-50'}`}
+                                placeholder="Buscar na Bíblia (Simulação inicial)..." 
+                                className={`w-full px-4 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-emerald-500 ${darkMode ? 'bg-[#121214] border-[#29292e]' : 'bg-gray-50 border-gray-300'}`}
                             />
-                            <div className="flex-1 overflow-y-auto space-y-2 dark-scroll">
+                            <div className={`flex-1 overflow-y-auto space-y-2 pr-1 ${darkMode ? 'dark-scroll' : 'light-scroll'}`}>
                                 {resultados.map(v => (
-                                    <div key={v.id} onClick={() => disparar(v.texto)} className={`p-3 rounded-xl cursor-pointer border transition-all ${darkMode ? 'bg-[#29292e]/40 border-[#29292e] hover:border-emerald-500' : 'bg-gray-50 hover:border-emerald-500'}`}>
+                                    <div 
+                                        key={v.id} 
+                                        onClick={() => disparar(v.texto)} 
+                                        className={`p-3 rounded-xl cursor-pointer border transition-all ${darkMode ? 'bg-[#29292e]/40 border-[#29292e] hover:border-emerald-500' : 'bg-gray-50 border-gray-100 hover:border-emerald-500'}`}
+                                    >
                                         <span className="font-bold text-xs text-emerald-500 block mb-1">{v.livro_nome} {v.capitulo}:{v.versiculo}</span>
-                                        <p className="text-sm">{v.texto}</p>
+                                        <p className="text-sm opacity-90">{v.texto}</p>
                                     </div>
                                 ))}
                             </div>
                         </section>
 
-                        <section className={`col-span-5 rounded-2xl p-4 border flex flex-col justify-center items-center ${darkMode ? 'bg-[#1f1f23] border-[#29292e]' : 'bg-white'}`}>
-                            <p className="text-gray-500 text-sm text-center">Clique em um versículo na esquerda para projetar instantaneamente na outra aba.</p>
+                        {/* COLUNA 2: LAYOUT DE SLIDES CENTRAIS */}
+                        <section className={`col-span-5 rounded-2xl p-4 border flex flex-col justify-center items-center ${darkMode ? 'bg-[#1f1f23] border-[#29292e]' : 'bg-white border-gray-200'}`}>
+                            <p className="text-gray-400 text-sm text-center px-6">
+                                ✨ <strong>Modo de Teste:</strong> Clique em um dos dois versículos da esquerda. Eles aparecerão instantaneamente na tela do projetor se ela estiver aberta!
+                            </p>
                         </section>
 
+                        {/* COLUNA 3: CONTROLES DE EMERGÊNCIA */}
                         <section className="col-span-3 flex flex-col gap-5">
-                            <div className={`rounded-2xl p-4 border flex-1 flex flex-col gap-3 ${darkMode ? 'bg-[#1f1f23] border-[#29292e]' : 'bg-white'}`}>
+                            <div className={`rounded-2xl p-4 border flex-1 flex flex-col gap-3 ${darkMode ? 'bg-[#1f1f23] border-[#29292e]' : 'bg-white border-gray-200'}`}>
                                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Controles Rápidos (Holyrics)</h3>
-                                <button onMouseDown={() => alternarF5(true)} onMouseUp={() => alternarF5(false)} className="w-full py-3 rounded-xl font-medium text-sm bg-amber-500/10 text-amber-500 border border-amber-500/30 active:bg-amber-500/20">
+                                
+                                <button 
+                                    onMouseDown={() => alternarF5(true)} 
+                                    onMouseUp={() => alternarF5(false)} 
+                                    className="w-full py-3 rounded-xl font-medium text-sm bg-amber-500/10 text-amber-500 border border-amber-500/30 active:bg-amber-500/20 cursor-pointer select-none"
+                                >
                                     F5 - Ocultar Texto (Segure)
                                 </button>
-                                <button onClick={() => alternarF6(true)} className="w-full py-3 rounded-xl font-medium text-sm bg-red-500/10 text-red-500 border border-red-500/30">
-                                    F6 - Blackout Total
+                                
+                                <button 
+                                    onClick={() => alternarF6(true)} 
+                                    className="w-full py-3 rounded-xl font-medium text-sm bg-red-500/10 text-red-500 border border-red-500/30 active:bg-red-500/20 cursor-pointer"
+                                >
+                                    F6 - Blackout Total (Ligar)
                                 </button>
-                                <button onClick={() => alternarF6(false)} className="w-full py-3 rounded-xl font-medium text-sm bg-gray-500/10 text-gray-400 border border-gray-500/30">
+                                
+                                <button 
+                                    onClick={() => alternarF6(false)} 
+                                    className="w-full py-3 rounded-xl font-medium text-sm bg-gray-500/10 text-gray-400 border border-gray-500/30 cursor-pointer"
+                                >
                                     Restaurar Telas
                                 </button>
                             </div>
@@ -107,7 +143,7 @@
             );
         }
 
-        // --- COMPONENTE 2: TELA DO PROJETOR (HDMI) ---
+        // --- COMPONENTE 2: TELA DE PROJEÇÃO (HDMI) ---
         function Projection() {
             const [texto, setTexto] = React.useState('');
             const [blackout, setBlackout] = React.useState(false);
@@ -116,27 +152,40 @@
             React.useEffect(() => {
                 canalProjecao.onmessage = (evento) => {
                     const { tipo, payload } = evento.data;
-                    if (tipo === 'PROJETAR_TEXTO') { setTexto(payload.texto); setBlackout(false); setOcultarTexto(false); }
+                    
+                    if (tipo === 'PROJETAR_TEXTO') { 
+                        setTexto(payload.texto); 
+                        setBlackout(false); 
+                        setOcultarTexto(false); 
+                    }
                     if (tipo === 'F5_TEXTO') setOcultarTexto(payload.ativo);
                     if (tipo === 'F6_BLACKOUT') setBlackout(payload.ativo);
                     if (tipo === 'PING_TESTE') canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
                 };
+
+                // Avisa que abriu ao ser inicializado
+                canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
             }, []);
 
             return (
                 <div className="w-full h-screen bg-black overflow-hidden relative flex items-center justify-center select-none">
                     <div 
-                        className={`w-[90%] text-center font-bold px-8 transition-all duration-300 ${blackout || ocultarTexto ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
-                        style={{ fontSize: 'clamp(2rem, 5vw, 4.5rem)', color: '#ffffff', textShadow: '3px 3px 10px rgba(0,0,0,0.85)' }}
+                        className={`w-[85%] text-center font-bold px-8 transition-all duration-300 ${blackout || ocultarTexto ? 'opacity-0 scale-95' : 'opacity-100 scale-100'}`}
+                        style={{ 
+                            fontSize: 'clamp(2rem, 4.5vw, 4rem)', 
+                            color: '#ffffff', 
+                            textShadow: '3px 3px 12px rgba(0,0,0,0.9), -1px -1px 0px rgba(0,0,0,0.4)',
+                            lineHeight: '1.3'
+                        }}
                     >
                         {texto}
                     </div>
-                    {blackout && <div className="absolute inset-0 bg-black z-50" />}
+                    {blackout && <div className="absolute inset-0 bg-black z-50 transition-opacity duration-300" />}
                 </div>
             );
         }
 
-        // --- GERENCIADOR DE ROTAS VIA URL QUERY ---
+        // --- CONFIGURAÇÃO DE ROTAS COPIANDO SINTAXE WEB ---
         function App() {
             const [darkMode, setDarkMode] = React.useState(true);
             const params = new URLSearchParams(window.location.search);
@@ -148,7 +197,8 @@
             return <Operator darkMode={darkMode} setDarkMode={setDarkMode} />;
         }
 
-        const root = RoyalReactDOM.createRoot(document.getElementById('root'));
+        // CORREÇÃO DA RENDERIZAÇÃO DO DOM:
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
