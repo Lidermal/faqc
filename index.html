@@ -15,6 +15,7 @@
 </head>
 <body class="bg-[#121214] text-white transition-colors duration-300" id="corpo-sistema">
 
+    <!-- PAINEL DO OPERADOR -->
     <div id="painel-operador" class="block">
         <header id="header-operador" class="px-6 py-4 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e] shadow-sm">
             <div class="flex items-center gap-3">
@@ -35,30 +36,30 @@
 
         <main class="grid grid-cols-12 gap-5 p-5 h-[calc(100vh-73px)]">
             
+            <!-- COLUNA 1: BUSCA UNIFICADA -->
             <section id="col1" class="col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4">
-                <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">Painel de Pesquisa</div>
+                <div class="text-xs font-bold text-gray-400 uppercase tracking-wider">Painel de Pesquisa Global</div>
                 <div class="flex gap-2">
-                    <input type="text" id="campo-busca" placeholder="Digite a referência ou frase..." class="w-full px-4 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-[#121214] border-[#29292e] text-white">
-                    <button onclick="realizarBuscaSupabase()" class="bg-emerald-600 hover:bg-emerald-500 px-4 rounded-xl text-sm font-medium cursor-pointer">Buscar</button>
+                    <input type="text" id="campo-busca" placeholder="Busque por versículo, música ou frase..." class="w-full px-4 py-2.5 rounded-xl text-sm border focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-[#121214] border-[#29292e] text-white" onkeydown="if(event.key === 'Enter') realizarBuscaGeral()">
+                    <button onclick="realizarBuscaGeral()" class="bg-emerald-600 hover:bg-emerald-500 px-4 rounded-xl text-sm font-medium cursor-pointer transition-all">Buscar</button>
                 </div>
                 <div id="lista-resultados" class="flex-1 overflow-y-auto space-y-2 pr-1 dark-scroll">
-                    <div onclick="carregarNoMeio('João 3:16', ['Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.'])" class="p-3 rounded-xl cursor-pointer border bg-[#29292e]/40 border-[#29292e] hover:border-emerald-500 transition-all group">
-                        <span class="font-bold text-xs text-emerald-500 block mb-1 group-hover:text-emerald-400">João 3:16 (Exemplo)</span>
-                        <p class="text-sm opacity-90 truncate">Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito...</p>
-                    </div>
+                    <div class="text-xs text-center text-gray-500 py-4">Digite algo acima para pesquisar no banco da igreja.</div>
                 </div>
             </section>
 
+            <!-- COLUNA 2: GERENCIADOR DE SLIDES -->
             <section id="col2" class="col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4">
                 <div class="flex justify-between items-center border-b border-[#29292e] pb-2">
-                    <div id="titulo-col2" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Versículos / Slides Ativos</div>
+                    <div id="titulo-col2" class="text-xs font-bold text-gray-400 uppercase tracking-wider">Slides / Letras Ativas</div>
                     <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-md border border-emerald-500/20 font-mono">Setas ↑ ↓ controlam</span>
                 </div>
                 <div id="container-slides" class="flex-1 overflow-y-auto space-y-2 pr-1 dark-scroll flex flex-col justify-center items-center text-gray-500 text-sm text-center">
-                    Nenhum versículo ou louvor selecionado para exibição.
+                    Nenhum conteúdo disparado para a linha do tempo de projeção.
                 </div>
             </section>
 
+            <!-- COLUNA 3: CONTROLES E SELEÇÃO DE FUNDO -->
             <section id="col3" class="col-span-3 flex flex-col gap-5">
                 <div id="card-controles" class="rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-[#1f1f23] border-[#29292e]">
                     <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Controles Rápidos (Teclado)</h3>
@@ -75,11 +76,11 @@
                         <span>Restaurar Projeção</span> <kbd class="bg-gray-500/20 px-1.5 py-0.5 rounded text-[10px] font-mono">Alt + R</kbd>
                     </button>
 
+                    <!-- SELEÇÃO DE FUNDOS -->
                     <div class="mt-4 border-t border-[#29292e] pt-4">
                         <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Plano de Fundo das Letras</h4>
                         <label class="w-full py-3 rounded-xl border border-dashed border-[#3e3e44] bg-[#121214] flex flex-col items-center justify-center cursor-pointer hover:border-emerald-500 transition-all">
                             <span class="text-xs font-medium text-gray-300">🖼️ Escolher Imagem do PC</span>
-                            <span class="text-[9px] text-gray-500 mt-0.5">JPG, PNG ou fundos do computador</span>
                             <input type="file" id="upload-fundo" accept="image/*" class="hidden" onchange="processarUploadFundo(this)">
                         </label>
                     </div>
@@ -93,15 +94,14 @@
         </main>
     </div>
 
+    <!-- TELA DE PROJEÇÃO SECUNDÁRIA (HDMI) -->
     <div id="tela-projecao" class="hidden w-full h-screen bg-black overflow-hidden relative flex items-center justify-center select-none">
         <div id="fundo-projetor" class="absolute inset-0 bg-cover bg-center transition-all duration-500 z-0"></div>
-        
-        <div id="texto-projetado" class="w-[85%] text-center font-bold px-8 transition-all duration-300 opacity-100 scale-100 z-10" style="font-size: clamp(2rem, 4vw, 3.8rem); color: #ffffff; text-shadow: 3px 3px 12px rgba(0,0,0,0.9); line-height: 1.4;"></div>
+        <div id="texto-projetado" class="w-[85%] text-center font-bold px-8 transition-all duration-300 opacity-100 scale-100 z-10 whitespace-pre-line" style="font-size: clamp(1.8rem, 3.8vw, 3.5rem); color: #ffffff; text-shadow: 3px 3px 12px rgba(0,0,0,0.9); line-height: 1.4;"></div>
         <div id="camada-blackout" class="absolute inset-0 bg-black z-50 hidden"></div>
     </div>
 
     <script>
-        // Credenciais oficiais fornecidas embutidas com total segurança
         const SUPABASE_URL = "https://eszhspqyvzjqencijfqa.supabase.co/rest/v1/";
         const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVzemhzcHF5dnpqcWVuY2lqZnFhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzg5NTIsImV4cCI6MjA5NzcxNDk1Mn0.s3QRhYnDPAlYfdDkLY0Z6MXfgut7eSq5darr8vmFQKI";
 
@@ -128,23 +128,13 @@
                     txtNode.classList.remove('opacity-0', 'scale-95');
                     blkNode.classList.add('hidden');
                 }
-                if (tipo === 'MUDAR_FUNDO') {
-                    bgNode.style.backgroundImage = `url('${payload.imagem}')`;
-                }
-                if (tipo === 'F5_TEXTO') {
-                    if (payload.ativo) txtNode.classList.add('opacity-0', 'scale-95');
-                    else txtNode.classList.remove('opacity-0', 'scale-95');
-                }
-                if (tipo === 'F6_BLACKOUT') {
-                    if (payload.ativo) blkNode.classList.remove('hidden');
-                    else blkNode.className = 'absolute inset-0 bg-black z-50 hidden';
-                }
+                if (tipo === 'MUDAR_FUNDO') bgNode.style.backgroundImage = `url('${payload.imagem}')`;
+                if (tipo === 'F5_TEXTO') payload.ativo ? txtNode.classList.add('opacity-0', 'scale-95') : txtNode.classList.remove('opacity-0', 'scale-95');
+                if (tipo === 'F6_BLACKOUT') payload.ativo ? blkNode.classList.remove('hidden') : blkNode.classList.add('hidden');
                 if (tipo === 'PING_TESTE') canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
             };
             canalProjecao.postMessage({ tipo: 'PONG_TESTE' });
-
         } else {
-            // Operador
             canalProjecao.onmessage = (evento) => {
                 if (evento.data.tipo === 'PONG_TESTE') {
                     document.getElementById('status-hdmi').innerText = '| Projetor HDMI: CONECTADO ✨';
@@ -154,60 +144,77 @@
             setInterval(() => { canalProjecao.postMessage({ tipo: 'PING_TESTE' }); }, 1500);
         }
 
-        // DISPARADOR DE BUSCA DIRETO NO SEU SUPABASE
-        async function realizarBuscaSupabase() {
+        // BUSCA MULTI-TABELAS (BÍBLIA + LOUVORES)
+        async function realizarBuscaGeral() {
             const termo = document.getElementById('campo-busca').value.trim();
             if (!termo) return;
 
             const lista = document.getElementById('lista-resultados');
-            lista.innerHTML = '<div class="text-xs text-center text-gray-400 py-4 animate-pulse">Pesquisando no Supabase...</div>';
+            lista.innerHTML = '<div class="text-xs text-center text-gray-400 py-4 animate-pulse">Buscando na base de dados...</div>';
 
             try {
-                // Monta a URL de busca na tabela 'biblias' usando filtros parciais (ilike)
-                const urlBusca = `${SUPABASE_URL}biblias?texto=ilike.*${encodeURIComponent(termo)}*&select=*&limit=25`;
-                
-                const resposta = await fetch(urlBusca, {
-                    method: 'GET',
-                    headers: {
-                        'apikey': SUPABASE_KEY,
-                        'Authorization': `Bearer ${SUPABASE_KEY}`
-                    }
+                // 1. Busca na tabela de Bíblias
+                const resBiblia = await fetch(`${SUPABASE_URL}biblias?texto=ilike.*${encodeURIComponent(termo)}*&select=*&limit=10`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
                 });
+                const biblias = await resBiblia.json();
 
-                if (!resposta.ok) throw new Error('Erro na requisição');
-                const dados = await resposta.json();
+                // 2. Busca na tabela de Louvores
+                const resLouvores = await fetch(`${SUPABASE_URL}louvores?titulo=ilike.*${encodeURIComponent(termo)}*&select=*&limit=10`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const louvores = await resLouvores.json();
 
                 lista.innerHTML = '';
-                if(dados.length === 0) {
-                    lista.innerHTML = '<div class="text-xs text-center text-gray-500 py-4">Nenhum resultado encontrado no banco.</div>';
+
+                if (biblias.length === 0 && louvores.length === 0) {
+                    lista.innerHTML = '<div class="text-xs text-center text-gray-500 py-4">Nenhum resultado encontrado.</div>';
                     return;
                 }
 
-                dados.forEach(v => {
+                // Renderiza resultados da Bíblia (Manda o versículo completo)
+                biblias.forEach(v => {
                     const item = document.createElement('div');
-                    item.className = "p-3 rounded-xl cursor-pointer border bg-[#29292e]/40 border-[#29292e] hover:border-emerald-500 transition-all";
-                    item.onclick = () => carregarNoMeio(`${v.livro_nome} ${v.capitulo}:${v.versiculo}`, [v.texto]);
-                    item.innerHTML = `
-                        <span class="font-bold text-xs text-emerald-500 block mb-1">${v.livro_nome} ${v.capitulo}:${v.versiculo} (${v.versao || 'Bíblia'})</span>
-                        <p class="text-sm opacity-90">${v.texto}</p>
-                    `;
+                    item.className = "p-3 rounded-xl cursor-pointer border bg-[#29292e]/20 border-[#29292e] hover:border-emerald-500 transition-all";
+                    item.onclick = () => carregarNoMeio(`${v.livro_nome} ${v.capitulo}:{v.versiculo}`, [v.texto]);
+                    item.innerHTML = `<span class="text-[10px] font-bold text-emerald-500 block mb-1">📖 BÍBLIA • {v.livro_nome} {v.capitulo}:{v.versiculo}</span><p class="text-sm opacity-90">${v.texto}</p>`;
+                    lista.appendChild(item);
+                });
+
+                // Renderiza resultados de Louvores
+                louvores.forEach(l => {
+                    const item = document.createElement('div');
+                    item.className = "p-3 rounded-xl cursor-pointer border bg-[#29292e]/20 border-[#29292e] hover:border-cyan-500 transition-all";
+                    item.onclick = () => puxarEstrofesLouvor(l.id, l.titulo);
+                    item.innerHTML = `<span class="text-[10px] font-bold text-cyan-400 block mb-1">🎵 LOUVOR • ${l.titulo}</span><p class="text-xs text-gray-400">${l.artista || 'Artista Desconhecido'}</p>`;
                     lista.appendChild(item);
                 });
 
             } catch (erro) {
-                console.error(erro);
-                lista.innerHTML = '<div class="text-xs text-center text-red-400 py-4">Erro ao conectar com o Supabase. Verifique se a tabela existe.</div>';
+                lista.innerHTML = '<div class="text-xs text-center text-red-400 py-4">Erro de conexão com o Supabase.</div>';
             }
         }
 
-        // Processa o upload de imagem local do computador para o fundo do projetor
+        // Puxa as estrofes vinculadas ao louvor clicado
+        async function puxarEstrofesLouvor(louvorId, titulo) {
+            try {
+                const res = await fetch(`${SUPABASE_URL}louvores_estrofes?louvor_id=eq.${louvorId}&order=ordem.asc`, {
+                    headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+                });
+                const estrofes = await res.json();
+                
+                const listaLetras = estrofes.map(e => e.texto);
+                carregarNoMeio(titulo, listaLetras);
+            } catch (erro) {
+                alert('Erro ao carregar estrofes do louvor.');
+            }
+        }
+
         function processarUploadFundo(input) {
             if (input.files && input.files[0]) {
                 const leitor = new FileReader();
                 leitor.onload = function(e) {
-                    const imagemBase64 = e.target.result;
-                    // Envia o arquivo lido localmente direto para a aba do projetor via canal de transmissão
-                    canalProjecao.postMessage({ tipo: 'MUDAR_FUNDO', payload: { imagem: imagemBase64 } });
+                    canalProjecao.postMessage({ tipo: 'MUDAR_FUNDO', payload: { imagem: e.target.result } });
                 };
                 leitor.readAsDataURL(input.files[0]);
             }
@@ -217,12 +224,11 @@
             slidesAtivos = listaSlides;
             indiceSlideAtivo = 0;
             document.getElementById('titulo-col2').innerText = titulo;
-            
-            renderizarSlidesMeio();
+            renderizeMeio();
             disparar(slidesAtivos[indiceSlideAtivo]);
         }
 
-        function renderizarSlidesMeio() {
+        function renderizeMeio() {
             const container = document.getElementById('container-slides');
             container.innerHTML = '';
             container.className = "flex-1 overflow-y-auto space-y-2 pr-1 text-left dark-scroll";
@@ -230,20 +236,9 @@
             slidesAtivos.forEach((slide, idx) => {
                 const item = document.createElement('div');
                 const isActive = idx === indiceSlideAtivo;
-                
-                item.className = `p-4 rounded-xl cursor-pointer border transition-all flex flex-col gap-1.5 ${
-                    isActive 
-                    ? 'bg-emerald-500/10 border-emerald-500 text-white font-medium' 
-                    : modoEscuro ? 'bg-[#29292e]/40 border-[#29292e] text-gray-300 hover:bg-[#29292e]' : 'bg-gray-50 border-gray-150 text-gray-700 hover:bg-gray-100'
-                }`;
-                
+                item.className = `p-4 rounded-xl cursor-pointer border transition-all ${isActive ? 'bg-emerald-500/10 border-emerald-500 text-white font-medium' : modoEscuro ? 'bg-[#29292e]/40 border-[#29292e] text-gray-300 hover:bg-[#29292e]' : 'bg-gray-50 border-gray-150 text-gray-700'}`;
                 item.onclick = () => mudarSlidePara(idx);
-                item.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="text-[9px] uppercase tracking-wider font-bold ${isActive ? 'text-emerald-400' : 'text-gray-400'}">Slide / Versículo ${idx + 1}</span>
-                    </div>
-                    <p class="text-sm leading-relaxed">${slide}</p>
-                `;
+                item.innerHTML = `<span class="text-[9px] font-bold block opacity-60 mb-1">SLIDE ${idx + 1}</span><p class="text-sm leading-relaxed whitespace-pre-line">${slide}</p>`;
                 container.appendChild(item);
             });
         }
@@ -251,17 +246,15 @@
         function mudarSlidePara(idx) {
             if (idx >= 0 && idx < slidesAtivos.length) {
                 indiceSlideAtivo = idx;
-                renderizarSlidesMeio();
+                renderizeMeio();
                 disparar(slidesAtivos[indiceSlideAtivo]);
             }
         }
 
         window.addEventListener('keydown', (e) => {
             if (document.activeElement.tagName === 'INPUT') return;
-
             if (e.key === ' ' || e.key === 'ArrowDown') { e.preventDefault(); mudarSlidePara(indiceSlideAtivo + 1); }
             if (e.key === 'ArrowUp') { e.preventDefault(); mudarSlidePara(indiceSlideAtivo - 1); }
-
             if (e.altKey && e.key.toLowerCase() === 'l') { e.preventDefault(); alternarF5(true); }
             if (e.altKey && e.key.toLowerCase() === 'b') { e.preventDefault(); alternarF6(true); }
             if (e.altKey && e.key.toLowerCase() === 'r') { e.preventDefault(); restaurarTelas(); }
@@ -275,31 +268,23 @@
 
         function alternarTema() {
             modoEscuro = !modoEscuro;
-            const corpo = document.getElementById('corpo-sistema');
-            const header = document.getElementById('header-operador');
-            const col1 = document.getElementById('col1');
-            const col2 = document.getElementById('col2');
-            const cardCtrl = document.getElementById('card-controles');
-            const btn = document.getElementById('btn-tema');
-
+            const corpo = document.getElementById('corpo-sistema'), header = document.getElementById('header-operador'), col1 = document.getElementById('col1'), col2 = document.getElementById('col2'), cardCtrl = document.getElementById('card-controles'), btn = document.getElementById('btn-tema');
             if (modoEscuro) {
                 corpo.className = "bg-[#121214] text-white transition-colors duration-300";
-                header.className = "px-6 py-4 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e] shadow-sm";
+                header.className = "px-6 py-4 flex justify-between items-center border-b bg-[#1f1f23] border-[#29292e]";
                 col1.className = "col-span-4 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4";
                 col2.className = "col-span-5 rounded-2xl p-4 border bg-[#1f1f23] border-[#29292e] flex flex-col gap-4";
                 cardCtrl.className = "rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-[#1f1f23] border-[#29292e]";
-                btn.className = "p-2 rounded-xl border bg-[#29292e] border-[#3e3e44] text-sm cursor-pointer";
                 btn.innerText = "☀️ Modo Claro";
             } else {
                 corpo.className = "bg-[#f0f2f5] text-[#1c1c1e] transition-colors duration-300";
-                header.className = "px-6 py-4 flex justify-between items-center border-b bg-white border-gray-200 shadow-sm";
+                header.className = "px-6 py-4 flex justify-between items-center border-b bg-white border-gray-200";
                 col1.className = "col-span-4 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col gap-4";
                 col2.className = "col-span-5 rounded-2xl p-4 border bg-white border-gray-200 flex flex-col gap-4";
                 cardCtrl.className = "rounded-2xl p-4 border flex-1 flex flex-col gap-3 bg-white border-gray-200";
-                btn.className = "p-2 rounded-xl border bg-gray-100 border-gray-300 text-sm cursor-pointer";
                 btn.innerText = "🌙 Modo Escuro";
             }
-            renderizarSlidesMeio();
+            renderizeMeio();
         }
     </script>
 </body>
