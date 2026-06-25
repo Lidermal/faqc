@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ministério de Louvor - Amor que Cura</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -28,26 +30,43 @@
         
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <img src="logo.png" alt="Logo Menor" class="logo-small">
+                <img src="logo.png" alt="Logo" class="logo-small">
                 <span>Amor que Cura</span>
-                <button class="btn-close-sidebar" onclick="toggleSidebar()">✕</button>
+                <button class="btn-close-sidebar" onclick="toggleSidebar()">
+                    <span class="material-symbols-outlined">close</span>
+                </button>
             </div>
             
             <nav class="sidebar-nav">
-                <button onclick="navigate('home')" class="nav-item active" id="nav-home">🏠 Início</button>
-                <button onclick="navigate('membros')" class="nav-item" id="nav-membros">👥 Membros</button>
-                <button onclick="navigate('escalas')" class="nav-item" id="nav-escalas">📅 Escalas</button>
-                <button onclick="navigate('repertorio')" class="nav-item" id="nav-repertorio">🎵 Repertório</button>
+                <button onclick="navigate('home')" class="nav-item active" id="nav-home">
+                    <span class="material-symbols-outlined">space_dashboard</span> Início
+                </button>
+                <button onclick="navigate('membros')" class="nav-item" id="nav-membros">
+                    <span class="material-symbols-outlined">group</span> Membros
+                </button>
+                <button onclick="navigate('escalas')" class="nav-item" id="nav-escalas">
+                    <span class="material-symbols-outlined">calendar_month</span> Escalas
+                </button>
+                <button onclick="navigate('repertorio')" class="nav-item" id="nav-repertorio">
+                    <span class="material-symbols-outlined">library_music</span> Repertório
+                </button>
+                <button onclick="navigate('admin')" class="nav-item hidden" id="nav-admin">
+                    <span class="material-symbols-outlined">admin_panel_settings</span> Administração
+                </button>
             </nav>
 
             <div class="sidebar-footer">
-                <button onclick="handleLogout()" class="btn-logout">🚪 Sair</button>
+                <button onclick="handleLogout()" class="btn-logout">
+                    <span class="material-symbols-outlined">logout</span> Sair
+                </button>
             </div>
         </aside>
 
         <div class="main-content">
             <header class="app-header">
-                <button class="btn-menu" onclick="toggleSidebar()">☰ Menu</button>
+                <button class="btn-menu" onclick="toggleSidebar()">
+                    <span class="material-symbols-outlined">menu</span>
+                </button>
                 <div class="user-info">
                     <span id="user-display-name"></span>
                 </div>
@@ -55,24 +74,42 @@
 
             <div class="content-area">
                 <section id="page-home" class="subpage active">
-                    <h1>Dashboard</h1>
-                    <p>Aqui ficará o template de quem está escalado e o contador para o culto.</p>
+                    <div class="dashboard-grid">
+                        
+                        <div class="card daily-message-card">
+                            <div class="card-header">
+                                <span class="material-symbols-outlined">menu_book</span>
+                                <h3>Mensagem do Dia</h3>
+                            </div>
+                            <div class="card-body" id="daily-message-content">
+                                <p class="loading-text">Carregando mensagem...</p>
+                            </div>
+                        </div>
+
+                        <div class="card countdown-card">
+                            <div class="card-header">
+                                <span class="material-symbols-outlined">timer</span>
+                                <h3>Próximo Culto (Domingo)</h3>
+                            </div>
+                            <div class="card-body text-center">
+                                <div class="countdown" id="countdown-timer">
+                                    00d 00h 00m 00s
+                                </div>
+                                <hr class="divider">
+                                <h4>Equipe Escalada</h4>
+                                <div id="next-scale-team">
+                                    <p class="loading-text">Buscando escala...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
                 </section>
 
-                <section id="page-membros" class="subpage hidden">
-                    <h2>Membros do Ministério</h2>
-                    <div id="members-list" class="grid-container"></div>
-                </section>
-
-                <section id="page-escalas" class="subpage hidden">
-                    <h2>Escalas</h2>
-                    <p>Gerenciamento de escalas aparecerá aqui...</p>
-                </section>
-
-                <section id="page-repertorio" class="subpage hidden">
-                    <h2>Repertório</h2>
-                    <p>Lista de músicas e medleys aparecerá aqui...</p>
-                </section>
+                <section id="page-membros" class="subpage hidden"><h2>Membros</h2></section>
+                <section id="page-escalas" class="subpage hidden"><h2>Escalas</h2></section>
+                <section id="page-repertorio" class="subpage hidden"><h2>Repertório</h2></section>
+                <section id="page-admin" class="subpage hidden"><h2>Administração</h2></section>
             </div>
         </div>
         
