@@ -52,3 +52,20 @@ window.onload = () => {
         showSystemScreen(loggedUser);
     }
 };
+
+// Função para alternar entre as subpáginas (SPA)
+function navigate(pageId) {
+    // Esconde todas as subpáginas
+    const pages = document.querySelectorAll('.subpage');
+    pages.forEach(page => page.classList.remove('active'));
+
+    // Mostra a subpágina clicada
+    document.getElementById('page-' + pageId).classList.add('active');
+
+    // Remove a classe 'active' de todos os botões do menu
+    const navItems = document.querySelectorAll('.nav-item');
+    navItems.forEach(btn => btn.classList.remove('active'));
+
+    // Adiciona a classe 'active' ao botão clicado
+    document.getElementById('nav-' + pageId).classList.add('active');
+}
