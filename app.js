@@ -1,5 +1,5 @@
 const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co/rest/v1';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos'; // INSIRA SUA CHAVE AQUI
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos';
 
 const headers = {
     'apikey': SUPABASE_KEY,
@@ -11,7 +11,7 @@ let currentUserData = null;
 let countdownInterval;
 
 // ==========================================
-// AUTENTICAÇÃO E ROTEAMENTO
+// AUTENTICAÇÃO
 // ==========================================
 async function handleLogin() {
     const usernameInput = document.getElementById('username').value.trim().toLowerCase();
@@ -72,25 +72,46 @@ function handleLogout() {
     document.getElementById('username').value = '';
     document.getElementById('nav-admin').classList.add('hidden');
     
-    if (document.getElementById('sidebar').classList.contains('open')) toggleSidebar();
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar.classList.contains('open')) toggleSidebar();
 }
 
+// ==========================================
+// CONTROLE DE INTERFACE (UI & SPA)
+// ==========================================
 function navigate(pageId) {
+    // Muda a tela visualmente
     document.querySelectorAll('.subpage').forEach(page => page.classList.remove('active'));
     document.getElementById('page-' + pageId).classList.add('active');
 
+    // Muda o menu visualmente
     document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
     document.getElementById('nav-' + pageId).classList.add('active');
     
-    if(window.innerWidth <= 768) toggleSidebar();
+    // Fecha o menu no celular ao clicar
+    if(window.innerWidth <= 768) {
+        const sidebar = document.getElementById('sidebar');
+        if(sidebar.classList.contains('open')) toggleSidebar();
+    }
 
-    // Se clicar em Início, recarrega os dados
+    // Carrega os dados dependendo de qual aba foi aberta
     if (pageId === 'home') loadDashboard();
+    if (pageId === 'membros') loadMembers();
+    if (pageId === 'admin') loadAdminMembers();
 }
 
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
-    document.getElementById('sidebar-overlay').classList.toggle('active');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    
+    if (window.innerWidth <= 768) {
+        // Mobile behavior
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+    } else {
+        // Desktop behavior
+        sidebar.classList.toggle('collapsed');
+    }
 }
 
 // ==========================================
@@ -102,24 +123,19 @@ function loadDashboard() {
     fetchNextScale();
 }
 
-// 1. Contador para o próximo Domingo (assumindo culto às 18:00)
 function startCountdown() {
     clearInterval(countdownInterval);
     
     function updateTimer() {
         const now = new Date();
         const nextSunday = new Date();
-        
-        // Calcula os dias até o próximo domingo
         const daysUntilSunday = (7 - now.getDay()) % 7;
         
         if (daysUntilSunday === 0 && now.getHours() >= 18) {
-            // Se hoje é domingo e já passou das 18h, o próximo é daqui a 7 dias
             nextSunday.setDate(now.getDate() + 7);
         } else {
             nextSunday.setDate(now.getDate() + daysUntilSunday);
         }
-        
         nextSunday.setHours(18, 0, 0, 0);
 
         const diff = nextSunday - now;
@@ -133,13 +149,12 @@ function startCountdown() {
             `${String(d).padStart(2, '0')}d ${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
     }
 
-    updateTimer(); // Chama na hora
-    countdownInterval = setInterval(updateTimer, 1000); // Atualiza por segundo
+    updateTimer();
+    countdownInterval = setInterval(updateTimer, 1000);
 }
 
-// 2. Busca Mensagem do Dia
 async function fetchDailyMessage() {
-    const today = new Date().toISOString().split('T')[0]; // Pega a data YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
     const container = document.getElementById('daily-message-content');
     
     try {
@@ -147,52 +162,200 @@ async function fetchDailyMessage() {
         const data = await response.json();
 
         if (data.length > 0) {
-            container.innerHTML = `
-                <p>"${data[0].verse_text}"</p>
-                <span class="verse-ref">- ${data[0].verse_ref}</span>
-            `;
+            container.innerHTML = `<p>"${data[0].verse_text}"</p><span class="verse-ref">- ${data[0].verse_ref}</span>`;
         } else {
-            container.innerHTML = `<p class="loading-text">Nenhuma mensagem cadastrada para o dia de hoje.</p>`;
+            container.innerHTML = `<p class="loading-text">Nenhuma mensagem cadastrada para hoje.</p>`;
         }
     } catch (error) {
         container.innerHTML = `<p class="loading-text" style="color:var(--danger)">Erro ao carregar a mensagem.</p>`;
     }
 }
 
-// 3. Busca a Escala mais próxima
 async function fetchNextScale() {
     const container = document.getElementById('next-scale-team');
     const today = new Date().toISOString().split('T')[0];
     
     try {
-        // Busca a próxima escala onde a data seja maior ou igual a hoje
         const scaleRes = await fetch(`${SUPABASE_URL}/scales?event_date=gte.${today}&order=event_date.asc&limit=1`, { method: 'GET', headers: headers });
         const scaleData = await scaleRes.json();
 
         if (scaleData.length > 0) {
             const scaleId = scaleData[0].id;
-            
-            // Busca os membros atrelados a essa escala juntando com a tabela members
             const itemsRes = await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}&select=role,members(full_name)`, { method: 'GET', headers: headers });
             const itemsData = await itemsRes.json();
 
             if (itemsData.length > 0) {
                 let html = '';
                 itemsData.forEach(item => {
-                    html += `<div class="scale-member">
-                                <strong>${item.members.full_name}</strong>
-                                <span>${item.role.charAt(0).toUpperCase() + item.role.slice(1)}</span>
-                             </div>`;
+                    html += `<div class="scale-member"><strong>${item.members.full_name}</strong><span>${item.role.charAt(0).toUpperCase() + item.role.slice(1)}</span></div>`;
                 });
                 container.innerHTML = html;
             } else {
-                container.innerHTML = `<p class="loading-text">Escala criada, mas equipe ainda não definida.</p>`;
+                container.innerHTML = `<p class="loading-text">Escala criada, mas equipe não definida.</p>`;
             }
         } else {
             container.innerHTML = `<p class="loading-text">Nenhuma escala programada.</p>`;
         }
     } catch (error) {
         container.innerHTML = `<p class="loading-text" style="color:var(--danger)">Erro ao carregar a escala.</p>`;
+    }
+}
+
+// ==========================================
+// ABA DE MEMBROS
+// ==========================================
+async function loadMembers() {
+    const grid = document.getElementById('members-grid');
+    grid.innerHTML = '<p class="loading-text">Buscando equipe...</p>';
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers: headers });
+        const members = await res.json();
+
+        if (members.length === 0) {
+            grid.innerHTML = '<p class="loading-text">Nenhum membro cadastrado.</p>';
+            return;
+        }
+
+        let html = '';
+        members.forEach(m => {
+            let badges = m.is_leader ? '<span class="badge lider">Líder</span>' : '';
+            
+            m.member_roles.forEach(r => {
+                let badgeClass = r.role === 'vocal' ? 'vocal' : 'instrumento';
+                let roleName = r.role.charAt(0).toUpperCase() + r.role.slice(1);
+                badges += `<span class="badge ${badgeClass}">${roleName}</span>`;
+            });
+
+            let photoContent = m.photo_url 
+                ? `<img src="${m.photo_url}" class="member-photo">` 
+                : `<div class="member-photo">${m.full_name.charAt(0).toUpperCase()}</div>`;
+
+            html += `
+                <div class="member-card">
+                    ${photoContent}
+                    <div class="member-info">
+                        <h4>${m.full_name}</h4>
+                        <div class="role-badges">${badges || '<span class="badge" style="background:#eee;color:#999;">Membro</span>'}</div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        grid.innerHTML = html;
+    } catch (error) {
+        grid.innerHTML = '<p class="loading-text" style="color:var(--danger)">Erro ao carregar membros.</p>';
+    }
+}
+
+// ==========================================
+// ABA DE ADMINISTRAÇÃO
+// ==========================================
+async function createNewMember() {
+    const username = document.getElementById('new-username').value.trim().toLowerCase();
+    const fullname = document.getElementById('new-fullname').value.trim();
+    const isLeader = document.getElementById('new-is-leader').checked;
+    const msgBox = document.getElementById('admin-msg');
+
+    if (!username || !fullname) {
+        msgBox.textContent = 'Preencha usuário e nome!';
+        msgBox.className = 'admin-message msg-error';
+        return;
+    }
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/members`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'return=representation' },
+            body: JSON.stringify({ username: username, full_name: fullname, is_leader: isLeader })
+        });
+
+        if (!res.ok) throw new Error('Usuário já existe ou erro no banco.');
+
+        msgBox.textContent = 'Membro cadastrado com sucesso!';
+        msgBox.className = 'admin-message msg-success';
+        
+        document.getElementById('new-username').value = '';
+        document.getElementById('new-fullname').value = '';
+        document.getElementById('new-is-leader').checked = false;
+        loadAdminMembers();
+
+    } catch (error) {
+        msgBox.textContent = error.message;
+        msgBox.className = 'admin-message msg-error';
+    }
+}
+
+async function loadAdminMembers() {
+    const list = document.getElementById('admin-members-list');
+    list.innerHTML = '<p class="loading-text">Carregando...</p>';
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/members?select=id,username,full_name,is_leader,member_roles(role)&order=full_name.asc`, { headers: headers });
+        const members = await res.json();
+
+        let html = '';
+        members.forEach(m => {
+            const currentRoles = m.member_roles.map(r => r.role);
+            
+            html += `
+                <div class="admin-list-item" id="admin-item-${m.id}">
+                    <div>
+                        <strong>${m.full_name}</strong> <span style="color:var(--text-muted);font-size:0.8rem">(${m.username})</span>
+                    </div>
+                    <div class="admin-actions">
+                        <button class="btn-icon" onclick="toggleRoleEditor('${m.id}')" title="Editar Funções"><span class="material-symbols-outlined">edit_attributes</span></button>
+                        <button class="btn-icon delete" onclick="deleteMember('${m.id}')" title="Excluir"><span class="material-symbols-outlined">delete</span></button>
+                    </div>
+                    
+                    <div class="roles-editor hidden" id="editor-${m.id}">
+                        ${['vocal', 'baterista', 'teclado', 'violao', 'baixo'].map(role => `
+                            <label class="role-check-item">
+                                <input type="checkbox" onchange="updateRole('${m.id}', '${role}', this.checked)" ${currentRoles.includes(role) ? 'checked' : ''}>
+                                ${role.charAt(0).toUpperCase() + role.slice(1)}
+                            </label>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        });
+        list.innerHTML = html;
+    } catch (e) {
+        list.innerHTML = '<p class="loading-text msg-error">Erro ao carregar lista.</p>';
+    }
+}
+
+function toggleRoleEditor(memberId) {
+    document.getElementById(`editor-${memberId}`).classList.toggle('hidden');
+}
+
+async function updateRole(memberId, role, isAdding) {
+    try {
+        if (isAdding) {
+            await fetch(`${SUPABASE_URL}/member_roles`, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify({ member_id: memberId, role: role })
+            });
+        } else {
+            await fetch(`${SUPABASE_URL}/member_roles?member_id=eq.${memberId}&role=eq.${role}`, {
+                method: 'DELETE',
+                headers: headers
+            });
+        }
+    } catch (e) {
+        alert('Erro ao atualizar função no banco.');
+    }
+}
+
+async function deleteMember(id) {
+    if(!confirm('Tem certeza que deseja remover este membro?')) return;
+    
+    try {
+        await fetch(`${SUPABASE_URL}/members?id=eq.${id}`, { method: 'DELETE', headers: headers });
+        loadAdminMembers();
+    } catch (e) {
+        alert('Erro ao excluir.');
     }
 }
 
