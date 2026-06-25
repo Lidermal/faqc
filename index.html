@@ -8,7 +8,9 @@
 </head>
 <body>
 
+    <!-- TELA DE LOGIN -->
     <main id="login-screen" class="screen active">
+        <div class="login-bg-overlay"></div>
         <div class="login-container">
             <img src="logo.png" alt="Família Amor que Cura Church" class="logo">
             <h2>Portal do Ministério</h2>
@@ -21,19 +23,54 @@
 
             <button onclick="handleLogin()" class="btn-primary">Entrar</button>
         </div>
-        <div class="login-bg-overlay"></div>
     </main>
 
+    <!-- TELA PRINCIPAL (SYSTEM) -->
     <main id="system-screen" class="screen hidden">
         <header class="app-header">
-            <img src="logo.png" alt="Logo Menor" class="logo-small">
+            <div class="header-logo">
+                <img src="logo.png" alt="Logo Menor" class="logo-small">
+                <span>Amor que Cura</span>
+            </div>
             <button onclick="handleLogout()" class="btn-logout">Sair</button>
         </header>
         
-        <div class="content">
-            <h1>Bem-vindo, <span id="user-display-name"></span>!</h1>
-            <p>Em breve: Dashboard, Contador, Mensagem do Dia e Módulos.</p>
+        <!-- ÁREA ONDE AS SUBPÁGINAS APARECEM -->
+        <div class="content-area">
+            
+            <!-- Subpágina: INÍCIO (Dashboard) -->
+            <section id="page-home" class="subpage active">
+                <h1>Bem-vindo, <span id="user-display-name"></span>!</h1>
+                <p>Aqui ficará o template de quem está escalado e o contador para o culto.</p>
+            </section>
+
+            <!-- Subpágina: MEMBROS -->
+            <section id="page-membros" class="subpage hidden">
+                <h2>Membros do Ministério</h2>
+                <p>Lista de membros aparecerá aqui...</p>
+            </section>
+
+            <!-- Subpágina: ESCALAS -->
+            <section id="page-escalas" class="subpage hidden">
+                <h2>Escalas</h2>
+                <p>Gerenciamento de escalas aparecerá aqui...</p>
+            </section>
+
+            <!-- Subpágina: REPERTÓRIO -->
+            <section id="page-repertorio" class="subpage hidden">
+                <h2>Repertório</h2>
+                <p>Lista de músicas e medleys aparecerá aqui...</p>
+            </section>
+
         </div>
+
+        <!-- BARRA DE NAVEGAÇÃO (Fica na parte inferior no celular) -->
+        <nav class="bottom-nav">
+            <button onclick="navigate('home')" class="nav-item active" id="nav-home">Início</button>
+            <button onclick="navigate('membros')" class="nav-item" id="nav-membros">Membros</button>
+            <button onclick="navigate('escalas')" class="nav-item" id="nav-escalas">Escalas</button>
+            <button onclick="navigate('repertorio')" class="nav-item" id="nav-repertorio">Repertório</button>
+        </nav>
     </main>
 
     <script src="app.js"></script>
