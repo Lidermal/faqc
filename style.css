@@ -1,6 +1,6 @@
 :root {
-    --bg-color: #0d0d0d;
-    --surface-color: #1a1a1a;
+    --bg-color: #121212;
+    --surface-color: #1e1e1e;
     --primary-color: #f05a28; /* Laranja da logo */
     --primary-hover: #d94d1f;
     --text-main: #ffffff;
@@ -18,7 +18,6 @@
 body {
     background-color: var(--bg-color);
     color: var(--text-main);
-    min-height: 100vh;
 }
 
 .screen {
@@ -34,39 +33,43 @@ body {
 
 /* --- LOGIN SCREEN --- */
 #login-screen {
+    /* Imagem de fundo de ministério de louvor escurecida */
+    background-image: linear-gradient(rgba(18, 18, 18, 0.8), rgba(18, 18, 18, 0.95)), url('https://images.unsplash.com/photo-1510915361894-db8b60106cb1?q=80&w=2070&auto=format&fit=crop');
+    background-size: cover;
+    background-position: center;
     justify-content: center;
     align-items: center;
     position: relative;
-    overflow: hidden;
-}
-
-.login-bg-overlay {
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: radial-gradient(circle at center, rgba(240, 90, 40, 0.1) 0%, rgba(13, 13, 13, 1) 70%);
-    z-index: 1;
 }
 
 .login-container {
-    background-color: var(--surface-color);
-    padding: 2rem;
-    border-radius: 12px;
+    background-color: rgba(30, 30, 30, 0.85); /* Fundo um pouco mais transparente */
+    backdrop-filter: blur(10px); /* Efeito de vidro */
+    padding: 2.5rem 2rem;
+    border-radius: 16px;
     width: 90%;
     max-width: 400px;
     z-index: 2;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
     text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* AJUSTE DA LOGO PRETA */
 .logo {
-    width: 150px;
+    width: 140px;
     margin-bottom: 1.5rem;
+    border-radius: 50%;
+    /* Adiciona um brilho sutil ao redor do círculo preto para destacá-lo do fundo escuro */
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.2), 0 0 10px rgba(240, 90, 40, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.8); /* Borda branca fina para definir o formato */
 }
 
 h2 {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
     margin-bottom: 2rem;
     font-weight: 500;
+    color: #eaeaea;
 }
 
 .input-group {
@@ -83,18 +86,19 @@ h2 {
 }
 
 .input-group input {
-    padding: 12px;
+    padding: 14px;
     border-radius: 8px;
-    border: 1px solid #333;
-    background-color: #242424;
+    border: 1px solid #444;
+    background-color: rgba(0, 0, 0, 0.5);
     color: var(--text-main);
     font-size: 1rem;
     outline: none;
-    transition: border-color 0.3s;
+    transition: all 0.3s;
 }
 
 .input-group input:focus {
     border-color: var(--primary-color);
+    box-shadow: 0 0 8px rgba(240, 90, 40, 0.3);
 }
 
 .error-message {
@@ -106,7 +110,7 @@ h2 {
 
 .btn-primary {
     width: 100%;
-    padding: 12px;
+    padding: 14px;
     background-color: var(--primary-color);
     color: var(--text-main);
     border: none;
@@ -121,7 +125,13 @@ h2 {
     background-color: var(--primary-hover);
 }
 
-/* --- SYSTEM SCREEN (Básico) --- */
+/* --- SYSTEM SCREEN (SPA Layout) --- */
+#system-screen {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
 .app-header {
     display: flex;
     justify-content: space-between;
@@ -131,8 +141,17 @@ h2 {
     border-bottom: 1px solid #333;
 }
 
+.header-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: bold;
+}
+
 .logo-small {
-    height: 40px;
+    height: 35px;
+    border-radius: 50%;
+    border: 1px solid white;
 }
 
 .btn-logout {
@@ -144,6 +163,56 @@ h2 {
     cursor: pointer;
 }
 
-.content {
-    padding: 2rem 1rem;
+.content-area {
+    flex: 1;
+    overflow-y: auto; /* Permite rolar a página */
+    padding: 1.5rem 1rem;
+    padding-bottom: 80px; /* Espaço para a barra inferior no celular */
+}
+
+.subpage {
+    display: none;
+}
+
+.subpage.active {
+    display: block;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- NAVEGAÇÃO INFERIOR (MOBILE FIRST) --- */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color: var(--surface-color);
+    display: flex;
+    justify-content: space-around;
+    padding: 10px 0;
+    border-top: 1px solid #333;
+    z-index: 10;
+}
+
+.nav-item {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    transition: color 0.3s;
+}
+
+.nav-item.active {
+    color: var(--primary-color);
+    font-weight: bold;
 }
