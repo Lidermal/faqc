@@ -64,7 +64,7 @@
 
         <div class="main-content">
             <header class="app-header">
-                <button class="btn-menu" onclick="toggleSidebar()">
+                <button class="btn-menu" id="desktop-menu-btn" onclick="toggleSidebar()">
                     <span class="material-symbols-outlined">menu</span>
                 </button>
                 <div class="user-info">
@@ -106,10 +106,62 @@
                     </div>
                 </section>
 
-                <section id="page-membros" class="subpage hidden"><h2>Membros</h2></section>
-                <section id="page-escalas" class="subpage hidden"><h2>Escalas</h2></section>
-                <section id="page-repertorio" class="subpage hidden"><h2>Repertório</h2></section>
-                <section id="page-admin" class="subpage hidden"><h2>Administração</h2></section>
+                <section id="page-membros" class="subpage hidden">
+                    <div class="page-header">
+                        <h2>Equipe do Ministério</h2>
+                    </div>
+                    <div id="members-grid" class="members-grid">
+                        <p class="loading-text">Carregando membros...</p>
+                    </div>
+                </section>
+
+                <section id="page-escalas" class="subpage hidden">
+                    <h2>Escalas (Em breve)</h2>
+                </section>
+
+                <section id="page-repertorio" class="subpage hidden">
+                    <h2>Repertório (Em breve)</h2>
+                </section>
+
+                <section id="page-admin" class="subpage hidden">
+                    <div class="page-header">
+                        <h2>Administração de Membros</h2>
+                    </div>
+                    
+                    <div class="admin-container">
+                        <div class="card form-card">
+                            <div class="card-header">
+                                <span class="material-symbols-outlined">person_add</span>
+                                <h3>Adicionar Novo Membro</h3>
+                            </div>
+                            <div class="card-body">
+                                <div class="input-group">
+                                    <label>Usuário de Acesso (ex: nome.sobrenome)</label>
+                                    <input type="text" id="new-username" placeholder="joao.silva">
+                                </div>
+                                <div class="input-group">
+                                    <label>Nome Completo</label>
+                                    <input type="text" id="new-fullname" placeholder="João da Silva">
+                                </div>
+                                <div class="checkbox-group">
+                                    <label><input type="checkbox" id="new-is-leader"> É Líder?</label>
+                                </div>
+                                <button class="btn-primary" onclick="createNewMember()">Cadastrar Membro</button>
+                                <span id="admin-msg" class="admin-message"></span>
+                            </div>
+                        </div>
+
+                        <div class="card list-card">
+                            <div class="card-header">
+                                <span class="material-symbols-outlined">manage_accounts</span>
+                                <h3>Gerenciar Equipe</h3>
+                            </div>
+                            <div class="card-body" id="admin-members-list">
+                                <p class="loading-text">Carregando...</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
         
