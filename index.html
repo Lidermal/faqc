@@ -70,7 +70,7 @@
                                 <h4 style="color:var(--text-muted); margin-bottom:10px;">Domingo às 18:30</h4>
                                 <div class="countdown" id="countdown-timer">00d 00h 00m 00s</div>
                                 <hr class="divider">
-                                <h4>Equipe Escalada</h4>
+                                <h4 style="margin-bottom:12px;">Equipe Escalada</h4>
                                 <div id="next-scale-team"><p class="loading-text">Buscando escala...</p></div>
                             </div>
                         </div>
@@ -192,6 +192,7 @@
                 
                 <div class="medley-builder">
                     <h4>Músicas do Medley:</h4>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">⚠️ É obrigatório definir a <strong>seção/parte</strong> de cada música (Ex: Refrão, Ponte, Intro).</p>
                     <div class="input-group" style="flex-direction:row; gap:10px;">
                         <select id="medley-song-selector" style="flex:1;"><option value="">Selecione do Repertório...</option></select>
                         <button class="btn-secondary" onclick="addSongToMedleyDraft()">Adicionar</button>
@@ -228,11 +229,12 @@
         </div>
     </div>
 
-    <!-- Modal: Criar Escala Múltipla -->
+    <!-- Modal: Criar/Editar Escala Múltipla -->
     <div id="modal-add-scale" class="modal fullscreen-mobile">
         <div class="modal-content">
-            <div class="modal-header"><h3>Nova Escala</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
+            <div class="modal-header"><h3 id="scale-modal-title">Nova Escala</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
             <div class="modal-body">
+                <input type="hidden" id="editing-scale-id" value="">
                 <div class="input-group"><label>Data do Culto *</label><input type="date" id="scale-date"></div>
                 <div class="input-group"><label>Observações</label><input type="text" id="scale-notes" placeholder="Ex: Culto de Santa Ceia"></div>
                 
