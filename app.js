@@ -102,7 +102,12 @@ function navigate(pageId) {
 function closeModals() { 
     document.querySelectorAll('.modal').forEach(m => {
         if(!m.classList.contains('custom-alert-modal')) m.classList.remove('active'); 
-    }); 
+    });
+    // Reset do modo de edição de escala
+    const editingField = document.getElementById('editing-scale-id');
+    if(editingField) editingField.value = '';
+    const modalTitle = document.getElementById('scale-modal-title');
+    if(modalTitle) modalTitle.textContent = 'Nova Escala';
 }
 function toggleSidebar() {} 
 
@@ -153,6 +158,7 @@ async function fetchDailyMessage() {
     } catch (e) { container.innerHTML = `<p>Erro na mensagem.</p>`; }
 }
 
+// NOVO: Lista da equipe escalada com mesmo padrão visual das Escalas
 async function fetchNextScaleHome() {
     const container = document.getElementById('next-scale-team');
     const today = new Date().toISOString().split('T')[0];
@@ -161,15 +167,18 @@ async function fetchNextScaleHome() {
         const scaleData = await scaleRes.json();
         if (scaleData.length > 0) {
             const scaleId = scaleData[0].id;
-            const itemsRes = await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}&select=role,members(full_name)`, { headers });
+            const itemsRes = await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}&select=role,members(full_name)&order=role.asc`, { headers });
             const itemsData = await itemsRes.json();
             if (itemsData.length > 0) {
-                let html = '';
-                itemsData.forEach(i => { html += `<div style="display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px solid #eee;"><strong>${i.members.full_name}</strong><span>${i.role.toUpperCase()}</span></div>`; });
+                let html = '<div class="home-team-list">';
+                itemsData.forEach(i => { 
+                    html += `<div class="home-team-item"><strong>${i.members.full_name}</strong><span>${i.role}</span></div>`; 
+                });
+                html += '</div>';
                 container.innerHTML = html;
-            } else container.innerHTML = `<p>Escala vazia.</p>`;
-        } else container.innerHTML = `<p>Nenhuma escala programada.</p>`;
-    } catch (e) { container.innerHTML = `<p>Erro.</p>`; }
+            } else container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Escala vazia.</p>`;
+        } else container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Nenhuma escala programada.</p>`;
+    } catch (e) { container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:10px 0;">Erro ao carregar.</p>`; }
 }
 
 // ==========================================
@@ -257,7 +266,7 @@ async function saveNewRepertoire() {
 }
 
 // ==========================================
-// REPERTÓRIO & MEDLEY MELHORADO
+// REPERTÓRIO & MEDLEY MELHORADO (com partes obrigatórias)
 // ==========================================
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
@@ -297,7 +306,7 @@ function addSongToMedleyDraft() {
     if(!songId) return;
     const songObj = allRepertoireCache.find(s => s.id === songId);
     
-    // Adiciona ao rascunho com uma parte em branco
+    // Adiciona ao rascunho com uma parte em branco (obrigatória)
     medleyDraft.push({ id: songId, title: songObj.title, part: "" });
     select.value = ""; // reseta
     renderMedleyDraft();
@@ -315,7 +324,23 @@ function renderMedleyDraft() {
                     <strong>${index+1}. ${item.title}</strong>
                     <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removeMedleyDraftItem(${index})">delete</span>
                 </div>
-                <input type="text" placeholder="Qual parte vai cantar? (Ex: Só o Refrão e Ponte)" value="${item.part}" oninput="updateMedleyPart(${index}, this.value)" style="padding:6px; border:1px solid #ccc; border-radius:6px; font-size:0.85rem; margin-top:5px;">
+                <div style="display:flex; gap:8px; align-items:center; margin-top:5px; flex-wrap:wrap;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); font-weight:600; white-space:nowrap;">Seção/Parte *:</label>
+                    <input type="text" list="part-suggestions-${index}" placeholder="Ex: Refrão, Ponte, Intro..." value="${item.part}" oninput="updateMedleyPart(${index}, this.value)" style="flex:1; min-width:150px; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:0.85rem;" required>
+                    <datalist id="part-suggestions-${index}">
+                        <option value="Intro">
+                        <option value="Verso 1">
+                        <option value="Verso 2">
+                        <option value="Pré-Refrão">
+                        <option value="Refrão">
+                        <option value="Ponte">
+                        <option value="Final">
+                        <option value="Completa">
+                        <option value="Só o Refrão">
+                        <option value="Refrão + Ponte">
+                        <option value="Verso + Refrão">
+                    </datalist>
+                </div>
             </div>
         `;
     });
@@ -330,16 +355,30 @@ async function saveNewMedley() {
     if(!title) { showCustomAlert('Dê um nome ao Medley.'); return; }
     if(medleyDraft.length < 2) { showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); return; }
 
+    // NOVO: Validação obrigatória das partes/seções
+    const emptyParts = medleyDraft.filter(item => !item.part || item.part.trim() === '');
+    if(emptyParts.length > 0) {
+        showCustomAlert('Você precisa definir a SEÇÃO/PARTE de cada música do Medley (Ex: Refrão, Ponte, Intro, Verso). Esta informação é obrigatória.');
+        return;
+    }
+
     try {
         const res = await fetch(`${SUPABASE_URL}/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title: title, is_medley: true, created_by: currentUserData.id }) });
         const savedMedley = await res.json();
         const medleyId = savedMedley[0].id;
 
+        // Salva cada música com sua seção definida
         for(let item of medleyDraft) {
-            const section = item.part.trim() || 'Completa';
-            await fetch(`${SUPABASE_URL}/repertoire_medley_parts`, { method: 'POST', headers, body: JSON.stringify({ medley_repertoire_id: medleyId, song_repertoire_id: item.id, section: section }) });
+            const section = item.part.trim();
+            await fetch(`${SUPABASE_URL}/repertoire_medley_parts`, { 
+                method: 'POST', 
+                headers, 
+                body: JSON.stringify({ medley_repertoire_id: medleyId, song_repertoire_id: item.id, section: section }) 
+            });
         }
-        showCustomAlert('Medley criado com sucesso!'); closeModals(); loadRepertoire();
+        showCustomAlert('Medley criado com sucesso!', 'Sucesso'); 
+        closeModals(); 
+        loadRepertoire();
     } catch(e) { showCustomAlert('Erro ao salvar medley.'); }
 }
 
@@ -359,7 +398,7 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley) {
         const res = await fetch(`${SUPABASE_URL}/repertoire_medley_parts?medley_repertoire_id=eq.${id}&select=section,repertoire!song_repertoire_id(title)`, { headers });
         const parts = await res.json();
         let html = '<strong>Estrutura do Medley:</strong><br>';
-        parts.forEach(p => { html += `• <em>${p.section}</em> de ${p.repertoire.title}<br>`; });
+        parts.forEach((p, idx) => { html += `<div style="padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.05);">• <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span></div>`; });
         partsDisplay.innerHTML = html;
     } else { partsDisplay.classList.add('hidden'); }
 }
@@ -395,7 +434,7 @@ async function deleteKey(keyId) {
 }
 
 // ==========================================
-// ESCALAS (Escalação Estilo Time & Histórico)
+// ESCALAS (Escalação Estilo Time, Histórico, Editar e Excluir)
 // ==========================================
 function switchScaleTab(tab) {
     document.getElementById('tab-future').classList.remove('active');
@@ -446,19 +485,16 @@ function renderScaleCards(scaleArray, isFuture) {
 
         // Monta o "Campo" (Lineup)
         let lineupHtml = '<div class="lineup-field">';
-        // Linha 1: Lideres
         if(team.lider.length > 0) {
             lineupHtml += '<div class="lineup-row">';
             team.lider.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar lider">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Líder</span></div>`);
             lineupHtml += '</div>';
         }
-        // Linha 2: Vocal
         if(team.vocal.length > 0) {
             lineupHtml += '<div class="lineup-row">';
             team.vocal.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Vocal</span></div>`);
             lineupHtml += '</div>';
         }
-        // Linha 3: Banda
         if(team.banda.length > 0) {
             lineupHtml += '<div class="lineup-row">';
             team.banda.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">${p.role}</span></div>`);
@@ -468,11 +504,22 @@ function renderScaleCards(scaleArray, isFuture) {
 
         let songsHtml = ''; s.scale_songs.forEach(song => { songsHtml += `<span>🎵 ${song.repertoire.title}</span>`; });
 
+        // NOVO: Botões de Editar/Excluir apenas para líderes
+        const actionsHtml = currentUserData.is_leader ? `
+            <div class="scale-folder-actions">
+                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar Escala"><span class="material-symbols-outlined" style="font-size:1.1rem;">edit</span></button>
+                <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir Escala"><span class="material-symbols-outlined" style="font-size:1.1rem;">delete</span></button>
+            </div>
+        ` : '';
+
         html += `
             <div class="scale-folder">
                 <div class="scale-folder-header">
-                    <h3><span class="material-symbols-outlined">${isFuture ? 'event' : 'inventory_2'}</span> Culto: ${dateStr}</h3>
-                    <p>${s.notes || 'Sem observações'}</p>
+                    <div class="scale-folder-header-text">
+                        <h3><span class="material-symbols-outlined">${isFuture ? 'event' : 'inventory_2'}</span> Culto: ${dateStr}</h3>
+                        <p>${s.notes || 'Sem observações'}</p>
+                    </div>
+                    ${actionsHtml}
                 </div>
                 ${lineupHtml}
                 <div class="scale-songs-list">${songsHtml || 'Nenhuma música definida.'}</div>
@@ -481,8 +528,89 @@ function renderScaleCards(scaleArray, isFuture) {
     return html;
 }
 
+// NOVO: Excluir escala (apenas líderes) - sincroniza Supabase em cascata
+async function deleteScale(scaleId) {
+    showCustomConfirm('Deseja realmente excluir esta escala? Esta ação removerá a equipe e o repertório vinculados e não pode ser desfeita.', async () => {
+        try {
+            // Excluir em cascata: itens da equipe, músicas e a escala
+            await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
+            await fetch(`${SUPABASE_URL}/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
+            const res = await fetch(`${SUPABASE_URL}/scales?id=eq.${scaleId}`, { method: 'DELETE', headers });
+            
+            if(!res.ok) throw new Error('Falha ao excluir');
+            
+            showCustomAlert('Escala excluída com sucesso!', 'Sucesso');
+            loadScales();
+            // Atualiza o dashboard também, caso a escala excluída fosse a próxima
+            if(document.getElementById('page-home').classList.contains('active')) {
+                fetchNextScaleHome();
+            }
+        } catch (e) { 
+            showCustomAlert('Erro ao excluir escala. Verifique sua conexão.'); 
+        }
+    }, 'Excluir Escala');
+}
+
+// NOVO: Abrir modal de edição com dados pré-preenchidos
+async function openEditScaleModal(scaleId) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/scales?id=eq.${scaleId}&select=*,scale_items(member_id,role,members(full_name)),scale_songs(repertoire_id)`, { headers });
+        const data = await res.json();
+        if(data.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
+        
+        const scale = data[0];
+        
+        // Abre o modal no modo edição
+        document.getElementById('modal-add-scale').classList.add('active');
+        document.getElementById('editing-scale-id').value = scaleId;
+        document.getElementById('scale-modal-title').textContent = 'Editar Escala';
+        
+        // Preenche data e observações
+        document.getElementById('scale-date').value = scale.event_date;
+        document.getElementById('scale-notes').value = scale.notes || '';
+        
+        // Preenche draft da equipe
+        scaleDraftTeam = scale.scale_items.map(i => ({
+            memberId: i.member_id,
+            role: i.role,
+            name: i.members.full_name
+        }));
+        renderScaleDraftTeam();
+        
+        // Carrega membros e repertório se necessário
+        if(allMembersCache.length === 0) {
+            const resMem = await fetch(`${SUPABASE_URL}/members?select=id,full_name,member_roles(role)`, { headers });
+            allMembersCache = await resMem.json();
+        }
+        if(allRepertoireCache.length === 0) {
+            const resRep = await fetch(`${SUPABASE_URL}/repertoire?select=id,title&order=title.asc`, { headers });
+            allRepertoireCache = await resRep.json();
+        }
+        
+        // Preenche select de membros
+        const memberSelect = document.getElementById('scale-draft-member');
+        memberSelect.innerHTML = '<option value="">Selecionar Membro...</option>';
+        allMembersCache.forEach(m => { memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; });
+        
+        // Preenche músicas com as já selecionadas marcadas
+        const songsContainer = document.getElementById('scale-songs-selectors');
+        const selectedSongIds = scale.scale_songs.map(s => s.repertoire_id);
+        songsContainer.innerHTML = '';
+        allRepertoireCache.forEach(song => {
+            const checked = selectedSongIds.includes(song.id) ? 'checked' : '';
+            songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}> ${song.title}</label>`;
+        });
+        
+    } catch (e) { 
+        showCustomAlert('Erro ao carregar escala para edição.'); 
+    }
+}
+
 async function openScaleModal() {
     document.getElementById('modal-add-scale').classList.add('active');
+    // Garante modo criação (limpa qualquer edição anterior)
+    document.getElementById('editing-scale-id').value = '';
+    document.getElementById('scale-modal-title').textContent = 'Nova Escala';
     scaleDraftTeam = []; renderScaleDraftTeam();
     
     if(allMembersCache.length === 0) {
@@ -538,29 +666,68 @@ function renderScaleDraftTeam() {
     list.innerHTML = html;
 }
 
+// ATUALIZADO: Suporta criação E edição de escalas com sincronização imediata
 async function saveNewScale() {
     const date = document.getElementById('scale-date').value;
     const notes = document.getElementById('scale-notes').value;
+    const editingId = document.getElementById('editing-scale-id').value;
+    
     if(!date) { showCustomAlert('A data do culto é obrigatória.'); return; }
     if(scaleDraftTeam.length === 0) { showCustomAlert('Escalone pelo menos 1 membro na equipe.'); return; }
 
     try {
-        const resScale = await fetch(`${SUPABASE_URL}/scales`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ time_key: date.substring(0,7), event_date: date, notes: notes, created_by: currentUserData.id }) });
-        const savedScale = await resScale.json();
-        const scaleId = savedScale[0].id;
-
-        // Salva a equipe múltipla
-        for(let item of scaleDraftTeam) {
-            await fetch(`${SUPABASE_URL}/scale_items`, { method: 'POST', headers, body: JSON.stringify({ scale_id: scaleId, member_id: item.memberId, role: item.role }) });
+        let scaleId;
+        
+        if(editingId) {
+            // MODO EDIÇÃO: Atualiza a escala existente
+            await fetch(`${SUPABASE_URL}/scales?id=eq.${editingId}`, { 
+                method: 'PATCH', 
+                headers, 
+                body: JSON.stringify({ event_date: date, notes: notes, time_key: date.substring(0,7) }) 
+            });
+            scaleId = editingId;
+            
+            // Remove itens e músicas antigas para recriar (sincronização limpa)
+            await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
+            await fetch(`${SUPABASE_URL}/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
+        } else {
+            // MODO CRIAÇÃO: Cria nova escala
+            const resScale = await fetch(`${SUPABASE_URL}/scales`, { 
+                method: 'POST', 
+                headers: { ...headers, 'Prefer': 'return=representation' }, 
+                body: JSON.stringify({ time_key: date.substring(0,7), event_date: date, notes: notes, created_by: currentUserData.id }) 
+            });
+            const savedScale = await resScale.json();
+            scaleId = savedScale[0].id;
         }
 
-        // Salva as músicas
+        // Salva a equipe atualizada
+        for(let item of scaleDraftTeam) {
+            await fetch(`${SUPABASE_URL}/scale_items`, { 
+                method: 'POST', 
+                headers, 
+                body: JSON.stringify({ scale_id: scaleId, member_id: item.memberId, role: item.role }) 
+            });
+        }
+
+        // Salva as músicas selecionadas
         const songCbs = document.querySelectorAll('.scale-song-cb:checked');
         for(let cb of songCbs) {
-            await fetch(`${SUPABASE_URL}/scale_songs`, { method: 'POST', headers, body: JSON.stringify({ scale_id: scaleId, repertoire_id: cb.value }) });
+            await fetch(`${SUPABASE_URL}/scale_songs`, { 
+                method: 'POST', 
+                headers, 
+                body: JSON.stringify({ scale_id: scaleId, repertoire_id: cb.value }) 
+            });
         }
 
-        showCustomAlert('Escala criada e salva com sucesso!'); closeModals(); loadScales();
+        const successMsg = editingId ? 'Escala atualizada e sincronizada com sucesso!' : 'Escala criada e salva com sucesso!';
+        showCustomAlert(successMsg, 'Sucesso'); 
+        closeModals(); 
+        loadScales();
+        // Sincroniza também o dashboard
+        if(document.getElementById('page-home').classList.contains('active')) {
+            fetchNextScaleHome();
+        }
     } catch(e) { showCustomAlert('Erro ao salvar escala. Verifique a conexão.'); }
 }
 
@@ -604,7 +771,7 @@ async function loadAdminMembers() {
             const currentRoles = m.member_roles.map(r => r.role);
             html += `<div class="admin-list-item" id="admin-item-${m.id}">
                     <div><strong>${m.full_name}</strong> <span style="font-size:0.8rem">(${m.username})</span></div>
-                    <div class="admin-actions"><button class="btn-icon" onclick="document.getElementById('editor-${m.id}').classList.toggle('hidden')"><span class="material-symbols-outlined">edit_attributes</span></button><button class="btn-icon" onclick="deleteMember('${m.id}')"><span class="material-symbols-outlined">delete</span></button></div>
+                    <div class="admin-actions"><button class="btn-icon" onclick="document.getElementById('editor-${m.id}').classList.toggle('hidden')"><span class="material-symbols-outlined">edit_attributes</span></button><button class="btn-icon danger" onclick="deleteMember('${m.id}')"><span class="material-symbols-outlined">delete</span></button></div>
                     <div class="roles-editor hidden" id="editor-${m.id}">${['lider', 'vocal', 'baterista', 'teclado', 'violao', 'baixo'].map(role => `<label class="role-check-item"><input type="checkbox" onchange="updateRole('${m.id}', '${role}', this.checked)" ${currentRoles.includes(role) || (role==='lider' && m.is_leader) ? 'checked' : ''}>${role.toUpperCase()}</label>`).join('')}</div>
                 </div>`;
         });
