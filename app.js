@@ -1,25 +1,42 @@
+// URLs do Supabase
 const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos';
 
 const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
 
-// Inicializar Supabase Client com Realtime
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
+// Variáveis globais
 let currentUserData = null;
 let countdownInterval;
 let currentViewingRepertoireId = null;
 let allRepertoireCache = [];
 let allMembersCache = [];
 let realtimeChannels = [];
+let supabaseClient = null;
 
-// Variáveis para os rascunhos (Medley e Escala)
+// Variáveis para os rascunhos
 let scaleDraftTeam = [];
-
-// Variáveis do Medley com estrofes
-let medleyDraft = []; // [{songId, songTitle, sections: [{label, content}]}]
+let medleyDraft = [];
 let medleyCurrentSongId = null;
-let medleyCurrentSongVerses = []; // [{label, content, selected}]
+let medleyCurrentSongVerses = [];
+
+// ==========================================
+// INICIALIZAÇÃO SEGURA DO SUPABASE
+// ==========================================
+function initSupabase() {
+    try {
+        if (window.supabase) {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+            console.log('✅ Supabase client inicializado');
+            return true;
+        } else {
+            console.warn('⚠️ Supabase library não carregada, realtime desativado');
+            return false;
+        }
+    } catch (e) {
+        console.error('❌ Erro ao inicializar Supabase:', e);
+        return false;
+    }
+}
 
 // ==========================================
 // ALERTAS PERSONALIZADOS
@@ -29,7 +46,10 @@ function showCustomAlert(msg, title = "Aviso") {
     document.getElementById('alert-msg').textContent = msg;
     document.getElementById('modal-alert').classList.add('active');
 }
-function closeCustomAlert() { document.getElementById('modal-alert').classList.remove('active'); }
+
+function closeCustomAlert() { 
+    document.getElementById('modal-alert').classList.remove('active'); 
+}
 
 function showCustomConfirm(msg, callback, title = "Atenção") {
     document.getElementById('confirm-title').textContent = title;
@@ -41,8 +61,10 @@ function showCustomConfirm(msg, callback, title = "Atenção") {
         if(callback) callback();
     };
 }
-function closeCustomConfirm() { document.getElementById('modal-confirm').classList.remove('active'); }
 
+function closeCustomConfirm() { 
+    document.getElementById('modal-confirm').classList.remove('active'); 
+}
 
 // ==========================================
 // AUTENTICAÇÃO E NAVEGAÇÃO
@@ -51,56 +73,93 @@ async function handleLogin() {
     const usernameInput = document.getElementById('username').value.trim().toLowerCase();
     const btnLogin = document.getElementById('btn-login');
 
-    if (!usernameInput) { showCustomAlert('Por favor, digite seu usuário.'); return; }
+    if (!usernameInput) { 
+        showCustomAlert('Por favor, digite seu usuário.'); 
+        return; 
+    }
 
-    btnLogin.disabled = true; btnLogin.textContent = 'Validando...';
+    btnLogin.disabled = true; 
+    btnLogin.textContent = 'Validando...';
 
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${usernameInput}&select=*`, { method: 'GET', headers });
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${usernameInput}&select=*`, { 
+            method: 'GET', 
+            headers 
+        });
         const data = await response.json();
 
         if (data.length > 0) {
             currentUserData = data[0];
             localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
             showSystemScreen();
-        } else { showCustomAlert('Usuário não encontrado.'); }
-    } catch (error) { showCustomAlert('Erro de conexão. Verifique sua internet.'); } 
-    finally { btnLogin.disabled = false; btnLogin.textContent = 'Entrar'; }
+        } else { 
+            showCustomAlert('Usuário não encontrado.'); 
+        }
+    } catch (error) { 
+        console.error('Erro no login:', error);
+        showCustomAlert('Erro de conexão. Verifique sua internet.'); 
+    } finally { 
+        btnLogin.disabled = false; 
+        btnLogin.textContent = 'Entrar'; 
+    }
 }
 
 function showSystemScreen() {
-    document.getElementById('login-screen').classList.remove('active'); document.getElementById('login-screen').classList.add('hidden');
-    document.getElementById('system-screen').classList.remove('hidden'); document.getElementById('system-screen').classList.add('active');
+    document.getElementById('login-screen').classList.remove('active'); 
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('system-screen').classList.remove('hidden'); 
+    document.getElementById('system-screen').classList.add('active');
     document.getElementById('user-display-name').textContent = currentUserData.full_name;
 
     if (currentUserData.is_leader) {
         document.getElementById('nav-admin').classList.remove('hidden');
         document.getElementById('btn-add-scale').classList.remove('hidden');
     }
-    // Todos podem adicionar música e medley
+    
     document.getElementById('repertoire-actions').classList.remove('hidden');
     
     navigate('home');
-    setupRealtimeSubscriptions();
+    
+    // Inicializar realtime após login bem-sucedido
+    if (!supabaseClient) {
+        initSupabase();
+    }
+    if (supabaseClient) {
+        setupRealtimeSubscriptions();
+    }
 }
 
 function handleLogout() {
     // Desinscrever dos canais realtime
-    realtimeChannels.forEach(ch => {
-        try { supabase.removeChannel(ch); } catch(e) {}
-    });
-    realtimeChannels = [];
+    if (realtimeChannels.length > 0 && supabaseClient) {
+        realtimeChannels.forEach(ch => {
+            try { 
+                supabaseClient.removeChannel(ch); 
+            } catch(e) {
+                console.error('Erro ao remover canal:', e);
+            }
+        });
+        realtimeChannels = [];
+    }
     
-    localStorage.removeItem('sessionUser'); currentUserData = null; clearInterval(countdownInterval);
-    document.getElementById('system-screen').classList.remove('active'); document.getElementById('system-screen').classList.add('hidden');
-    document.getElementById('login-screen').classList.remove('hidden'); document.getElementById('login-screen').classList.add('active');
+    localStorage.removeItem('sessionUser'); 
+    currentUserData = null; 
+    clearInterval(countdownInterval);
+    
+    document.getElementById('system-screen').classList.remove('active'); 
+    document.getElementById('system-screen').classList.add('hidden');
+    document.getElementById('login-screen').classList.remove('hidden'); 
+    document.getElementById('login-screen').classList.add('active');
     document.getElementById('username').value = '';
     document.getElementById('nav-admin').classList.add('hidden');
     document.getElementById('btn-add-scale').classList.add('hidden');
 }
 
 function navigate(pageId) {
-    document.querySelectorAll('.subpage').forEach(page => { page.classList.remove('active'); page.classList.remove('hidden'); });
+    document.querySelectorAll('.subpage').forEach(page => { 
+        page.classList.remove('active'); 
+        page.classList.remove('hidden'); 
+    });
     const targetPage = document.getElementById('page-' + pageId);
     if(targetPage) targetPage.classList.add('active');
 
@@ -125,68 +184,84 @@ function closeModals() {
     if(modalTitle) modalTitle.textContent = 'Nova Escala';
     resetMedleyFlow();
 }
+
 function toggleSidebar() {} 
 
 // ==========================================
-// SUPABASE REALTIME - Sincronização ao vivo
+// SUPABASE REALTIME
 // ==========================================
 function setupRealtimeSubscriptions() {
-    // Canal para mudanças no repertório
-    const repChannel = supabase
-        .channel('repertoire-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire' }, (payload) => {
-            console.log('Mudança no repertório:', payload);
-            if(document.getElementById('page-repertorio').classList.contains('active')) {
-                loadRepertoire();
-            }
-            // Atualizar o seletor de músicas do medley se estiver aberto
-            if(document.getElementById('modal-add-medley').classList.contains('active')) {
-                loadMedleySongsList();
-            }
-        })
-        .subscribe();
-    realtimeChannels.push(repChannel);
+    if (!supabaseClient) {
+        console.warn('Realtime não disponível');
+        return;
+    }
 
-    // Canal para mudanças nas escalas
-    const scaleChannel = supabase
-        .channel('scale-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'scales' }, (payload) => {
-            console.log('Mudança nas escalas:', payload);
-            if(document.getElementById('page-escalas').classList.contains('active')) {
-                loadScales();
-            }
-            if(document.getElementById('page-home').classList.contains('active')) {
-                fetchNextScaleHome();
-            }
-        })
-        .subscribe();
-    realtimeChannels.push(scaleChannel);
+    try {
+        // Canal para mudanças no repertório
+        const repChannel = supabaseClient
+            .channel('repertoire-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire' }, (payload) => {
+                console.log('Mudança no repertório:', payload);
+                if(document.getElementById('page-repertorio').classList.contains('active')) {
+                    loadRepertoire();
+                }
+                if(document.getElementById('modal-add-medley').classList.contains('active')) {
+                    loadMedleySongsList();
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(repChannel);
 
-    // Canal para mudanças nos membros
-    const memberChannel = supabase
-        .channel('member-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
-            console.log('Mudança nos membros:', payload);
-            if(document.getElementById('page-membros').classList.contains('active')) {
-                loadMembers();
-            }
-            if(document.getElementById('page-admin').classList.contains('active')) {
-                loadAdminMembers();
-            }
-        })
-        .subscribe();
-    realtimeChannels.push(memberChannel);
+        // Canal para mudanças nas escalas
+        const scaleChannel = supabaseClient
+            .channel('scale-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'scales' }, (payload) => {
+                console.log('Mudança nas escalas:', payload);
+                if(document.getElementById('page-escalas').classList.contains('active')) {
+                    loadScales();
+                }
+                if(document.getElementById('page-home').classList.contains('active')) {
+                    fetchNextScaleHome();
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(scaleChannel);
+
+        // Canal para mudanças nos membros
+        const memberChannel = supabaseClient
+            .channel('member-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
+                console.log('Mudança nos membros:', payload);
+                if(document.getElementById('page-membros').classList.contains('active')) {
+                    loadMembers();
+                }
+                if(document.getElementById('page-admin').classList.contains('active')) {
+                    loadAdminMembers();
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(memberChannel);
+        
+        console.log('✅ Realtime subscriptions configuradas');
+    } catch (e) {
+        console.error('❌ Erro ao configurar realtime:', e);
+    }
 }
 
 // ==========================================
 // INÍCIO (Relógio para 18:30)
 // ==========================================
-function loadDashboard() { startCountdown(); fetchDailyMessage(); fetchNextScaleHome(); }
+function loadDashboard() { 
+    startCountdown(); 
+    fetchDailyMessage(); 
+    fetchNextScaleHome(); 
+}
 
 function startCountdown() {
     clearInterval(countdownInterval);
     function updateTimer() {
-        const now = new Date(); const target = new Date();
+        const now = new Date(); 
+        const target = new Date();
         const daysUntilSunday = (7 - now.getDay()) % 7;
         
         if (daysUntilSunday === 0 && (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 30))) {
@@ -197,11 +272,14 @@ function startCountdown() {
         target.setHours(18, 30, 0, 0);
         
         const diff = target - now;
-        const d = Math.floor(diff / (1000 * 60 * 60 * 24)); const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); const s = Math.floor((diff % (1000 * 60)) / 1000);
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24)); 
+        const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); 
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
         document.getElementById('countdown-timer').textContent = `${String(d).padStart(2, '0')}d ${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
     }
-    updateTimer(); countdownInterval = setInterval(updateTimer, 1000);
+    updateTimer(); 
+    countdownInterval = setInterval(updateTimer, 1000);
 }
 
 const worshipVerses = [
@@ -216,15 +294,17 @@ async function fetchDailyMessage() {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/daily_message?date=eq.${dateString}&select=*`, { headers });
         const data = await res.json();
-        if (data.length > 0) container.innerHTML = `<p>"${data[0].verse_text}"</p><span class="verse-ref">- ${data[0].verse_ref}</span>`;
-        else {
+        if (data.length > 0) {
+            container.innerHTML = `<p>"${data[0].verse_text}"</p><span class="verse-ref">- ${data[0].verse_ref}</span>`;
+        } else {
             const verse = worshipVerses[new Date().getDate() % worshipVerses.length];
             container.innerHTML = `<p>"${verse.text}"</p><span class="verse-ref">- ${verse.ref}</span>`;
         }
-    } catch (e) { container.innerHTML = `<p>Erro na mensagem.</p>`; }
+    } catch (e) { 
+        container.innerHTML = `<p>Erro na mensagem.</p>`; 
+    }
 }
 
-// EQUIPE ESCALADA NO DASHBOARD - NOVO DESIGN
 async function fetchNextScaleHome() {
     const container = document.getElementById('next-scale-team');
     const today = new Date().toISOString().split('T')[0];
@@ -284,9 +364,15 @@ async function fetchNextScaleHome() {
                 
                 html += '</div>';
                 container.innerHTML = html;
-            } else container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Escala vazia.</p>`;
-        } else container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Nenhuma escala programada.</p>`;
-    } catch (e) { container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:10px 0;">Erro ao carregar.</p>`; }
+            } else {
+                container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Escala vazia.</p>`;
+            }
+        } else {
+            container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Nenhuma escala programada.</p>`;
+        }
+    } catch (e) { 
+        container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:10px 0;">Erro ao carregar.</p>`; 
+    }
 }
 
 // ==========================================
@@ -304,7 +390,10 @@ async function searchMusicList() {
     const resultsContainer = document.getElementById('search-results');
     const msgBox = document.getElementById('search-msg');
     
-    if(!query) { showCustomAlert('Digite o nome da música ou cantor.'); return; }
+    if(!query) { 
+        showCustomAlert('Digite o nome da música ou cantor.'); 
+        return; 
+    }
     
     msgBox.textContent = 'Buscando e testando letras... Aguarde.';
     resultsContainer.innerHTML = '';
@@ -314,7 +403,10 @@ async function searchMusicList() {
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=5`);
         const data = await res.json();
         
-        if(data.results.length === 0) { msgBox.textContent = 'Nada encontrado.'; return; }
+        if(data.results.length === 0) { 
+            msgBox.textContent = 'Nada encontrado.'; 
+            return; 
+        }
         
         let foundAnyValid = false;
 
@@ -344,7 +436,9 @@ async function searchMusicList() {
             msgBox.textContent = 'Opções com letras confirmadas encontradas!';
         }
 
-    } catch(e) { msgBox.textContent = 'Erro ao se conectar ao buscador.'; }
+    } catch(e) { 
+        msgBox.textContent = 'Erro ao se conectar ao buscador.'; 
+    }
 }
 
 function importPreCheckedLyrics(id) {
@@ -358,15 +452,30 @@ async function saveNewRepertoire() {
     const title = document.getElementById('rep-title').value.trim();
     const lyrics = document.getElementById('rep-lyrics').value.trim();
     const initialKey = document.getElementById('rep-key').value.trim();
-    if(!title || !lyrics) { showCustomAlert('Título e Letra são obrigatórios!'); return; }
+    if(!title || !lyrics) { 
+        showCustomAlert('Título e Letra são obrigatórios!'); 
+        return; 
+    }
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title, lyrics_text: lyrics, created_by: currentUserData.id }) });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, { 
+            method: 'POST', 
+            headers: { ...headers, 'Prefer': 'return=representation' }, 
+            body: JSON.stringify({ title, lyrics_text: lyrics, created_by: currentUserData.id }) 
+        });
         const savedData = await res.json();
         if(initialKey && savedData.length > 0) {
-            await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { method: 'POST', headers, body: JSON.stringify({ repertoire_id: savedData[0].id, ton: initialKey }) });
+            await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { 
+                method: 'POST', 
+                headers, 
+                body: JSON.stringify({ repertoire_id: savedData[0].id, ton: initialKey }) 
+            });
         }
-        showCustomAlert('Música salva com sucesso!', "Sucesso"); closeModals(); loadRepertoire();
-    } catch(e) { showCustomAlert('Erro ao salvar no banco.'); }
+        showCustomAlert('Música salva com sucesso!', "Sucesso"); 
+        closeModals(); 
+        loadRepertoire();
+    } catch(e) { 
+        showCustomAlert('Erro ao salvar no banco.'); 
+    }
 }
 
 // ==========================================
@@ -378,10 +487,16 @@ async function loadRepertoire() {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&order=title.asc`, { headers });
         allRepertoireCache = await res.json();
-        if (allRepertoireCache.length === 0) { list.innerHTML = '<p>Nenhuma música.</p>'; return; }
+        if (allRepertoireCache.length === 0) { 
+            list.innerHTML = '<p>Nenhuma música.</p>'; 
+            return; 
+        }
         let html = '';
         allRepertoireCache.forEach(song => {
-            let keysHtml = ''; song.repertoire_keys.forEach(k => { keysHtml += `<span class="badge tom">${k.ton}</span>`; });
+            let keysHtml = ''; 
+            song.repertoire_keys.forEach(k => { 
+                keysHtml += `<span class="badge tom">${k.ton}</span>`; 
+            });
             html += `
                 <div class="playlist-item" onclick="openViewRepertoire('${song.id}', \`${song.title.replace(/`/g, "'")}\`, \`${encodeURIComponent(song.lyrics_text || '')}\`, ${song.is_medley})">
                     <div class="play-info">
@@ -392,14 +507,14 @@ async function loadRepertoire() {
                 </div>`;
         });
         list.innerHTML = html;
-    } catch (e) { list.innerHTML = '<p>Erro.</p>'; }
+    } catch (e) { 
+        list.innerHTML = '<p>Erro.</p>'; 
+    }
 }
 
 // ==========================================
 // MEDLEY - SELEÇÃO DE ESTROFES
 // ==========================================
-
-// Parser de estrofes: detecta padrões como "Verso 1", "Refrão", "Ponte", etc.
 function parseLyricsIntoVerses(lyrics) {
     if (!lyrics) return [];
     
@@ -408,7 +523,6 @@ function parseLyricsIntoVerses(lyrics) {
     let currentLabel = 'Intro';
     let currentLines = [];
     
-    // Padrões conhecidos de seções
     const sectionPatterns = [
         /^(intro|introdução)\s*\d*$/i,
         /^(verso|verse)\s*\d*$/i,
@@ -424,7 +538,6 @@ function parseLyricsIntoVerses(lyrics) {
         const cleanLine = line.trim().replace(/[:\[\]()]/g, '');
         for (let pattern of sectionPatterns) {
             if (pattern.test(cleanLine)) {
-                // Normalizar o label
                 if (/^intro/i.test(cleanLine)) return 'Intro';
                 if (/^verso/i.test(cleanLine)) {
                     const num = cleanLine.match(/\d+/);
@@ -449,32 +562,20 @@ function parseLyricsIntoVerses(lyrics) {
         const detectedSection = detectSection(line);
         
         if (detectedSection) {
-            // Salvar seção anterior se tiver conteúdo
             if (currentLines.length > 0) {
                 verses.push({ label: currentLabel, content: currentLines.join('\n').trim() });
             }
             currentLabel = detectedSection;
             currentLines = [];
-        } else if (line.trim() === '') {
-            // Linha em branco pode indicar separação
-            if (currentLines.length > 0 && i + 1 < lines.length && lines[i+1].trim() !== '') {
-                // Verificar se a próxima linha é uma nova seção
-                const nextDetected = detectSection(lines[i+1]);
-                if (!nextDetected) {
-                    // Não é nova seção, continua
-                }
-            }
-        } else {
+        } else if (line.trim() !== '') {
             currentLines.push(line);
         }
     }
     
-    // Salvar última seção
     if (currentLines.length > 0) {
         verses.push({ label: currentLabel, content: currentLines.join('\n').trim() });
     }
     
-    // Se não detectou nada, dividir por blocos de texto
     if (verses.length <= 1 && lyrics.trim().split(/\n\s*\n/).length > 1) {
         const blocks = lyrics.trim().split(/\n\s*\n/);
         return blocks.map((block, idx) => ({
@@ -508,7 +609,7 @@ async function loadMedleySongsList() {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&is_medley=eq.false&order=title.asc`, { headers });
         const songs = await res.json();
-        allRepertoireCache = songs; // Atualiza cache
+        allRepertoireCache = songs;
         
         if (songs.length === 0) {
             container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhuma música no repertório</p>';
@@ -538,10 +639,7 @@ async function selectMedleySong(songId) {
     const song = allRepertoireCache.find(s => s.id === songId);
     if (!song) return;
     
-    // Parse da letra em estrofes
     const verses = parseLyricsIntoVerses(song.lyrics_text);
-    
-    // Verificar se já está no draft (para manter seleções anteriores)
     const existingDraft = medleyDraft.find(d => d.songId === songId);
     
     medleyCurrentSongVerses = verses.map((v, idx) => ({
@@ -629,10 +727,8 @@ function addSelectedVersesToMedley() {
     
     const song = allRepertoireCache.find(s => s.id === medleyCurrentSongId);
     
-    // Remover entrada anterior desta música se existir
     medleyDraft = medleyDraft.filter(d => d.songId !== medleyCurrentSongId);
     
-    // Adicionar nova entrada
     medleyDraft.push({
         songId: medleyCurrentSongId,
         songTitle: song.title,
@@ -640,7 +736,7 @@ function addSelectedVersesToMedley() {
     });
     
     renderMedleyPreview();
-    loadMedleySongsList(); // Atualiza para mostrar "Já adicionada"
+    loadMedleySongsList();
     
     showCustomAlert(`${selectedVerses.length} parte(s) de "${song.title}" adicionada(s) ao medley!`, 'Partes Adicionadas');
 }
@@ -697,10 +793,15 @@ function renderMedleyPreview() {
 
 async function saveNewMedley() {
     const title = document.getElementById('medley-title').value.trim();
-    if(!title) { showCustomAlert('Dê um nome ao Medley.'); return; }
-    if(medleyDraft.length < 2) { showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); return; }
+    if(!title) { 
+        showCustomAlert('Dê um nome ao Medley.'); 
+        return; 
+    }
+    if(medleyDraft.length < 2) { 
+        showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); 
+        return; 
+    }
     
-    // Verificar se todas as músicas têm pelo menos uma seção
     for (let item of medleyDraft) {
         if (item.sections.length === 0) {
             showCustomAlert(`A música "${item.songTitle}" não tem partes selecionadas.`);
@@ -709,7 +810,6 @@ async function saveNewMedley() {
     }
 
     try {
-        // Criar o medley no repertório
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, { 
             method: 'POST', 
             headers: { ...headers, 'Prefer': 'return=representation' }, 
@@ -717,13 +817,12 @@ async function saveNewMedley() {
                 title: title, 
                 is_medley: true, 
                 created_by: currentUserData.id,
-                lyrics_text: generateMedleyLyrics() // Letra completa do medley
+                lyrics_text: generateMedleyLyrics()
             }) 
         });
         const savedMedley = await res.json();
         const medleyId = savedMedley[0].id;
 
-        // Salvar cada parte no repertoire_medley_parts
         for(let item of medleyDraft) {
             for(let section of item.sections) {
                 await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts`, { 
@@ -778,7 +877,6 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley) {
             const parts = await res.json();
             
             if (parts.length > 0 && parts[0].section_content) {
-                // Nova estrutura com conteúdo das seções
                 let html = '<strong>Estrutura do Medley:</strong><br>';
                 parts.forEach((p, idx) => { 
                     html += `<div style="padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.08);">
@@ -789,7 +887,6 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley) {
                 });
                 partsDisplay.innerHTML = html;
             } else {
-                // Estrutura antiga (sem conteúdo)
                 let html = '<strong>Estrutura do Medley:</strong><br>';
                 parts.forEach((p, idx) => { 
                     html += `<div style="padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
@@ -807,7 +904,8 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley) {
 }
 
 async function loadKeysForRepertoire(id) {
-    const container = document.getElementById('view-rep-keys'); container.innerHTML = '';
+    const container = document.getElementById('view-rep-keys'); 
+    container.innerHTML = '';
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?repertoire_id=eq.${id}`, { headers });
         const keys = await res.json();
@@ -824,20 +922,31 @@ async function addKeyToRepertoire() {
     const newKey = document.getElementById('new-key-input').value.trim();
     if(!newKey || !currentViewingRepertoireId) return;
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { method: 'POST', headers, body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey }) });
-        document.getElementById('new-key-input').value = ''; loadKeysForRepertoire(currentViewingRepertoireId); loadRepertoire();
-    } catch(e) { showCustomAlert('Erro ao adicionar tom.'); }
+        await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { 
+            method: 'POST', 
+            headers, 
+            body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey }) 
+        });
+        document.getElementById('new-key-input').value = ''; 
+        loadKeysForRepertoire(currentViewingRepertoireId); 
+        loadRepertoire();
+    } catch(e) { 
+        showCustomAlert('Erro ao adicionar tom.'); 
+    }
 }
 
 async function deleteKey(keyId) {
     showCustomConfirm('Deseja remover este tom?', async () => {
-        try { await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); loadKeysForRepertoire(currentViewingRepertoireId); loadRepertoire(); } 
-        catch(e) {}
+        try { 
+            await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); 
+            loadKeysForRepertoire(currentViewingRepertoireId); 
+            loadRepertoire(); 
+        } catch(e) {}
     });
 }
 
 // ==========================================
-// MEMBROS - Visualização em Formação de Time
+// MEMBROS
 // ==========================================
 async function loadMembers() {
     const lineup = document.getElementById('members-lineup');
@@ -845,7 +954,10 @@ async function loadMembers() {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
         const members = await res.json();
-        if (members.length === 0) { lineup.innerHTML = '<p style="color:white; text-align:center;">Nenhum membro cadastrado.</p>'; return; }
+        if (members.length === 0) { 
+            lineup.innerHTML = '<p style="color:white; text-align:center;">Nenhum membro cadastrado.</p>'; 
+            return; 
+        }
         
         let team = { lider:[], vocal:[], banda:[], membro:[] };
         members.forEach(m => {
@@ -897,11 +1009,13 @@ async function loadMembers() {
         }
         
         lineup.innerHTML = html || '<p style="color:white; text-align:center;">Nenhum membro encontrado.</p>';
-    } catch (e) { lineup.innerHTML = '<p style="color:white; text-align:center;">Erro ao carregar equipe.</p>'; }
+    } catch (e) { 
+        lineup.innerHTML = '<p style="color:white; text-align:center;">Erro ao carregar equipe.</p>'; 
+    }
 }
 
 // ==========================================
-// ESCALAS (com Tom nas músicas)
+// ESCALAS
 // ==========================================
 function switchScaleTab(tab) {
     document.getElementById('tab-future').classList.remove('active');
@@ -916,7 +1030,8 @@ function switchScaleTab(tab) {
 async function loadScales() {
     const listFuture = document.getElementById('scales-list-future');
     const listPast = document.getElementById('scales-list-past');
-    listFuture.innerHTML = '<p>Buscando...</p>'; listPast.innerHTML = '<p>Buscando...</p>';
+    listFuture.innerHTML = '<p>Buscando...</p>'; 
+    listPast.innerHTML = '<p>Buscando...</p>';
     
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title,repertoire_keys(ton)))&order=event_date.asc`, { headers });
@@ -929,7 +1044,10 @@ async function loadScales() {
         listFuture.innerHTML = renderScaleCards(futures, true);
         listPast.innerHTML = renderScaleCards(pasts, false);
 
-    } catch(e) { listFuture.innerHTML = '<p>Erro.</p>'; listPast.innerHTML = '';}
+    } catch(e) { 
+        listFuture.innerHTML = '<p>Erro.</p>'; 
+        listPast.innerHTML = '';
+    }
 }
 
 function renderScaleCards(scaleArray, isFuture) {
@@ -971,7 +1089,7 @@ function renderScaleCards(scaleArray, isFuture) {
             const keys = song.repertoire.repertoire_keys || [];
             const keysStr = keys.length > 0 ? keys.map(k => k.ton).join(', ') : '';
             const keyBadge = keysStr ? `<span class="badge tom" style="font-size:0.7rem; padding:2px 8px; margin-left:auto;">${keysStr}</span>` : '';
-            songsHtml += `<span> ${song.repertoire.title} ${keyBadge}</span>`; 
+            songsHtml += `<span>🎵 ${song.repertoire.title} ${keyBadge}</span>`; 
         });
 
         const actionsHtml = currentUserData.is_leader ? `
@@ -1021,7 +1139,10 @@ async function openEditScaleModal(scaleId) {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=*,scale_items(member_id,role,members(full_name)),scale_songs(repertoire_id)`, { headers });
         const data = await res.json();
-        if(data.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
+        if(data.length === 0) { 
+            showCustomAlert('Escala não encontrada.'); 
+            return; 
+        }
         
         const scale = data[0];
         
@@ -1050,7 +1171,9 @@ async function openEditScaleModal(scaleId) {
         
         const memberSelect = document.getElementById('scale-draft-member');
         memberSelect.innerHTML = '<option value="">Selecionar Membro...</option>';
-        allMembersCache.forEach(m => { memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; });
+        allMembersCache.forEach(m => { 
+            memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; 
+        });
         
         const songsContainer = document.getElementById('scale-songs-selectors');
         const selectedSongIds = scale.scale_songs.map(s => s.repertoire_id);
@@ -1069,7 +1192,8 @@ async function openScaleModal() {
     document.getElementById('modal-add-scale').classList.add('active');
     document.getElementById('editing-scale-id').value = '';
     document.getElementById('scale-modal-title').textContent = 'Nova Escala';
-    scaleDraftTeam = []; renderScaleDraftTeam();
+    scaleDraftTeam = []; 
+    renderScaleDraftTeam();
     
     if(allMembersCache.length === 0) {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,member_roles(role)`, { headers });
@@ -1082,7 +1206,9 @@ async function openScaleModal() {
 
     const memberSelect = document.getElementById('scale-draft-member');
     memberSelect.innerHTML = '<option value="">Selecionar Membro...</option>';
-    allMembersCache.forEach(m => { memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; });
+    allMembersCache.forEach(m => { 
+        memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; 
+    });
 
     const songsContainer = document.getElementById('scale-songs-selectors');
     songsContainer.innerHTML = '';
@@ -1094,7 +1220,8 @@ async function openScaleModal() {
 function addMemberToScaleDraft() {
     const memSel = document.getElementById('scale-draft-member');
     const rolSel = document.getElementById('scale-draft-role');
-    const memberId = memSel.value; const role = rolSel.value;
+    const memberId = memSel.value; 
+    const role = rolSel.value;
     
     if(!memberId) return;
     const memberName = memSel.options[memSel.selectedIndex].text;
@@ -1102,14 +1229,21 @@ function addMemberToScaleDraft() {
     if(!scaleDraftTeam.find(i => i.memberId === memberId && i.role === role)) {
         scaleDraftTeam.push({ memberId, role, name: memberName });
     }
-    memSel.value = ''; renderScaleDraftTeam();
+    memSel.value = ''; 
+    renderScaleDraftTeam();
 }
 
-function removeScaleDraftMember(index) { scaleDraftTeam.splice(index, 1); renderScaleDraftTeam(); }
+function removeScaleDraftMember(index) { 
+    scaleDraftTeam.splice(index, 1); 
+    renderScaleDraftTeam(); 
+}
 
 function renderScaleDraftTeam() {
     const list = document.getElementById('scale-draft-team-list');
-    if(scaleDraftTeam.length === 0) { list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Equipe vazia.</p>'; return; }
+    if(scaleDraftTeam.length === 0) { 
+        list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Equipe vazia.</p>'; 
+        return; 
+    }
     
     let html = '';
     scaleDraftTeam.forEach((item, index) => {
@@ -1128,8 +1262,14 @@ async function saveNewScale() {
     const notes = document.getElementById('scale-notes').value;
     const editingId = document.getElementById('editing-scale-id').value;
     
-    if(!date) { showCustomAlert('A data do culto é obrigatória.'); return; }
-    if(scaleDraftTeam.length === 0) { showCustomAlert('Escalone pelo menos 1 membro na equipe.'); return; }
+    if(!date) { 
+        showCustomAlert('A data do culto é obrigatória.'); 
+        return; 
+    }
+    if(scaleDraftTeam.length === 0) { 
+        showCustomAlert('Escalone pelo menos 1 membro na equipe.'); 
+        return; 
+    }
 
     try {
         let scaleId;
@@ -1178,33 +1318,46 @@ async function saveNewScale() {
         if(document.getElementById('page-home').classList.contains('active')) {
             fetchNextScaleHome();
         }
-    } catch(e) { showCustomAlert('Erro ao salvar escala. Verifique a conexão.'); }
+    } catch(e) { 
+        showCustomAlert('Erro ao salvar escala. Verifique a conexão.'); 
+    }
 }
 
 // ==========================================
-// MEMBROS E ADMINISTRAÇÃO 
+// ADMINISTRAÇÃO
 // ==========================================
 async function createNewMember() {
     const username = document.getElementById('new-username').value.trim().toLowerCase(); 
     const fullname = document.getElementById('new-fullname').value.trim(); 
     const isLeader = document.getElementById('new-is-leader').checked; 
-    if (!username || !fullname) { showCustomAlert('Preencha usuário e nome!'); return; }
+    if (!username || !fullname) { 
+        showCustomAlert('Preencha usuário e nome!'); 
+        return; 
+    }
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ username, full_name: fullname, is_leader: isLeader }) });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members`, { 
+            method: 'POST', 
+            headers: { ...headers, 'Prefer': 'return=representation' }, 
+            body: JSON.stringify({ username, full_name: fullname, is_leader: isLeader }) 
+        });
         if (!res.ok) throw new Error('Usuário já existe.');
         showCustomAlert('Membro cadastrado com sucesso!', 'Sucesso'); 
         document.getElementById('new-username').value = ''; 
         document.getElementById('new-fullname').value = ''; 
         document.getElementById('new-is-leader').checked = false; 
         loadAdminMembers();
-    } catch (e) { showCustomAlert(e.message, 'Erro'); }
+    } catch (e) { 
+        showCustomAlert(e.message, 'Erro'); 
+    }
 }
 
 async function loadAdminMembers() {
-    const list = document.getElementById('admin-members-list'); list.innerHTML = '<p>Carregando...</p>';
+    const list = document.getElementById('admin-members-list'); 
+    list.innerHTML = '<p>Carregando...</p>';
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,is_leader,member_roles(role)&order=full_name.asc`, { headers });
-        const members = await res.json(); let html = '';
+        const members = await res.json(); 
+        let html = '';
         members.forEach(m => {
             const currentRoles = m.member_roles.map(r => r.role);
             html += `<div class="admin-list-item" id="admin-item-${m.id}">
@@ -1214,24 +1367,59 @@ async function loadAdminMembers() {
                 </div>`;
         });
         list.innerHTML = html;
-    } catch (e) { list.innerHTML = '<p>Erro ao carregar lista.</p>'; }
+    } catch (e) { 
+        list.innerHTML = '<p>Erro ao carregar lista.</p>'; 
+    }
 }
 
 async function updateRole(memberId, role, isAdding) {
     try {
-        if(role === 'lider') { await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${memberId}`, { method: 'PATCH', headers, body: JSON.stringify({ is_leader: isAdding }) }); return; }
-        if (isAdding) await fetch(`${SUPABASE_URL}/rest/v1/member_roles`, { method: 'POST', headers, body: JSON.stringify({ member_id: memberId, role: role }) });
-        else await fetch(`${SUPABASE_URL}/rest/v1/member_roles?member_id=eq.${memberId}&role=eq.${role}`, { method: 'DELETE', headers });
-    } catch (e) { showCustomAlert('Erro ao atualizar banco.'); }
+        if(role === 'lider') { 
+            await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${memberId}`, { 
+                method: 'PATCH', 
+                headers, 
+                body: JSON.stringify({ is_leader: isAdding }) 
+            }); 
+            return; 
+        }
+        if (isAdding) {
+            await fetch(`${SUPABASE_URL}/rest/v1/member_roles`, { 
+                method: 'POST', 
+                headers, 
+                body: JSON.stringify({ member_id: memberId, role: role }) 
+            });
+        } else {
+            await fetch(`${SUPABASE_URL}/rest/v1/member_roles?member_id=eq.${memberId}&role=eq.${role}`, { 
+                method: 'DELETE', 
+                headers 
+            });
+        }
+    } catch (e) { 
+        showCustomAlert('Erro ao atualizar banco.'); 
+    }
 }
 
 async function deleteMember(id) {
     showCustomConfirm('Deseja remover este membro do sistema?', async () => {
-        try { await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, { method: 'DELETE', headers }); loadAdminMembers(); } catch (e) { showCustomAlert('Erro ao excluir.'); }
+        try { 
+            await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, { method: 'DELETE', headers }); 
+            loadAdminMembers(); 
+        } catch (e) { 
+            showCustomAlert('Erro ao excluir.'); 
+        }
     });
 }
 
+// ==========================================
+// INICIALIZAÇÃO
+// ==========================================
 window.onload = () => {
+    // Inicializar Supabase de forma segura
+    initSupabase();
+    
     const storedUser = localStorage.getItem('sessionUser');
-    if (storedUser) { currentUserData = JSON.parse(storedUser); showSystemScreen(); }
+    if (storedUser) { 
+        currentUserData = JSON.parse(storedUser); 
+        showSystemScreen(); 
+    }
 };
