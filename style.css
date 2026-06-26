@@ -60,13 +60,39 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 /* DASHBOARD & CARDS */
 .page-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
 .header-actions { display: flex; gap: 10px; }
-.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; }
+/* Altura dinâmica: cada card respeita seu próprio conteúdo */
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; align-items: start; }
 .card { background-color: var(--surface-color); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
 .card-header { display: flex; align-items: center; gap: 10px; padding: 1.2rem; background-color: #fafafa; border-bottom: 1px solid var(--border-color); border-radius: 12px 12px 0 0;}
 .card-body { padding: 1.5rem; line-height: 1.6; }
 .countdown { font-size: 1.8rem; font-weight: 700; color: var(--primary-color); margin-bottom: 1rem; font-variant-numeric: tabular-nums; }
 .divider { border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0; }
 .verse-ref { font-weight: 600; margin-top: 1rem; color: var(--primary-color); display: block; text-align: right; }
+
+/* LISTA DA EQUIPE ESCALADA NO DASHBOARD (mesmo padrão visual das Escalas) */
+.home-team-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; text-align: left; }
+.home-team-item { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: 10px 14px; 
+    background: #f8fafc; 
+    border-radius: 8px; 
+    border: 1px solid var(--border-color); 
+    transition: 0.2s; 
+}
+.home-team-item:hover { background: #f1f5f9; border-color: var(--primary-color); }
+.home-team-item strong { font-size: 0.9rem; color: var(--text-main); font-weight: 600; }
+.home-team-item span { 
+    font-size: 0.7rem; 
+    background: var(--primary-color); 
+    color: white; 
+    padding: 3px 10px; 
+    border-radius: 12px; 
+    text-transform: uppercase; 
+    font-weight: 600; 
+    letter-spacing: 0.5px; 
+}
 
 /* MEMBROS & BADGES */
 .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
@@ -96,7 +122,7 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .search-result-item:hover { background: #f1f5f9; }
 
 /* MEDLEY DRAFT */
-.medley-draft-list { border: 1px solid #e2e8f0; background: #fafafa; border-radius: 8px; padding: 10px; max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;}
+.medley-draft-list { border: 1px solid #e2e8f0; background: #fafafa; border-radius: 8px; padding: 10px; max-height: 250px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;}
 .medley-draft-item { display:flex; flex-direction:column; gap:5px; background: #fff; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px;}
 
 /* ESCALAS & ESCALAÇÃO (Lineup) */
@@ -106,9 +132,19 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 
 .scales-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1.5rem; }
 .scale-folder { background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); overflow:hidden;}
-.scale-folder-header { background: #fafafa; padding: 1rem; border-bottom: 1px solid var(--border-color); }
+.scale-folder-header { 
+    background: #fafafa; 
+    padding: 1rem; 
+    border-bottom: 1px solid var(--border-color); 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: flex-start; 
+    gap: 10px; 
+}
+.scale-folder-header-text { flex: 1; min-width: 0; }
 .scale-folder-header h3 { font-size: 1.1rem; color: var(--primary-color); display: flex; align-items: center; gap: 5px;}
 .scale-folder-header p { font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;}
+.scale-folder-actions { display: flex; gap: 5px; flex-shrink: 0; }
 
 /* Estilo Campo Escalação */
 .lineup-field { background: linear-gradient(180deg, #2d3436 0%, #1e272e 100%); padding: 1.5rem 1rem; position: relative; display:flex; flex-direction:column; gap:20px; color:white; }
@@ -131,7 +167,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 @media (min-width: 1024px) { .admin-container { grid-template-columns: 350px 1fr; } }
 .admin-list-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 10px; }
 .admin-actions { display: flex; gap: 8px; }
-.btn-icon { background: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; cursor: pointer; color: var(--text-muted); transition: 0.2s; }
+.btn-icon { background: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 6px; cursor: pointer; color: var(--text-muted); transition: 0.2s; display: inline-flex; align-items: center; justify-content: center; }
+.btn-icon:hover { background: #f1f5f9; color: var(--primary-color); border-color: var(--primary-color); }
+.btn-icon.danger:hover { color: var(--danger); border-color: var(--danger); background: #fff5f5; }
 .roles-editor { width: 100%; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; background: #fafafa; padding: 10px; border-radius: 8px; }
 
 /* MODAIS & INSTAGRAM FORMAT (MOBILE) */
