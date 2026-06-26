@@ -7,6 +7,7 @@
     --text-muted: #636e72;
     --border-color: #dfe6e9;
     --danger: #d63031;
+    --success: #00b894;
     --sidebar-width: 250px;
     --bottom-nav-height: 65px;
 }
@@ -86,9 +87,7 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .verse-ref { font-weight: 600; margin-top: 1rem; color: var(--primary-color); display: block; text-align: right; }
 
 /* EQUIPE ESCALADA - NOVO DESIGN */
-.team-scale-container { 
-    padding: 15px 0; 
-}
+.team-scale-container { padding: 15px 0; }
 .team-scale-row {
     display: flex;
     align-items: center;
@@ -157,28 +156,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     0%, 100% { box-shadow: 0 0 0 3px rgba(240, 90, 40, 0.4), 0 0 15px rgba(240, 90, 40, 0.6); }
     50% { box-shadow: 0 0 0 5px rgba(240, 90, 40, 0.5), 0 0 25px rgba(240, 90, 40, 0.8); }
 }
-.team-scale-info {
-    flex: 1;
-    min-width: 0;
-}
-.team-scale-name {
-    font-weight: 600;
-    color: var(--text-main);
-    font-size: 0.95rem;
-    margin-bottom: 2px;
-}
-.team-scale-role {
-    font-size: 0.75rem;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    font-weight: 600;
-}
-.team-scale-divider {
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--border-color), transparent);
-    margin: 15px 0;
-}
+.team-scale-info { flex: 1; min-width: 0; }
+.team-scale-name { font-weight: 600; color: var(--text-main); font-size: 0.95rem; margin-bottom: 2px; }
+.team-scale-role { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
 
 /* MEMBROS & BADGES */
 .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
@@ -191,7 +171,7 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .badge.instrumento { background-color: #f3e5f5; color: #7b1fa2; border: 1px solid #ce93d8;}
 .badge.tom { background-color: #2d3436; color: white; font-size: 0.8rem; padding: 4px 10px;}
 
-/* TEAM LINEUP CARD (página de membros) */
+/* TEAM LINEUP CARD */
 .team-lineup-card { 
     background: var(--surface-color); 
     border-radius: 12px; 
@@ -217,95 +197,163 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .search-result-item { padding: 10px; background: white; border: 1px solid #e2e8f0; margin-bottom: 5px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;}
 .search-result-item:hover { background: #f1f5f9; }
 
-/* MEDLEY - NOVO DESIGN */
-.medley-draft-list { 
-    border: 1px solid #e2e8f0; 
-    background: #fafafa; 
-    border-radius: 8px; 
-    padding: 10px; 
-    max-height: 250px; 
-    overflow-y: auto; 
-    display:flex; 
-    flex-direction:column; 
-    gap:10px;
+/* MEDLEY CREATOR - NOVO DESIGN COM 3 COLUNAS */
+.medley-creator-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 15px;
+    margin-top: 15px;
+    max-height: 500px;
 }
-.medley-draft-item { 
-    display:flex; 
-    flex-direction:column; 
-    gap:8px; 
-    background: #fff; 
-    padding: 12px; 
-    border: 1px solid #e2e8f0; 
+.medley-column {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    min-height: 450px;
+}
+.medley-songs-list, .medley-verses-selector, .medley-preview {
+    flex: 1;
+    overflow-y: auto;
+    background: white;
     border-radius: 8px;
-    border-left: 4px solid var(--primary-color);
+    border: 1px solid #e2e8f0;
+    padding: 10px;
 }
-.medley-draft-item-header {
-    display:flex; 
-    justify-content:space-between; 
-    align-items:center;
+
+/* Lista de músicas disponíveis */
+.medley-song-item {
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #f8fafc;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
 }
-.medley-draft-item-title {
+.medley-song-item:hover {
+    background: #f1f5f9;
+    border-color: var(--primary-color);
+}
+.medley-song-item.active {
+    background: rgba(240, 90, 40, 0.1);
+    border-color: var(--primary-color);
+}
+.medley-song-item-title {
     font-weight: 600;
     color: var(--text-main);
+    font-size: 0.9rem;
+    margin-bottom: 3px;
 }
-.medley-draft-item-section {
-    display:flex; 
-    align-items:center; 
-    gap:8px;
-    font-size: 0.85rem;
+.medley-song-item-artist {
+    font-size: 0.8rem;
     color: var(--text-muted);
 }
-.medley-draft-item-section strong {
-    color: var(--primary-color);
-}
-.medley-builder-container {
-    display:grid; 
-    grid-template-columns: 1fr 1fr; 
-    gap:20px;
-}
-.medley-selection-panel, .medley-lyrics-preview {
+
+/* Seletor de Estrofes */
+.verse-selector-item {
+    margin-bottom: 12px;
+    padding: 10px;
     background: #f8fafc;
-    padding: 15px;
-    border-radius: 10px;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    transition: all 0.2s;
+}
+.verse-selector-item:hover {
+    background: #f1f5f9;
+}
+.verse-selector-item.selected {
+    border-color: var(--success);
+    background: rgba(0, 184, 148, 0.05);
+}
+.verse-checkbox-wrapper {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    cursor: pointer;
+}
+.verse-checkbox {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    cursor: pointer;
+    accent-color: var(--success);
+}
+.verse-label {
+    flex: 1;
+    cursor: pointer;
+}
+.verse-section-title {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.verse-content {
+    font-size: 0.85rem;
+    color: var(--text-main);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 8px;
+    background: white;
+    border-radius: 6px;
     border: 1px solid #e2e8f0;
 }
-.lyrics-preview-box {
+
+/* Preview do Medley Montado */
+.medley-preview-content {
     background: white;
     border: 1px solid #e2e8f0;
     border-radius: 8px;
-    max-height: 300px;
-    overflow-y: auto;
     padding: 15px;
 }
-.lyrics-preview-box pre {
-    white-space: pre-wrap;
-    font-family: 'Inter', sans-serif;
-    font-size: 0.9rem;
+.medley-preview-song {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px dashed #e2e8f0;
+}
+.medley-preview-song:last-child {
+    border-bottom: none;
+}
+.medley-preview-song-title {
+    font-weight: 700;
+    color: var(--primary-color);
+    font-size: 0.95rem;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.medley-preview-section {
+    margin-bottom: 12px;
+}
+.medley-preview-section-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+.medley-preview-section-content {
+    font-size: 0.85rem;
     line-height: 1.6;
     color: var(--text-main);
-}
-.medley-step { transition: all 0.3s ease; }
-.medley-step.hidden { display: none; }
-.medley-section-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.section-btn { 
-    padding: 8px 14px; 
-    background: #f1f5f9; 
-    border: 2px solid transparent; 
-    border-radius: 20px; 
-    cursor: pointer; 
-    font-weight: 600; 
-    font-size: 0.85rem; 
-    color: var(--text-main);
-    transition: 0.2s;
-}
-.section-btn:hover { background: #e2e8f0; }
-.section-btn.selected { 
-    background: rgba(240, 90, 40, 0.1); 
-    border-color: var(--primary-color); 
-    color: var(--primary-color); 
+    white-space: pre-wrap;
+    padding: 8px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-color);
 }
 
-/* ESCALAS & ESCALAÇÃO (Lineup) */
+/* ESCALAS & ESCALAÇÃO */
 .scale-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
 .tab-btn { padding: 8px 15px; border: none; background: #e2e8f0; color: var(--text-muted); font-weight: 600; border-radius: 8px; cursor: pointer; transition: 0.2s;}
 .tab-btn.active { background: var(--primary-color); color: white; }
@@ -352,7 +400,7 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .btn-icon.danger:hover { color: var(--danger); border-color: var(--danger); background: #fff5f5; }
 .roles-editor { width: 100%; display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; background: #fafafa; padding: 10px; border-radius: 8px; }
 
-/* MODAIS & INSTAGRAM FORMAT (MOBILE) */
+/* MODAIS */
 .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; justify-content: center; align-items: center; backdrop-filter: blur(2px); }
 .modal.active { display: flex; animation: fadeIn 0.2s; }
 .modal-content { background: var(--surface-color); width: 90%; max-width: 600px; border-radius: 16px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
@@ -367,8 +415,18 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .alert-content h3 { margin-bottom: 10px; font-size: 1.3rem; color: var(--text-main); }
 .alert-content p { color: var(--text-muted); margin-bottom: 20px; font-size: 0.95rem; }
 
-/* MOBILE BOTTOM NAV */
+/* MOBILE */
 .sidebar-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; }
+
+@media (max-width: 1024px) {
+    .medley-creator-container {
+        grid-template-columns: 1fr;
+        max-height: none;
+    }
+    .medley-column {
+        min-height: 300px;
+    }
+}
 
 @media (max-width: 768px) {
     .sidebar-header, .sidebar-footer, .btn-menu, .user-info { display: none; }
@@ -387,10 +445,6 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     .modal.bottom-sheet { align-items: flex-end; padding: 0; }
     .modal.bottom-sheet .modal-content { width: 100%; border-radius: 20px 20px 0 0; max-height: 85vh; margin: 0; }
     .modal.fullscreen-mobile .modal-content { width: 100%; height: 100%; max-height: 100vh; border-radius: 0; }
-    
-    .medley-builder-container {
-        grid-template-columns: 1fr;
-    }
     
     .lineup-field { padding: 1rem 0.5rem; gap: 15px; }
     .lineup-row { gap: 10px; }
