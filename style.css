@@ -95,6 +95,8 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 600; color: var(--text
 .user-info { font-weight: 600; color: var(--text-main); }
 
 .content-area { flex: 1; padding: 2rem; overflow-y: auto; }
+
+/* O segredo da alternância de abas está aqui: oculta por padrão, exibe se tiver 'active' */
 .subpage { display: none; }
 .subpage.active { display: block; animation: fadeIn 0.3s ease-in-out; }
 
