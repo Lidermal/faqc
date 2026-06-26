@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <link rel="stylesheet" href="style.css">
+    <!-- Supabase Realtime -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -189,75 +191,54 @@
         </div>
     </div>
 
-    <!-- Modal: Criar Medley (Fluxo Melhorado com Letra) -->
+    <!-- Modal: Criar Medley COM SELEÇÃO DE ESTROFES -->
     <div id="modal-add-medley" class="modal bottom-sheet">
-        <div class="modal-content" style="max-width: 800px;">
-            <div class="modal-header"><h3>Criar Medley</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
+        <div class="modal-content" style="max-width: 1000px; width: 95%;">
+            <div class="modal-header"><h3>Criar Medley - Seleção de Partes</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
             <div class="modal-body">
                 <div class="input-group"><label>Nome do Medley *</label><input type="text" id="medley-title" placeholder="Ex: Medley Adoração"></div>
                 
-                <!-- Lista de músicas já adicionadas -->
-                <div class="medley-added-section">
-                    <h4 style="margin-bottom:10px;">Músicas no Medley:</h4>
-                    <div id="medley-draft-list" class="medley-draft-list">
-                        <p class="loading-text" style="font-size:0.85rem;">Nenhuma música adicionada ainda.</p>
-                    </div>
-                </div>
-
-                <!-- Área de seleção melhorada -->
-                <div class="medley-builder-container" style="margin-top:20px; display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                <!-- Área principal com 3 colunas -->
+                <div class="medley-creator-container">
                     
-                    <!-- COLUNA ESQUERDA: Seleção -->
-                    <div class="medley-selection-panel">
-                        <h4 style="margin-bottom:10px;">Adicionar Música:</h4>
-                        
-                        <!-- Passo 1: Selecionar música -->
-                        <div id="medley-step-song" class="medley-step">
-                            <div class="input-group">
-                                <label>1. Escolha uma música:</label>
-                                <select id="medley-song-selector" style="flex:1; padding:10px; border-radius:8px; border:1px solid var(--border-color); margin-top:5px;">
-                                    <option value="">Selecione do Repertório...</option>
-                                </select>
-                            </div>
-                            <button class="btn-secondary" onclick="goToMedleySectionStep()" style="width:100%; margin-top:10px;">Avançar para Seção →</button>
-                        </div>
-                        
-                        <!-- Passo 2: Selecionar seção -->
-                        <div id="medley-step-section" class="medley-step hidden">
-                            <div class="input-group">
-                                <label>2. Qual parte será usada?</label>
-                                <div class="medley-section-buttons" style="margin-top:8px;">
-                                    <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Intro')">Intro</button>
-                                    <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Verso 1')">Verso 1</button>
-                                    <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Verso 2')">Verso 2</button>
-                                    <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Pré-Refrão')">Pré-Refrão</button>
-                                    <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Refrão')">Refrão</button>
-                                    <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Ponte')">Ponte</button>
-                                    <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Final')">Final</button>
-                                    <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Completa')">Completa</button>
-                                </div>
-                                <div class="input-group" style="margin-top:12px;">
-                                    <label>Ou digite uma seção personalizada:</label>
-                                    <input type="text" id="medley-custom-section" placeholder="Ex: Só o Refrão e Ponte" oninput="clearMedleySectionButtons()">
-                                </div>
-                            </div>
-                            <div style="display:flex; gap:10px; margin-top:10px;">
-                                <button class="btn-secondary" onclick="backToMedleySongStep()" style="flex:1;">← Voltar</button>
-                                <button class="btn-primary" onclick="confirmMedleySection()" style="flex:1;">✓ Adicionar</button>
-                            </div>
+                    <!-- COLUNA 1: Músicas disponíveis -->
+                    <div class="medley-column">
+                        <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                            <span class="material-symbols-outlined" style="color:var(--primary-color);">music_note</span>
+                            Músicas Disponíveis
+                        </h4>
+                        <div id="medley-songs-list" class="medley-songs-list">
+                            <p class="loading-text">Carregando...</p>
                         </div>
                     </div>
 
-                    <!-- COLUNA DIREITA: Preview da Letra -->
-                    <div class="medley-lyrics-preview">
-                        <h4 style="margin-bottom:10px;">Letra da Música Selecionada:</h4>
-                        <div id="medley-lyrics-container" class="lyrics-preview-box">
-                            <p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música para ver a letra</p>
+                    <!-- COLUNA 2: Seleção de Estrofes -->
+                    <div class="medley-column">
+                        <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                            <span class="material-symbols-outlined" style="color:var(--primary-color);">select_all</span>
+                            Selecione as Partes
+                        </h4>
+                        <div id="medley-verses-selector" class="medley-verses-selector">
+                            <p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música ao lado para escolher as partes</p>
+                        </div>
+                    </div>
+
+                    <!-- COLUNA 3: Medley Montado -->
+                    <div class="medley-column">
+                        <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:8px;">
+                            <span class="material-symbols-outlined" style="color:var(--primary-color);">queue_music</span>
+                            Medley Montado
+                        </h4>
+                        <div id="medley-preview" class="medley-preview">
+                            <p style="color:var(--text-muted); text-align:center; padding:20px;">As partes selecionadas aparecerão aqui</p>
                         </div>
                     </div>
                 </div>
 
-                <button class="btn-primary" onclick="saveNewMedley()" style="margin-top: 20px;">💾 Salvar Medley Completo</button>
+                <button class="btn-primary" onclick="saveNewMedley()" style="margin-top: 20px; padding:16px; font-size:1.05rem;">
+                    <span class="material-symbols-outlined" style="vertical-align:middle; margin-right:8px;">save</span>
+                    Salvar Medley no Repertório
+                </button>
             </div>
         </div>
     </div>
