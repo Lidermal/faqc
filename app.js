@@ -13,6 +13,10 @@ let allMembersCache = [];
 let medleyDraft = []; 
 let scaleDraftTeam = [];
 
+// Variáveis do fluxo passo-a-passo do Medley
+let medleyCurrentSong = null; // {id, title}
+let medleySelectedSection = null; // string
+
 // ==========================================
 // ALERTAS PERSONALIZADOS
 // ==========================================
@@ -108,6 +112,8 @@ function closeModals() {
     if(editingField) editingField.value = '';
     const modalTitle = document.getElementById('scale-modal-title');
     if(modalTitle) modalTitle.textContent = 'Nova Escala';
+    // Reset do fluxo do medley
+    resetMedleyFlow();
 }
 function toggleSidebar() {} 
 
@@ -122,7 +128,6 @@ function startCountdown() {
         const now = new Date(); const target = new Date();
         const daysUntilSunday = (7 - now.getDay()) % 7;
         
-        // Domingo as 18:30
         if (daysUntilSunday === 0 && (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 30))) {
             target.setDate(now.getDate() + 7);
         } else {
@@ -158,7 +163,7 @@ async function fetchDailyMessage() {
     } catch (e) { container.innerHTML = `<p>Erro na mensagem.</p>`; }
 }
 
-// NOVO: Lista da equipe escalada com mesmo padrão visual das Escalas
+// EQUIPE ESCALADA NO DASHBOARD - Formato de Time (Lineup) com destaque do usuário logado
 async function fetchNextScaleHome() {
     const container = document.getElementById('next-scale-team');
     const today = new Date().toISOString().split('T')[0];
@@ -167,13 +172,43 @@ async function fetchNextScaleHome() {
         const scaleData = await scaleRes.json();
         if (scaleData.length > 0) {
             const scaleId = scaleData[0].id;
-            const itemsRes = await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}&select=role,members(full_name)&order=role.asc`, { headers });
+            const itemsRes = await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name)&order=role.asc`, { headers });
             const itemsData = await itemsRes.json();
             if (itemsData.length > 0) {
-                let html = '<div class="home-team-list">';
-                itemsData.forEach(i => { 
-                    html += `<div class="home-team-item"><strong>${i.members.full_name}</strong><span>${i.role}</span></div>`; 
+                // Agrupar por função
+                let team = { lider:[], vocal:[], banda:[] };
+                itemsData.forEach(i => {
+                    let p = { id: i.members.id, name: i.members.full_name, role: i.role };
+                    if(i.role === 'lider') team.lider.push(p);
+                    else if(i.role === 'vocal') team.vocal.push(p);
+                    else team.banda.push(p);
                 });
+
+                let html = '<div class="lineup-field lineup-mini">';
+                if(team.lider.length > 0) {
+                    html += '<div class="lineup-row">';
+                    team.lider.forEach(p => {
+                        const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                        html += `<div class="lineup-player"><div class="player-avatar lider ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Líder</span></div>`;
+                    });
+                    html += '</div>';
+                }
+                if(team.vocal.length > 0) {
+                    html += '<div class="lineup-row">';
+                    team.vocal.forEach(p => {
+                        const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                        html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Vocal</span></div>`;
+                    });
+                    html += '</div>';
+                }
+                if(team.banda.length > 0) {
+                    html += '<div class="lineup-row">';
+                    team.banda.forEach(p => {
+                        const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                        html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">${p.role}</span></div>`;
+                    });
+                    html += '</div>';
+                }
                 html += '</div>';
                 container.innerHTML = html;
             } else container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Escala vazia.</p>`;
@@ -182,7 +217,7 @@ async function fetchNextScaleHome() {
 }
 
 // ==========================================
-// BUSCADOR 100% FIEL (Testa a letra antes de mostrar)
+// BUSCADOR 100% FIEL
 // ==========================================
 function openRepertoireModal() { 
     document.getElementById('modal-add-repertoire').classList.add('active'); 
@@ -211,7 +246,6 @@ async function searchMusicList() {
         
         let foundAnyValid = false;
 
-        // Testa em silêncio
         for(let track of data.results) {
             try {
                 const lyrRes = await fetch(`https://api.lyrics.ovh/v1/${track.artistName}/${track.trackName}`);
@@ -229,7 +263,7 @@ async function searchMusicList() {
                         resultsContainer.appendChild(div);
                     }
                 }
-            } catch(err) {} // Ignora falhas individuais e segue pro próximo
+            } catch(err) {}
         }
 
         if(!foundAnyValid) {
@@ -266,7 +300,7 @@ async function saveNewRepertoire() {
 }
 
 // ==========================================
-// REPERTÓRIO & MEDLEY MELHORADO (com partes obrigatórias)
+// REPERTÓRIO
 // ==========================================
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
@@ -291,30 +325,36 @@ async function loadRepertoire() {
     } catch (e) { list.innerHTML = '<p>Erro.</p>'; }
 }
 
+// ==========================================
+// MEDLEY - FLUXO PASSO-A-PASSO
+// ==========================================
 function openMedleyModal() {
     document.getElementById('modal-add-medley').classList.add('active');
-    medleyDraft = []; renderMedleyDraft();
+    resetMedleyFlow();
+    
     const selector = document.getElementById('medley-song-selector');
-    selector.innerHTML = '<option value="">Selecione a música...</option>';
+    selector.innerHTML = '<option value="">Selecione do Repertório...</option>';
     const songs = allRepertoireCache.filter(s => !s.is_medley);
     songs.forEach(s => { selector.innerHTML += `<option value="${s.id}">${s.title}</option>`; });
 }
 
-function addSongToMedleyDraft() {
-    const select = document.getElementById('medley-song-selector');
-    const songId = select.value;
-    if(!songId) return;
-    const songObj = allRepertoireCache.find(s => s.id === songId);
-    
-    // Adiciona ao rascunho com uma parte em branco (obrigatória)
-    medleyDraft.push({ id: songId, title: songObj.title, part: "" });
-    select.value = ""; // reseta
+function resetMedleyFlow() {
+    medleyDraft = [];
+    medleyCurrentSong = null;
+    medleySelectedSection = null;
     renderMedleyDraft();
+    backToMedleySongStep();
+    document.getElementById('medley-title').value = '';
+    const selector = document.getElementById('medley-song-selector');
+    if(selector) selector.value = '';
 }
 
 function renderMedleyDraft() {
     const list = document.getElementById('medley-draft-list');
-    if(medleyDraft.length === 0) { list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Nenhuma música adicionada ainda.</p>'; return; }
+    if(medleyDraft.length === 0) { 
+        list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Nenhuma música adicionada ainda. Use os passos abaixo para adicionar.</p>'; 
+        return; 
+    }
     
     let html = '';
     medleyDraft.forEach((item, index) => {
@@ -324,22 +364,9 @@ function renderMedleyDraft() {
                     <strong>${index+1}. ${item.title}</strong>
                     <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removeMedleyDraftItem(${index})">delete</span>
                 </div>
-                <div style="display:flex; gap:8px; align-items:center; margin-top:5px; flex-wrap:wrap;">
-                    <label style="font-size:0.8rem; color:var(--text-muted); font-weight:600; white-space:nowrap;">Seção/Parte *:</label>
-                    <input type="text" list="part-suggestions-${index}" placeholder="Ex: Refrão, Ponte, Intro..." value="${item.part}" oninput="updateMedleyPart(${index}, this.value)" style="flex:1; min-width:150px; padding:8px; border:1px solid #ccc; border-radius:6px; font-size:0.85rem;" required>
-                    <datalist id="part-suggestions-${index}">
-                        <option value="Intro">
-                        <option value="Verso 1">
-                        <option value="Verso 2">
-                        <option value="Pré-Refrão">
-                        <option value="Refrão">
-                        <option value="Ponte">
-                        <option value="Final">
-                        <option value="Completa">
-                        <option value="Só o Refrão">
-                        <option value="Refrão + Ponte">
-                        <option value="Verso + Refrão">
-                    </datalist>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+                    <span class="material-symbols-outlined" style="color:var(--primary-color); font-size:1rem;">music_note</span>
+                    <span style="font-size:0.85rem; color:var(--text-muted);">Seção: <strong style="color:var(--text-main);">${item.part}</strong></span>
                 </div>
             </div>
         `;
@@ -347,33 +374,105 @@ function renderMedleyDraft() {
     list.innerHTML = html;
 }
 
-function updateMedleyPart(index, val) { medleyDraft[index].part = val; }
-function removeMedleyDraftItem(index) { medleyDraft.splice(index, 1); renderMedleyDraft(); }
+function removeMedleyDraftItem(index) { 
+    medleyDraft.splice(index, 1); 
+    renderMedleyDraft(); 
+}
 
+// PASSO 1 → PASSO 2: Avança da seleção de música para seleção de seção
+function goToMedleySectionStep() {
+    const select = document.getElementById('medley-song-selector');
+    const songId = select.value;
+    if(!songId) { 
+        showCustomAlert('Selecione uma música do repertório antes de avançar.'); 
+        return; 
+    }
+    
+    const songObj = allRepertoireCache.find(s => s.id === songId);
+    medleyCurrentSong = { id: songObj.id, title: songObj.title };
+    
+    // Atualiza UI
+    document.getElementById('medley-current-song-name').textContent = songObj.title;
+    document.getElementById('medley-step-song').classList.add('hidden');
+    document.getElementById('medley-step-section').classList.remove('hidden');
+    
+    // Limpa seleções anteriores
+    medleySelectedSection = null;
+    document.getElementById('medley-custom-section').value = '';
+    document.querySelectorAll('.section-btn').forEach(btn => btn.classList.remove('selected'));
+}
+
+// PASSO 2 → PASSO 1: Volta para seleção de música
+function backToMedleySongStep() {
+    document.getElementById('medley-step-section').classList.add('hidden');
+    document.getElementById('medley-step-song').classList.remove('hidden');
+    medleyCurrentSong = null;
+    medleySelectedSection = null;
+    document.getElementById('medley-custom-section').value = '';
+    document.querySelectorAll('.section-btn').forEach(btn => btn.classList.remove('selected'));
+}
+
+// Seleciona uma seção pré-definida (clicando no botão)
+function selectMedleySection(btn, section) {
+    document.querySelectorAll('.section-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    medleySelectedSection = section;
+    document.getElementById('medley-custom-section').value = section;
+}
+
+// Limpa seleção dos botões quando o usuário digita manualmente
+function clearMedleySectionButtons() {
+    document.querySelectorAll('.section-btn').forEach(b => b.classList.remove('selected'));
+    medleySelectedSection = null;
+}
+
+// Confirma a seção e adiciona ao draft
+function confirmMedleySection() {
+    const customSection = document.getElementById('medley-custom-section').value.trim();
+    const finalSection = customSection || medleySelectedSection;
+    
+    if(!finalSection) {
+        showCustomAlert('Você precisa escolher ou digitar uma seção/parte para esta música.');
+        return;
+    }
+    
+    if(!medleyCurrentSong) {
+        showCustomAlert('Erro: nenhuma música selecionada.');
+        return;
+    }
+    
+    // Adiciona ao draft
+    medleyDraft.push({
+        id: medleyCurrentSong.id,
+        title: medleyCurrentSong.title,
+        part: finalSection
+    });
+    
+    renderMedleyDraft();
+    
+    // Volta para o passo 1 para adicionar próxima música
+    backToMedleySongStep();
+    document.getElementById('medley-song-selector').value = '';
+    
+    showCustomAlert(`"${medleyCurrentSong.title}" adicionada com a seção "${finalSection}". Adicione mais músicas ou salve o Medley.`, 'Música Adicionada');
+}
+
+// Salva o Medley completo no banco
 async function saveNewMedley() {
     const title = document.getElementById('medley-title').value.trim();
     if(!title) { showCustomAlert('Dê um nome ao Medley.'); return; }
     if(medleyDraft.length < 2) { showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); return; }
-
-    // NOVO: Validação obrigatória das partes/seções
-    const emptyParts = medleyDraft.filter(item => !item.part || item.part.trim() === '');
-    if(emptyParts.length > 0) {
-        showCustomAlert('Você precisa definir a SEÇÃO/PARTE de cada música do Medley (Ex: Refrão, Ponte, Intro, Verso). Esta informação é obrigatória.');
-        return;
-    }
 
     try {
         const res = await fetch(`${SUPABASE_URL}/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title: title, is_medley: true, created_by: currentUserData.id }) });
         const savedMedley = await res.json();
         const medleyId = savedMedley[0].id;
 
-        // Salva cada música com sua seção definida
         for(let item of medleyDraft) {
-            const section = item.part.trim();
             await fetch(`${SUPABASE_URL}/repertoire_medley_parts`, { 
                 method: 'POST', 
                 headers, 
-                body: JSON.stringify({ medley_repertoire_id: medleyId, song_repertoire_id: item.id, section: section }) 
+                body: JSON.stringify({ medley_repertoire_id: medleyId, song_repertoire_id: item.id, section: item.part }) 
             });
         }
         showCustomAlert('Medley criado com sucesso!', 'Sucesso'); 
@@ -434,7 +533,82 @@ async function deleteKey(keyId) {
 }
 
 // ==========================================
-// ESCALAS (Escalação Estilo Time, Histórico, Editar e Excluir)
+// MEMBROS - Visualização em Formação de Time
+// ==========================================
+async function loadMembers() {
+    const lineup = document.getElementById('members-lineup');
+    lineup.innerHTML = '<p class="loading-text" style="color:white;">Buscando equipe...</p>';
+    try {
+        const res = await fetch(`${SUPABASE_URL}/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
+        const members = await res.json();
+        if (members.length === 0) { lineup.innerHTML = '<p style="color:white; text-align:center;">Nenhum membro cadastrado.</p>'; return; }
+        
+        // Agrupar por função principal (cada membro aparece apenas uma vez)
+        let team = { lider:[], vocal:[], banda:[], membro:[] };
+        members.forEach(m => {
+            let p = { id: m.id, name: m.full_name };
+            const roles = m.member_roles.map(r => r.role);
+            
+            if(m.is_leader) {
+                team.lider.push(p);
+            } else if(roles.includes('vocal')) {
+                team.vocal.push(p);
+            } else if(roles.length > 0) {
+                // Pega o primeiro instrumento
+                team.banda.push({...p, role: roles[0]});
+            } else {
+                team.membro.push(p);
+            }
+        });
+        
+        let html = '';
+        
+        // Linha 1: Líderes
+        if(team.lider.length > 0) {
+            html += '<div class="lineup-row">';
+            team.lider.forEach(p => {
+                const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                html += `<div class="lineup-player"><div class="player-avatar lider ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Líder</span></div>`;
+            });
+            html += '</div>';
+        }
+        
+        // Linha 2: Vocais
+        if(team.vocal.length > 0) {
+            html += '<div class="lineup-row">';
+            team.vocal.forEach(p => {
+                const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Vocal</span></div>`;
+            });
+            html += '</div>';
+        }
+        
+        // Linha 3: Instrumentistas
+        if(team.banda.length > 0) {
+            html += '<div class="lineup-row">';
+            team.banda.forEach(p => {
+                const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">${p.role || 'Membro'}</span></div>`;
+            });
+            html += '</div>';
+        }
+        
+        // Linha 4: Membros sem função
+        if(team.membro.length > 0) {
+            html += '<div class="lineup-row">';
+            team.membro.forEach(p => {
+                const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Membro</span></div>`;
+            });
+            html += '</div>';
+        }
+        
+        lineup.innerHTML = html || '<p style="color:white; text-align:center;">Nenhum membro encontrado.</p>';
+    } catch (e) { lineup.innerHTML = '<p style="color:white; text-align:center;">Erro ao carregar equipe.</p>'; }
+}
+
+// ==========================================
+// ESCALAS (com Tom nas músicas)
 // ==========================================
 function switchScaleTab(tab) {
     document.getElementById('tab-future').classList.remove('active');
@@ -452,12 +626,13 @@ async function loadScales() {
     listFuture.innerHTML = '<p>Buscando...</p>'; listPast.innerHTML = '<p>Buscando...</p>';
     
     try {
-        const res = await fetch(`${SUPABASE_URL}/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title))&order=event_date.asc`, { headers });
+        // Query atualizada para trazer repertoire_keys(ton) junto
+        const res = await fetch(`${SUPABASE_URL}/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title,repertoire_keys(ton)))&order=event_date.asc`, { headers });
         const scales = await res.json();
         
         const todayStr = new Date().toISOString().split('T')[0];
         const futures = scales.filter(s => s.event_date >= todayStr);
-        const pasts = scales.filter(s => s.event_date < todayStr).reverse(); // Histórico do mais recente pro mais antigo
+        const pasts = scales.filter(s => s.event_date < todayStr).reverse();
 
         listFuture.innerHTML = renderScaleCards(futures, true);
         listPast.innerHTML = renderScaleCards(pasts, false);
@@ -471,10 +646,8 @@ function renderScaleCards(scaleArray, isFuture) {
     let html = '';
     scaleArray.forEach(s => {
         const dateObj = new Date(s.event_date);
-        // Corrige fuso horário para exibição
         const dateStr = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
         
-        // Agrupar equipe por função para renderizar o "Campo"
         let team = { lider:[], vocal:[], banda:[] };
         s.scale_items.forEach(i => {
             let p = { name: i.members.full_name, role: i.role };
@@ -483,7 +656,6 @@ function renderScaleCards(scaleArray, isFuture) {
             else team.banda.push(p);
         });
 
-        // Monta o "Campo" (Lineup)
         let lineupHtml = '<div class="lineup-field">';
         if(team.lider.length > 0) {
             lineupHtml += '<div class="lineup-row">';
@@ -502,9 +674,15 @@ function renderScaleCards(scaleArray, isFuture) {
         }
         lineupHtml += '</div>';
 
-        let songsHtml = ''; s.scale_songs.forEach(song => { songsHtml += `<span>🎵 ${song.repertoire.title}</span>`; });
+        // NOVO: Renderiza músicas com seus tons
+        let songsHtml = ''; 
+        s.scale_songs.forEach(song => { 
+            const keys = song.repertoire.repertoire_keys || [];
+            const keysStr = keys.length > 0 ? keys.map(k => k.ton).join(', ') : '';
+            const keyBadge = keysStr ? `<span class="badge tom" style="font-size:0.7rem; padding:2px 8px; margin-left:auto;">${keysStr}</span>` : '';
+            songsHtml += `<span>🎵 ${song.repertoire.title} ${keyBadge}</span>`; 
+        });
 
-        // NOVO: Botões de Editar/Excluir apenas para líderes
         const actionsHtml = currentUserData.is_leader ? `
             <div class="scale-folder-actions">
                 <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar Escala"><span class="material-symbols-outlined" style="font-size:1.1rem;">edit</span></button>
@@ -528,11 +706,9 @@ function renderScaleCards(scaleArray, isFuture) {
     return html;
 }
 
-// NOVO: Excluir escala (apenas líderes) - sincroniza Supabase em cascata
 async function deleteScale(scaleId) {
     showCustomConfirm('Deseja realmente excluir esta escala? Esta ação removerá a equipe e o repertório vinculados e não pode ser desfeita.', async () => {
         try {
-            // Excluir em cascata: itens da equipe, músicas e a escala
             await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             await fetch(`${SUPABASE_URL}/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             const res = await fetch(`${SUPABASE_URL}/scales?id=eq.${scaleId}`, { method: 'DELETE', headers });
@@ -541,7 +717,6 @@ async function deleteScale(scaleId) {
             
             showCustomAlert('Escala excluída com sucesso!', 'Sucesso');
             loadScales();
-            // Atualiza o dashboard também, caso a escala excluída fosse a próxima
             if(document.getElementById('page-home').classList.contains('active')) {
                 fetchNextScaleHome();
             }
@@ -551,7 +726,6 @@ async function deleteScale(scaleId) {
     }, 'Excluir Escala');
 }
 
-// NOVO: Abrir modal de edição com dados pré-preenchidos
 async function openEditScaleModal(scaleId) {
     try {
         const res = await fetch(`${SUPABASE_URL}/scales?id=eq.${scaleId}&select=*,scale_items(member_id,role,members(full_name)),scale_songs(repertoire_id)`, { headers });
@@ -560,16 +734,13 @@ async function openEditScaleModal(scaleId) {
         
         const scale = data[0];
         
-        // Abre o modal no modo edição
         document.getElementById('modal-add-scale').classList.add('active');
         document.getElementById('editing-scale-id').value = scaleId;
         document.getElementById('scale-modal-title').textContent = 'Editar Escala';
         
-        // Preenche data e observações
         document.getElementById('scale-date').value = scale.event_date;
         document.getElementById('scale-notes').value = scale.notes || '';
         
-        // Preenche draft da equipe
         scaleDraftTeam = scale.scale_items.map(i => ({
             memberId: i.member_id,
             role: i.role,
@@ -577,7 +748,6 @@ async function openEditScaleModal(scaleId) {
         }));
         renderScaleDraftTeam();
         
-        // Carrega membros e repertório se necessário
         if(allMembersCache.length === 0) {
             const resMem = await fetch(`${SUPABASE_URL}/members?select=id,full_name,member_roles(role)`, { headers });
             allMembersCache = await resMem.json();
@@ -587,12 +757,10 @@ async function openEditScaleModal(scaleId) {
             allRepertoireCache = await resRep.json();
         }
         
-        // Preenche select de membros
         const memberSelect = document.getElementById('scale-draft-member');
         memberSelect.innerHTML = '<option value="">Selecionar Membro...</option>';
         allMembersCache.forEach(m => { memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; });
         
-        // Preenche músicas com as já selecionadas marcadas
         const songsContainer = document.getElementById('scale-songs-selectors');
         const selectedSongIds = scale.scale_songs.map(s => s.repertoire_id);
         songsContainer.innerHTML = '';
@@ -608,7 +776,6 @@ async function openEditScaleModal(scaleId) {
 
 async function openScaleModal() {
     document.getElementById('modal-add-scale').classList.add('active');
-    // Garante modo criação (limpa qualquer edição anterior)
     document.getElementById('editing-scale-id').value = '';
     document.getElementById('scale-modal-title').textContent = 'Nova Escala';
     scaleDraftTeam = []; renderScaleDraftTeam();
@@ -641,7 +808,6 @@ function addMemberToScaleDraft() {
     if(!memberId) return;
     const memberName = memSel.options[memSel.selectedIndex].text;
     
-    // Evita duplicar a mesma pessoa na mesma função exata
     if(!scaleDraftTeam.find(i => i.memberId === memberId && i.role === role)) {
         scaleDraftTeam.push({ memberId, role, name: memberName });
     }
@@ -666,7 +832,6 @@ function renderScaleDraftTeam() {
     list.innerHTML = html;
 }
 
-// ATUALIZADO: Suporta criação E edição de escalas com sincronização imediata
 async function saveNewScale() {
     const date = document.getElementById('scale-date').value;
     const notes = document.getElementById('scale-notes').value;
@@ -679,7 +844,6 @@ async function saveNewScale() {
         let scaleId;
         
         if(editingId) {
-            // MODO EDIÇÃO: Atualiza a escala existente
             await fetch(`${SUPABASE_URL}/scales?id=eq.${editingId}`, { 
                 method: 'PATCH', 
                 headers, 
@@ -687,11 +851,9 @@ async function saveNewScale() {
             });
             scaleId = editingId;
             
-            // Remove itens e músicas antigas para recriar (sincronização limpa)
             await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             await fetch(`${SUPABASE_URL}/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
         } else {
-            // MODO CRIAÇÃO: Cria nova escala
             const resScale = await fetch(`${SUPABASE_URL}/scales`, { 
                 method: 'POST', 
                 headers: { ...headers, 'Prefer': 'return=representation' }, 
@@ -701,7 +863,6 @@ async function saveNewScale() {
             scaleId = savedScale[0].id;
         }
 
-        // Salva a equipe atualizada
         for(let item of scaleDraftTeam) {
             await fetch(`${SUPABASE_URL}/scale_items`, { 
                 method: 'POST', 
@@ -710,7 +871,6 @@ async function saveNewScale() {
             });
         }
 
-        // Salva as músicas selecionadas
         const songCbs = document.querySelectorAll('.scale-song-cb:checked');
         for(let cb of songCbs) {
             await fetch(`${SUPABASE_URL}/scale_songs`, { 
@@ -724,7 +884,6 @@ async function saveNewScale() {
         showCustomAlert(successMsg, 'Sucesso'); 
         closeModals(); 
         loadScales();
-        // Sincroniza também o dashboard
         if(document.getElementById('page-home').classList.contains('active')) {
             fetchNextScaleHome();
         }
@@ -734,23 +893,6 @@ async function saveNewScale() {
 // ==========================================
 // MEMBROS E ADMINISTRAÇÃO 
 // ==========================================
-async function loadMembers() {
-    const grid = document.getElementById('members-grid'); grid.innerHTML = '<p class="loading-text">Buscando equipe...</p>';
-    try {
-        const res = await fetch(`${SUPABASE_URL}/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
-        const members = await res.json();
-        if (members.length === 0) { grid.innerHTML = '<p>Nenhum membro.</p>'; return; }
-        let html = '';
-        members.forEach(m => {
-            let badges = m.is_leader ? '<span class="badge lider">Líder</span>' : '';
-            m.member_roles.forEach(r => { badges += `<span class="badge ${r.role === 'vocal' ? 'vocal' : 'instrumento'}">${r.role.charAt(0).toUpperCase() + r.role.slice(1)}</span>`; });
-            let photoContent = m.photo_url ? `<img src="${m.photo_url}" class="member-photo">` : `<div class="member-photo">${m.full_name.charAt(0).toUpperCase()}</div>`;
-            html += `<div class="member-card">${photoContent}<div class="member-info"><h4>${m.full_name}</h4><div class="role-badges">${badges || '<span class="badge" style="background:#eee;color:#999;">Membro</span>'}</div></div></div>`;
-        });
-        grid.innerHTML = html;
-    } catch (e) { grid.innerHTML = '<p>Erro.</p>'; }
-}
-
 async function createNewMember() {
     const username = document.getElementById('new-username').value.trim().toLowerCase(); const fullname = document.getElementById('new-fullname').value.trim(); const isLeader = document.getElementById('new-is-leader').checked; 
     if (!username || !fullname) { showCustomAlert('Preencha usuário e nome!'); return; }
