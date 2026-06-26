@@ -8,12 +8,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <link rel="stylesheet" href="style.css">
-    <!-- Supabase Realtime -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <!-- TELA DE LOGIN -->
     <main id="login-screen" class="screen active">
         <div class="login-bg-overlay"></div>
         <div class="login-container">
@@ -28,10 +26,8 @@
         </div>
     </main>
 
-    <!-- TELA PRINCIPAL (SYSTEM) -->
     <main id="system-screen" class="screen hidden">
         
-        <!-- MENU LATERAL -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <img src="logo.png" alt="Logo" class="logo-small">
@@ -50,7 +46,6 @@
             </div>
         </aside>
 
-        <!-- ÁREA DE CONTEÚDO PRINCIPAL -->
         <div class="main-content">
             <header class="app-header">
                 <button class="btn-menu" id="desktop-menu-btn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
@@ -60,7 +55,6 @@
 
             <div class="content-area">
                 
-                <!-- INÍCIO -->
                 <section id="page-home" class="subpage active">
                     <div class="dashboard-grid">
                         <div class="card daily-message-card">
@@ -81,7 +75,6 @@
                     </div>
                 </section>
 
-                <!-- MEMBROS -->
                 <section id="page-membros" class="subpage">
                     <div class="page-header"><h2>Equipe do Ministério</h2></div>
                     <div class="team-lineup-card">
@@ -91,7 +84,6 @@
                     </div>
                 </section>
 
-                <!-- ESCALAS -->
                 <section id="page-escalas" class="subpage">
                     <div class="page-header">
                         <h2>Escalas de Culto</h2>
@@ -107,7 +99,6 @@
                     <div id="scales-list-past" class="scales-grid hidden"><p class="loading-text">Carregando...</p></div>
                 </section>
 
-                <!-- REPERTÓRIO -->
                 <section id="page-repertorio" class="subpage">
                     <div class="page-header">
                         <h2>Repertório</h2>
@@ -119,7 +110,6 @@
                     <div class="repertoire-playlist" id="repertoire-list"><p class="loading-text">Carregando músicas...</p></div>
                 </section>
 
-                <!-- ADMINISTRAÇÃO -->
                 <section id="page-admin" class="subpage">
                     <div class="page-header"><h2>Administração de Membros</h2></div>
                     <div class="admin-container">
@@ -146,7 +136,6 @@
 
     <!-- ================= MODAIS ================= -->
     
-    <!-- Modal: Alerta Personalizado -->
     <div id="modal-alert" class="modal custom-alert-modal">
         <div class="modal-content alert-content">
             <h3 id="alert-title">Aviso</h3>
@@ -155,7 +144,6 @@
         </div>
     </div>
 
-    <!-- Modal: Confirmar Ação -->
     <div id="modal-confirm" class="modal custom-alert-modal">
         <div class="modal-content alert-content">
             <h3 id="confirm-title">Atenção</h3>
@@ -167,7 +155,6 @@
         </div>
     </div>
 
-    <!-- Modal: Adicionar Música -->
     <div id="modal-add-repertoire" class="modal bottom-sheet">
         <div class="modal-content">
             <div class="modal-header"><h3>Adicionar Música</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
@@ -191,59 +178,63 @@
         </div>
     </div>
 
-    <!-- Modal: Criar Medley COM SELEÇÃO DE ESTROFES -->
-    <div id="modal-add-medley" class="modal bottom-sheet">
-        <div class="modal-content" style="max-width: 1000px; width: 95%;">
-            <div class="modal-header"><h3>Criar Medley - Seleção de Partes</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
-            <div class="modal-body">
-                <div class="input-group"><label>Nome do Medley *</label><input type="text" id="medley-title" placeholder="Ex: Medley Adoração"></div>
-                
-                <!-- Área principal com 3 colunas -->
-                <div class="medley-creator-container">
-                    
-                    <!-- COLUNA 1: Músicas disponíveis -->
-                    <div class="medley-column">
-                        <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:8px;">
-                            <span class="material-symbols-outlined" style="color:var(--primary-color);">music_note</span>
-                            Músicas Disponíveis
-                        </h4>
-                        <div id="medley-songs-list" class="medley-songs-list">
-                            <p class="loading-text">Carregando...</p>
-                        </div>
-                    </div>
-
-                    <!-- COLUNA 2: Seleção de Estrofes -->
-                    <div class="medley-column">
-                        <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:8px;">
-                            <span class="material-symbols-outlined" style="color:var(--primary-color);">select_all</span>
-                            Selecione as Partes
-                        </h4>
-                        <div id="medley-verses-selector" class="medley-verses-selector">
-                            <p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música ao lado para escolher as partes</p>
-                        </div>
-                    </div>
-
-                    <!-- COLUNA 3: Medley Montado -->
-                    <div class="medley-column">
-                        <h4 style="margin-bottom:10px; display:flex; align-items:center; gap:8px;">
-                            <span class="material-symbols-outlined" style="color:var(--primary-color);">queue_music</span>
-                            Medley Montado
-                        </h4>
-                        <div id="medley-preview" class="medley-preview">
-                            <p style="color:var(--text-muted); text-align:center; padding:20px;">As partes selecionadas aparecerão aqui</p>
-                        </div>
+    <!-- DRAWER LATERAL: Criar Medley -->
+    <div id="drawer-medley-overlay" class="drawer-overlay" onclick="closeModals()"></div>
+    <div id="drawer-medley" class="drawer-right">
+        <div class="drawer-header">
+            <div>
+                <h3>Criar Medley</h3>
+                <p style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Selecione músicas e suas partes</p>
+            </div>
+            <button class="close-btn" onclick="closeModals()">✕</button>
+        </div>
+        <div class="drawer-body">
+            <div class="input-group" style="margin-bottom:15px;">
+                <label>Nome do Medley *</label>
+                <input type="text" id="medley-title" placeholder="Ex: Medley Adoração">
+            </div>
+            
+            <div class="medley-creator-container">
+                <div class="medley-column">
+                    <h4 class="medley-column-title">
+                        <span class="material-symbols-outlined">music_note</span>
+                        Músicas Disponíveis
+                    </h4>
+                    <div id="medley-songs-list" class="medley-scroll-area">
+                        <p class="loading-text">Carregando...</p>
                     </div>
                 </div>
 
-                <button class="btn-primary" onclick="saveNewMedley()" style="margin-top: 20px; padding:16px; font-size:1.05rem;">
-                    <span class="material-symbols-outlined" style="vertical-align:middle; margin-right:8px;">save</span>
-                    Salvar Medley no Repertório
-                </button>
+                <div class="medley-column">
+                    <h4 class="medley-column-title">
+                        <span class="material-symbols-outlined">select_all</span>
+                        Selecione as Partes
+                    </h4>
+                    <div id="medley-verses-selector" class="medley-scroll-area">
+                        <p class="empty-state">Selecione uma música ao lado para escolher as partes</p>
+                    </div>
+                </div>
+
+                <div class="medley-column">
+                    <h4 class="medley-column-title">
+                        <span class="material-symbols-outlined">queue_music</span>
+                        Medley Montado
+                    </h4>
+                    <div id="medley-preview" class="medley-scroll-area">
+                        <p class="empty-state">As partes selecionadas aparecerão aqui</p>
+                    </div>
+                </div>
             </div>
+        </div>
+        <div class="drawer-footer">
+            <button class="btn-secondary" onclick="closeModals()" style="flex:1;">Cancelar</button>
+            <button class="btn-primary" onclick="saveNewMedley()" style="flex:2; margin-left:10px;">
+                <span class="material-symbols-outlined" style="vertical-align:middle; margin-right:6px; font-size:1.1rem;">save</span>
+                Salvar Medley no Repertório
+            </button>
         </div>
     </div>
 
-    <!-- Modal: Visualizar Letra -->
     <div id="modal-view-repertoire" class="modal fullscreen-mobile">
         <div class="modal-content">
             <div class="modal-header">
@@ -264,7 +255,6 @@
         </div>
     </div>
 
-    <!-- Modal: Criar/Editar Escala Múltipla -->
     <div id="modal-add-scale" class="modal fullscreen-mobile">
         <div class="modal-content">
             <div class="modal-header"><h3 id="scale-modal-title">Nova Escala</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
