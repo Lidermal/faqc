@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ministério de Louvor - Amor que Cura</title>
+    <link rel="icon" type="image/png" href="logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
     <link rel="stylesheet" href="style.css">
@@ -52,6 +53,7 @@
             <header class="app-header">
                 <button class="btn-menu" id="desktop-menu-btn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
                 <div class="user-info"><span id="user-display-name"></span></div>
+                <button class="btn-logout-mobile" onclick="handleLogout()" title="Sair"><span class="material-symbols-outlined">logout</span></button>
             </header>
 
             <div class="content-area">
@@ -80,7 +82,11 @@
                 <!-- MEMBROS -->
                 <section id="page-membros" class="subpage">
                     <div class="page-header"><h2>Equipe do Ministério</h2></div>
-                    <div id="members-grid" class="members-grid"><p class="loading-text">Carregando membros...</p></div>
+                    <div class="team-lineup-card">
+                        <div class="lineup-field" id="members-lineup">
+                            <p class="loading-text" style="color:white;">Carregando equipe...</p>
+                        </div>
+                    </div>
                 </section>
 
                 <!-- ESCALAS -->
@@ -183,27 +189,59 @@
         </div>
     </div>
 
-    <!-- Modal: Criar Medley -->
+    <!-- Modal: Criar Medley (Fluxo Passo-a-Passo) -->
     <div id="modal-add-medley" class="modal bottom-sheet">
         <div class="modal-content">
             <div class="modal-header"><h3>Criar Medley</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
             <div class="modal-body">
                 <div class="input-group"><label>Nome do Medley *</label><input type="text" id="medley-title" placeholder="Ex: Medley Adoração"></div>
                 
-                <div class="medley-builder">
-                    <h4>Músicas do Medley:</h4>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">⚠️ É obrigatório definir a <strong>seção/parte</strong> de cada música (Ex: Refrão, Ponte, Intro).</p>
-                    <div class="input-group" style="flex-direction:row; gap:10px;">
-                        <select id="medley-song-selector" style="flex:1;"><option value="">Selecione do Repertório...</option></select>
-                        <button class="btn-secondary" onclick="addSongToMedleyDraft()">Adicionar</button>
-                    </div>
-                    
+                <!-- Lista de músicas já adicionadas -->
+                <div class="medley-added-section">
+                    <h4>Músicas no Medley:</h4>
                     <div id="medley-draft-list" class="medley-draft-list">
-                        <p class="loading-text" style="font-size:0.85rem;" id="medley-empty-text">Nenhuma música adicionada ainda.</p>
+                        <p class="loading-text" style="font-size:0.85rem;">Nenhuma música adicionada ainda.</p>
                     </div>
                 </div>
 
-                <button class="btn-primary" onclick="saveNewMedley()" style="margin-top: 15px;">Salvar Medley</button>
+                <!-- Área de seleção passo-a-passo -->
+                <div class="medley-step-area" style="margin-top:15px;">
+                    <!-- PASSO 1: Selecionar música -->
+                    <div id="medley-step-song" class="medley-step">
+                        <h4>1. Escolha uma música do repertório:</h4>
+                        <div class="input-group" style="flex-direction:row; gap:10px; margin-top:8px;">
+                            <select id="medley-song-selector" style="flex:1;">
+                                <option value="">Selecione do Repertório...</option>
+                            </select>
+                            <button class="btn-secondary" onclick="goToMedleySectionStep()">Avançar →</button>
+                        </div>
+                    </div>
+                    
+                    <!-- PASSO 2: Selecionar seção/parte -->
+                    <div id="medley-step-section" class="medley-step hidden">
+                        <h4>2. Qual parte de "<span id="medley-current-song-name" style="color:var(--primary-color);"></span>" será usada?</h4>
+                        <div class="medley-section-buttons">
+                            <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Intro')">Intro</button>
+                            <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Verso 1')">Verso 1</button>
+                            <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Verso 2')">Verso 2</button>
+                            <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Pré-Refrão')">Pré-Refrão</button>
+                            <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Refrão')">Refrão</button>
+                            <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Ponte')">Ponte</button>
+                            <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Final')">Final</button>
+                            <button type="button" class="section-btn" onclick="selectMedleySection(this, 'Completa')">Completa</button>
+                        </div>
+                        <div class="input-group" style="margin-top:12px;">
+                            <label>Ou digite uma seção personalizada:</label>
+                            <input type="text" id="medley-custom-section" placeholder="Ex: Só o Refrão e Ponte" oninput="clearMedleySectionButtons()">
+                        </div>
+                        <div style="display:flex; gap:10px; margin-top:10px;">
+                            <button class="btn-secondary" onclick="backToMedleySongStep()" style="flex:1;">← Voltar</button>
+                            <button class="btn-primary" onclick="confirmMedleySection()" style="flex:1;">✓ Confirmar e Adicionar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button class="btn-primary" onclick="saveNewMedley()" style="margin-top: 20px;">💾 Salvar Medley Completo</button>
             </div>
         </div>
     </div>
