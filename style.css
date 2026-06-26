@@ -52,6 +52,23 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .app-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; background-color: var(--surface-color); border-bottom: 1px solid var(--border-color); }
 .btn-menu { display: flex; background: none; border: none; color: var(--text-main); cursor: pointer; padding: 8px; border-radius: 6px; }
 .user-info { font-weight: 600; }
+
+/* BOTÃO SAIR MOBILE */
+.btn-logout-mobile { 
+    display: none; 
+    background: none; 
+    border: 1px solid var(--danger); 
+    color: var(--danger); 
+    cursor: pointer; 
+    padding: 6px 10px; 
+    border-radius: 6px;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+.btn-logout-mobile:hover { background: rgba(214, 48, 49, 0.08); }
+
 .content-area { flex: 1; padding: 1.5rem; overflow-y: auto; padding-bottom: 2rem; }
 .subpage { display: none; }
 .subpage.active { display: block; animation: fadeIn 0.3s; }
@@ -60,7 +77,6 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 /* DASHBOARD & CARDS */
 .page-header { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
 .header-actions { display: flex; gap: 10px; }
-/* Altura dinâmica: cada card respeita seu próprio conteúdo */
 .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; align-items: start; }
 .card { background-color: var(--surface-color); border-radius: 12px; border: 1px solid var(--border-color); box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
 .card-header { display: flex; align-items: center; gap: 10px; padding: 1.2rem; background-color: #fafafa; border-bottom: 1px solid var(--border-color); border-radius: 12px 12px 0 0;}
@@ -68,31 +84,6 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .countdown { font-size: 1.8rem; font-weight: 700; color: var(--primary-color); margin-bottom: 1rem; font-variant-numeric: tabular-nums; }
 .divider { border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0; }
 .verse-ref { font-weight: 600; margin-top: 1rem; color: var(--primary-color); display: block; text-align: right; }
-
-/* LISTA DA EQUIPE ESCALADA NO DASHBOARD (mesmo padrão visual das Escalas) */
-.home-team-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; text-align: left; }
-.home-team-item { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    padding: 10px 14px; 
-    background: #f8fafc; 
-    border-radius: 8px; 
-    border: 1px solid var(--border-color); 
-    transition: 0.2s; 
-}
-.home-team-item:hover { background: #f1f5f9; border-color: var(--primary-color); }
-.home-team-item strong { font-size: 0.9rem; color: var(--text-main); font-weight: 600; }
-.home-team-item span { 
-    font-size: 0.7rem; 
-    background: var(--primary-color); 
-    color: white; 
-    padding: 3px 10px; 
-    border-radius: 12px; 
-    text-transform: uppercase; 
-    font-weight: 600; 
-    letter-spacing: 0.5px; 
-}
 
 /* MEMBROS & BADGES */
 .members-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
@@ -104,6 +95,51 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .badge.vocal { background-color: #e3f2fd; color: #1976d2; border: 1px solid #90caf9;}
 .badge.instrumento { background-color: #f3e5f5; color: #7b1fa2; border: 1px solid #ce93d8;}
 .badge.tom { background-color: #2d3436; color: white; font-size: 0.8rem; padding: 4px 10px;}
+
+/* TEAM LINEUP CARD (página de membros) */
+.team-lineup-card { 
+    background: var(--surface-color); 
+    border-radius: 12px; 
+    border: 1px solid var(--border-color); 
+    overflow: hidden; 
+    margin-bottom: 1.5rem; 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+}
+
+/* LINEUP MINI (dashboard - equipe escalada) */
+.lineup-mini { padding: 1rem 0.5rem; gap: 15px; }
+.lineup-mini .lineup-row { gap: 10px; }
+.lineup-mini .player-avatar { width: 38px; height: 38px; font-size: 0.95rem; }
+.lineup-mini .player-name { font-size: 0.65rem; max-width: 60px; }
+.lineup-mini .player-role { font-size: 0.5rem; }
+
+/* DESTAQUE USUÁRIO LOGADO */
+.player-avatar.current-user {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 3px rgba(240, 90, 40, 0.3), 0 0 15px rgba(240, 90, 40, 0.6);
+    animation: pulseGlow 2s infinite;
+    position: relative;
+}
+.player-avatar.current-user::after {
+    content: '★';
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: var(--primary-color);
+    color: white;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+@keyframes pulseGlow {
+    0%, 100% { box-shadow: 0 0 0 3px rgba(240, 90, 40, 0.3), 0 0 15px rgba(240, 90, 40, 0.6); }
+    50% { box-shadow: 0 0 0 5px rgba(240, 90, 40, 0.4), 0 0 25px rgba(240, 90, 40, 0.8); }
+}
 
 /* REPERTÓRIO & BUSCA */
 .repertoire-playlist { background-color: var(--surface-color); border-radius: 12px; border: 1px solid var(--border-color); padding: 5px; }
@@ -121,9 +157,29 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .search-result-item { padding: 10px; background: white; border: 1px solid #e2e8f0; margin-bottom: 5px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; align-items: center;}
 .search-result-item:hover { background: #f1f5f9; }
 
-/* MEDLEY DRAFT */
-.medley-draft-list { border: 1px solid #e2e8f0; background: #fafafa; border-radius: 8px; padding: 10px; max-height: 250px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;}
+/* MEDLEY DRAFT & STEP-BY-STEP */
+.medley-draft-list { border: 1px solid #e2e8f0; background: #fafafa; border-radius: 8px; padding: 10px; max-height: 200px; overflow-y: auto; display:flex; flex-direction:column; gap:8px;}
 .medley-draft-item { display:flex; flex-direction:column; gap:5px; background: #fff; padding: 10px; border: 1px solid #e2e8f0; border-radius: 6px;}
+.medley-step { transition: all 0.3s ease; }
+.medley-step.hidden { display: none; }
+.medley-section-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.section-btn { 
+    padding: 8px 14px; 
+    background: #f1f5f9; 
+    border: 2px solid transparent; 
+    border-radius: 20px; 
+    cursor: pointer; 
+    font-weight: 600; 
+    font-size: 0.85rem; 
+    color: var(--text-main);
+    transition: 0.2s;
+}
+.section-btn:hover { background: #e2e8f0; }
+.section-btn.selected { 
+    background: rgba(240, 90, 40, 0.1); 
+    border-color: var(--primary-color); 
+    color: var(--primary-color); 
+}
 
 /* ESCALAS & ESCALAÇÃO (Lineup) */
 .scale-tabs { display: flex; gap: 10px; margin-bottom: 15px; }
@@ -152,13 +208,13 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .lineup-row::after { content: ''; position: absolute; bottom: -10px; left: 20%; width: 60%; height: 1px; background: rgba(255,255,255,0.1); }
 .lineup-row:last-child::after { display: none; }
 .lineup-player { display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; width: 65px;}
-.player-avatar { width: 40px; height: 40px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1rem; font-weight:bold;}
+.player-avatar { width: 40px; height: 40px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.8); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1rem; font-weight:bold; position: relative;}
 .player-avatar.lider { border-color: var(--primary-color); color: var(--primary-color); background: rgba(240, 90, 40, 0.15);}
 .player-name { font-size: 0.7rem; font-weight: 600; line-height: 1.1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; width:100%;}
 .player-role { font-size: 0.55rem; opacity: 0.7; text-transform: uppercase;}
 
 .scale-songs-list { padding: 1rem; background: #fff; font-size: 0.85rem; display: flex; flex-direction: column; gap: 6px;}
-.scale-songs-list span { background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display:flex; align-items:center; gap:5px;}
+.scale-songs-list span { background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display:flex; align-items:center; gap:5px; flex-wrap:wrap;}
 
 .scale-songs-box { max-height: 200px; overflow-y: auto; background: #fafafa; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; display:flex; flex-direction:column; gap:5px;}
 
@@ -192,8 +248,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 
 @media (max-width: 768px) {
     .sidebar-header, .sidebar-footer, .btn-menu, .user-info { display: none; }
-    .app-header { justify-content: center; padding: 0.8rem; }
-    .app-header::after { content: "Amor que Cura"; font-weight: 700; font-size: 1.1rem; color: var(--text-main); }
+    .app-header { justify-content: space-between; padding: 0.8rem 1rem; }
+    .app-header::after { content: "Amor que Cura"; font-weight: 700; font-size: 1.1rem; color: var(--text-main); flex: 1; text-align: center; }
+    .btn-logout-mobile { display: flex; }
     
     .content-area { padding: 1rem; padding-bottom: calc(var(--bottom-nav-height) + 1.5rem); }
     
@@ -206,4 +263,10 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     .modal.bottom-sheet { align-items: flex-end; padding: 0; }
     .modal.bottom-sheet .modal-content { width: 100%; border-radius: 20px 20px 0 0; max-height: 85vh; margin: 0; }
     .modal.fullscreen-mobile .modal-content { width: 100%; height: 100%; max-height: 100vh; border-radius: 0; }
+    
+    .lineup-field { padding: 1rem 0.5rem; gap: 15px; }
+    .lineup-row { gap: 10px; }
+    .player-avatar { width: 38px; height: 38px; font-size: 0.9rem; }
+    .player-name { font-size: 0.65rem; }
+    .player-role { font-size: 0.5rem; }
 }
