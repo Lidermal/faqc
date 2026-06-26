@@ -75,7 +75,6 @@
             <div class="content-area">
                 <section id="page-home" class="subpage active">
                     <div class="dashboard-grid">
-                        
                         <div class="card daily-message-card">
                             <div class="card-header">
                                 <span class="material-symbols-outlined">menu_book</span>
@@ -92,9 +91,7 @@
                                 <h3>Próximo Culto (Domingo)</h3>
                             </div>
                             <div class="card-body text-center">
-                                <div class="countdown" id="countdown-timer">
-                                    00d 00h 00m 00s
-                                </div>
+                                <div class="countdown" id="countdown-timer">00d 00h 00m 00s</div>
                                 <hr class="divider">
                                 <h4>Equipe Escalada</h4>
                                 <div id="next-scale-team">
@@ -102,7 +99,6 @@
                                 </div>
                             </div>
                         </div>
-
                     </div>
                 </section>
 
@@ -116,11 +112,18 @@
                 </section>
 
                 <section id="page-escalas" class="subpage">
-                    <h2>Escalas (Em breve no Passo 4)</h2>
+                    <h2>Escalas (Em breve no Passo 5)</h2>
                 </section>
 
                 <section id="page-repertorio" class="subpage">
-                    <h2>Repertório (Em breve no Passo 4)</h2>
+                    <div class="page-header">
+                        <h2>Repertório do Ministério</h2>
+                        <button class="btn-primary hidden" id="btn-add-music" onclick="openRepertoireModal()">+ Nova Música</button>
+                    </div>
+                    
+                    <div class="repertoire-playlist" id="repertoire-list">
+                        <p class="loading-text">Carregando músicas...</p>
+                    </div>
                 </section>
 
                 <section id="page-admin" class="subpage">
@@ -167,6 +170,68 @@
         
         <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
     </main>
+
+    <div id="modal-add-repertoire" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Adicionar Nova Música</h3>
+                <button class="close-btn" onclick="closeModals()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-music-box">
+                    <h4>Buscador de Letras</h4>
+                    <div class="search-inputs">
+                        <input type="text" id="search-artist" placeholder="Cantor/Banda (ex: Aline Barros)">
+                        <input type="text" id="search-song" placeholder="Nome da Música">
+                        <button class="btn-secondary" onclick="searchLyrics()" id="btn-search-lyrics">Buscar Letra</button>
+                    </div>
+                    <span id="search-msg" class="admin-message"></span>
+                </div>
+                
+                <hr class="divider">
+                
+                <div class="input-group">
+                    <label>Título Final da Música no Sistema *</label>
+                    <input type="text" id="rep-title" placeholder="Ex: Ressuscita-me - Aline Barros">
+                </div>
+                <div class="input-group">
+                    <label>Tom Principal (opcional)</label>
+                    <input type="text" id="rep-key" placeholder="Ex: G, Am, C#m">
+                </div>
+                <div class="input-group">
+                    <label>Letra da Música *</label>
+                    <textarea id="rep-lyrics" rows="6" placeholder="A letra importada aparecerá aqui... ou digite manualmente."></textarea>
+                </div>
+                
+                <button class="btn-primary" onclick="saveNewRepertoire()" style="margin-top: 10px;">Salvar no Repertório</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-view-repertoire" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="view-rep-title">Título da Música</h3>
+                <button class="close-btn" onclick="closeModals()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="keys-manager">
+                    <h4>Tons Cadastrados:</h4>
+                    <div id="view-rep-keys" class="keys-list"></div>
+                    
+                    <div class="add-key-box hidden" id="box-add-key">
+                        <input type="text" id="new-key-input" placeholder="Novo Tom" style="width: 100px; padding: 5px;">
+                        <button class="btn-secondary" onclick="addKeyToRepertoire()" style="padding: 5px 10px;">Adicionar Tom</button>
+                    </div>
+                </div>
+                
+                <hr class="divider">
+                <div class="lyrics-display">
+                    <pre id="view-rep-lyrics"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="app.js"></script>
 </body>
