@@ -14,7 +14,7 @@ let medleyDraft = [];
 let scaleDraftTeam = [];
 
 // Variáveis do fluxo passo-a-passo do Medley
-let medleyCurrentSong = null; // {id, title}
+let medleyCurrentSong = null; // {id, title, lyrics}
 let medleySelectedSection = null; // string
 
 // ==========================================
@@ -71,7 +71,10 @@ function showSystemScreen() {
 
     if (currentUserData.is_leader) {
         document.getElementById('nav-admin').classList.remove('hidden');
-        document.getElementById('repertoire-actions').classList.remove('hidden');
+    }
+    // Botões de adicionar música e medley visíveis para TODOS
+    document.getElementById('repertoire-actions').classList.remove('hidden');
+    if (currentUserData.is_leader) {
         document.getElementById('btn-add-scale').classList.remove('hidden');
     }
     navigate('home');
@@ -83,7 +86,6 @@ function handleLogout() {
     document.getElementById('login-screen').classList.remove('hidden'); document.getElementById('login-screen').classList.add('active');
     document.getElementById('username').value = '';
     document.getElementById('nav-admin').classList.add('hidden');
-    document.getElementById('repertoire-actions').classList.add('hidden');
     document.getElementById('btn-add-scale').classList.add('hidden');
 }
 
@@ -163,7 +165,7 @@ async function fetchDailyMessage() {
     } catch (e) { container.innerHTML = `<p>Erro na mensagem.</p>`; }
 }
 
-// EQUIPE ESCALADA NO DASHBOARD - Formato de Time (Lineup) com destaque do usuário logado
+// EQUIPE ESCALADA NO DASHBOARD - NOVO DESIGN MODERNO
 async function fetchNextScaleHome() {
     const container = document.getElementById('next-scale-team');
     const today = new Date().toISOString().split('T')[0];
@@ -175,40 +177,56 @@ async function fetchNextScaleHome() {
             const itemsRes = await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name)&order=role.asc`, { headers });
             const itemsData = await itemsRes.json();
             if (itemsData.length > 0) {
+                let html = '<div class="team-scale-container">';
+                
                 // Agrupar por função
-                let team = { lider:[], vocal:[], banda:[] };
-                itemsData.forEach(i => {
-                    let p = { id: i.members.id, name: i.members.full_name, role: i.role };
-                    if(i.role === 'lider') team.lider.push(p);
-                    else if(i.role === 'vocal') team.vocal.push(p);
-                    else team.banda.push(p);
+                const leaders = itemsData.filter(i => i.role === 'lider');
+                const vocals = itemsData.filter(i => i.role === 'vocal');
+                const band = itemsData.filter(i => !['lider', 'vocal'].includes(i.role));
+                
+                // Líderes
+                leaders.forEach(i => {
+                    const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
+                    html += `
+                        <div class="team-scale-row ${isCurrent}">
+                            <div class="team-scale-avatar lider ${isCurrent}">${i.members.full_name.charAt(0)}</div>
+                            <div class="team-scale-info">
+                                <div class="team-scale-name">${i.members.full_name}</div>
+                                <div class="team-scale-role">Líder</div>
+                            </div>
+                        </div>
+                    `;
                 });
-
-                let html = '<div class="lineup-field lineup-mini">';
-                if(team.lider.length > 0) {
-                    html += '<div class="lineup-row">';
-                    team.lider.forEach(p => {
-                        const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
-                        html += `<div class="lineup-player"><div class="player-avatar lider ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Líder</span></div>`;
-                    });
-                    html += '</div>';
-                }
-                if(team.vocal.length > 0) {
-                    html += '<div class="lineup-row">';
-                    team.vocal.forEach(p => {
-                        const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
-                        html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Vocal</span></div>`;
-                    });
-                    html += '</div>';
-                }
-                if(team.banda.length > 0) {
-                    html += '<div class="lineup-row">';
-                    team.banda.forEach(p => {
-                        const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
-                        html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">${p.role}</span></div>`;
-                    });
-                    html += '</div>';
-                }
+                
+                // Vocais
+                vocals.forEach(i => {
+                    const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
+                    html += `
+                        <div class="team-scale-row ${isCurrent}">
+                            <div class="team-scale-avatar vocal ${isCurrent}">${i.members.full_name.charAt(0)}</div>
+                            <div class="team-scale-info">
+                                <div class="team-scale-name">${i.members.full_name}</div>
+                                <div class="team-scale-role">Vocal</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                // Banda/Instrumentos
+                band.forEach(i => {
+                    const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
+                    const roleName = i.role.charAt(0).toUpperCase() + i.role.slice(1);
+                    html += `
+                        <div class="team-scale-row ${isCurrent}">
+                            <div class="team-scale-avatar instrumento ${isCurrent}">${i.members.full_name.charAt(0)}</div>
+                            <div class="team-scale-info">
+                                <div class="team-scale-name">${i.members.full_name}</div>
+                                <div class="team-scale-role">${roleName}</div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
                 html += '</div>';
                 container.innerHTML = html;
             } else container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Escala vazia.</p>`;
@@ -326,7 +344,7 @@ async function loadRepertoire() {
 }
 
 // ==========================================
-// MEDLEY - FLUXO PASSO-A-PASSO
+// MEDLEY - FLUXO MELHORADO COM LETRA
 // ==========================================
 function openMedleyModal() {
     document.getElementById('modal-add-medley').classList.add('active');
@@ -336,6 +354,15 @@ function openMedleyModal() {
     selector.innerHTML = '<option value="">Selecione do Repertório...</option>';
     const songs = allRepertoireCache.filter(s => !s.is_medley);
     songs.forEach(s => { selector.innerHTML += `<option value="${s.id}">${s.title}</option>`; });
+    
+    // Adicionar evento de mudança para mostrar letra
+    selector.addEventListener('change', function() {
+        if(this.value) {
+            showMedleyLyricsPreview(this.value);
+        } else {
+            document.getElementById('medley-lyrics-container').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música para ver a letra</p>';
+        }
+    });
 }
 
 function resetMedleyFlow() {
@@ -345,8 +372,20 @@ function resetMedleyFlow() {
     renderMedleyDraft();
     backToMedleySongStep();
     document.getElementById('medley-title').value = '';
-    const selector = document.getElementById('medley-song-selector');
-    if(selector) selector.value = '';
+    document.getElementById('medley-song-selector').value = '';
+    document.getElementById('medley-lyrics-container').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música para ver a letra</p>';
+}
+
+async function showMedleyLyricsPreview(songId) {
+    const song = allRepertoireCache.find(s => s.id === songId);
+    if(!song) return;
+    
+    const container = document.getElementById('medley-lyrics-container');
+    if(song.lyrics_text) {
+        container.innerHTML = `<pre>${song.lyrics_text}</pre>`;
+    } else {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Letra não disponível</p>';
+    }
 }
 
 function renderMedleyDraft() {
@@ -360,13 +399,13 @@ function renderMedleyDraft() {
     medleyDraft.forEach((item, index) => {
         html += `
             <div class="medley-draft-item">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <strong>${index+1}. ${item.title}</strong>
+                <div class="medley-draft-item-header">
+                    <span class="medley-draft-item-title">${index+1}. ${item.title}</span>
                     <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removeMedleyDraftItem(${index})">delete</span>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px; margin-top:5px;">
+                <div class="medley-draft-item-section">
                     <span class="material-symbols-outlined" style="color:var(--primary-color); font-size:1rem;">music_note</span>
-                    <span style="font-size:0.85rem; color:var(--text-muted);">Seção: <strong style="color:var(--text-main);">${item.part}</strong></span>
+                    <span>Seção: <strong>${item.part}</strong></span>
                 </div>
             </div>
         `;
@@ -389,14 +428,11 @@ function goToMedleySectionStep() {
     }
     
     const songObj = allRepertoireCache.find(s => s.id === songId);
-    medleyCurrentSong = { id: songObj.id, title: songObj.title };
+    medleyCurrentSong = { id: songObj.id, title: songObj.title, lyrics: songObj.lyrics_text };
     
-    // Atualiza UI
-    document.getElementById('medley-current-song-name').textContent = songObj.title;
     document.getElementById('medley-step-song').classList.add('hidden');
     document.getElementById('medley-step-section').classList.remove('hidden');
     
-    // Limpa seleções anteriores
     medleySelectedSection = null;
     document.getElementById('medley-custom-section').value = '';
     document.querySelectorAll('.section-btn').forEach(btn => btn.classList.remove('selected'));
@@ -441,7 +477,6 @@ function confirmMedleySection() {
         return;
     }
     
-    // Adiciona ao draft
     medleyDraft.push({
         id: medleyCurrentSong.id,
         title: medleyCurrentSong.title,
@@ -449,10 +484,9 @@ function confirmMedleySection() {
     });
     
     renderMedleyDraft();
-    
-    // Volta para o passo 1 para adicionar próxima música
     backToMedleySongStep();
     document.getElementById('medley-song-selector').value = '';
+    document.getElementById('medley-lyrics-container').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música para ver a letra</p>';
     
     showCustomAlert(`"${medleyCurrentSong.title}" adicionada com a seção "${finalSection}". Adicione mais músicas ou salve o Medley.`, 'Música Adicionada');
 }
@@ -543,7 +577,6 @@ async function loadMembers() {
         const members = await res.json();
         if (members.length === 0) { lineup.innerHTML = '<p style="color:white; text-align:center;">Nenhum membro cadastrado.</p>'; return; }
         
-        // Agrupar por função principal (cada membro aparece apenas uma vez)
         let team = { lider:[], vocal:[], banda:[], membro:[] };
         members.forEach(m => {
             let p = { id: m.id, name: m.full_name };
@@ -554,7 +587,6 @@ async function loadMembers() {
             } else if(roles.includes('vocal')) {
                 team.vocal.push(p);
             } else if(roles.length > 0) {
-                // Pega o primeiro instrumento
                 team.banda.push({...p, role: roles[0]});
             } else {
                 team.membro.push(p);
@@ -563,7 +595,6 @@ async function loadMembers() {
         
         let html = '';
         
-        // Linha 1: Líderes
         if(team.lider.length > 0) {
             html += '<div class="lineup-row">';
             team.lider.forEach(p => {
@@ -573,7 +604,6 @@ async function loadMembers() {
             html += '</div>';
         }
         
-        // Linha 2: Vocais
         if(team.vocal.length > 0) {
             html += '<div class="lineup-row">';
             team.vocal.forEach(p => {
@@ -583,7 +613,6 @@ async function loadMembers() {
             html += '</div>';
         }
         
-        // Linha 3: Instrumentistas
         if(team.banda.length > 0) {
             html += '<div class="lineup-row">';
             team.banda.forEach(p => {
@@ -593,7 +622,6 @@ async function loadMembers() {
             html += '</div>';
         }
         
-        // Linha 4: Membros sem função
         if(team.membro.length > 0) {
             html += '<div class="lineup-row">';
             team.membro.forEach(p => {
@@ -626,7 +654,6 @@ async function loadScales() {
     listFuture.innerHTML = '<p>Buscando...</p>'; listPast.innerHTML = '<p>Buscando...</p>';
     
     try {
-        // Query atualizada para trazer repertoire_keys(ton) junto
         const res = await fetch(`${SUPABASE_URL}/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title,repertoire_keys(ton)))&order=event_date.asc`, { headers });
         const scales = await res.json();
         
@@ -674,7 +701,6 @@ function renderScaleCards(scaleArray, isFuture) {
         }
         lineupHtml += '</div>';
 
-        // NOVO: Renderiza músicas com seus tons
         let songsHtml = ''; 
         s.scale_songs.forEach(song => { 
             const keys = song.repertoire.repertoire_keys || [];
