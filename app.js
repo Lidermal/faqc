@@ -57,7 +57,8 @@ function showSystemScreen() {
         document.getElementById('nav-admin').classList.remove('hidden');
     }
 
-    loadDashboard();
+    // Força carregar a dashboard na primeira tela
+    navigate('home');
 }
 
 function handleLogout() {
@@ -80,21 +81,32 @@ function handleLogout() {
 // CONTROLE DE INTERFACE (UI & SPA)
 // ==========================================
 function navigate(pageId) {
-    // Muda a tela visualmente
-    document.querySelectorAll('.subpage').forEach(page => page.classList.remove('active'));
-    document.getElementById('page-' + pageId).classList.add('active');
-
-    // Muda o menu visualmente
-    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-    document.getElementById('nav-' + pageId).classList.add('active');
+    // 1. Remove a classe 'active' de TODAS as subpáginas
+    document.querySelectorAll('.subpage').forEach(page => {
+        page.classList.remove('active');
+        page.classList.remove('hidden'); // Prevenção para garantir que a classe não volte
+    });
     
-    // Fecha o menu no celular ao clicar
+    // 2. Adiciona a classe 'active' apenas na página clicada
+    const targetPage = document.getElementById('page-' + pageId);
+    if(targetPage) {
+        targetPage.classList.add('active');
+    }
+
+    // 3. Muda a cor do menu clicado
+    document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+    const targetNav = document.getElementById('nav-' + pageId);
+    if(targetNav) {
+        targetNav.classList.add('active');
+    }
+    
+    // 4. Fecha o menu lateral se estiver num celular
     if(window.innerWidth <= 768) {
         const sidebar = document.getElementById('sidebar');
         if(sidebar.classList.contains('open')) toggleSidebar();
     }
 
-    // Carrega os dados dependendo de qual aba foi aberta
+    // 5. Carrega os dados referentes a cada aba
     if (pageId === 'home') loadDashboard();
     if (pageId === 'membros') loadMembers();
     if (pageId === 'admin') loadAdminMembers();
