@@ -9,30 +9,54 @@ let currentViewingRepertoireId = null;
 let allRepertoireCache = [];
 let allMembersCache = [];
 
+// Variáveis para os rascunhos (Medley e Escala)
+let medleyDraft = []; 
+let scaleDraftTeam = [];
+
+// ==========================================
+// ALERTAS PERSONALIZADOS
+// ==========================================
+function showCustomAlert(msg, title = "Aviso") {
+    document.getElementById('alert-title').textContent = title;
+    document.getElementById('alert-msg').textContent = msg;
+    document.getElementById('modal-alert').classList.add('active');
+}
+function closeCustomAlert() { document.getElementById('modal-alert').classList.remove('active'); }
+
+function showCustomConfirm(msg, callback, title = "Atenção") {
+    document.getElementById('confirm-title').textContent = title;
+    document.getElementById('confirm-msg').textContent = msg;
+    document.getElementById('modal-confirm').classList.add('active');
+    
+    document.getElementById('btn-confirm-yes').onclick = () => {
+        closeCustomConfirm();
+        if(callback) callback();
+    };
+}
+function closeCustomConfirm() { document.getElementById('modal-confirm').classList.remove('active'); }
+
+
 // ==========================================
 // AUTENTICAÇÃO E NAVEGAÇÃO
 // ==========================================
 async function handleLogin() {
     const usernameInput = document.getElementById('username').value.trim().toLowerCase();
-    const errorSpan = document.getElementById('login-error');
     const btnLogin = document.getElementById('btn-login');
 
-    errorSpan.textContent = '';
-    if (!usernameInput) { errorSpan.textContent = 'Digite seu usuário.'; return; }
+    if (!usernameInput) { showCustomAlert('Por favor, digite seu usuário.'); return; }
 
     btnLogin.disabled = true; btnLogin.textContent = 'Validando...';
 
     try {
         const response = await fetch(`${SUPABASE_URL}/members?username=eq.${usernameInput}&select=*`, { method: 'GET', headers });
-        if (!response.ok) throw new Error('Erro banco de dados');
         const data = await response.json();
 
         if (data.length > 0) {
             currentUserData = data[0];
             localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
             showSystemScreen();
-        } else { errorSpan.textContent = 'Usuário não encontrado.'; }
-    } catch (error) { errorSpan.textContent = 'Erro de conexão.'; } 
+        } else { showCustomAlert('Usuário não encontrado.'); }
+    } catch (error) { showCustomAlert('Erro de conexão. Verifique sua internet.'); } 
     finally { btnLogin.disabled = false; btnLogin.textContent = 'Entrar'; }
 }
 
@@ -75,23 +99,33 @@ function navigate(pageId) {
     if (pageId === 'escalas') loadScales();
 }
 
-function closeModals() { document.querySelectorAll('.modal').forEach(m => m.classList.remove('active')); }
-function toggleSidebar() {} // Desnecessário no formato novo mobile, mas mantido p/ PC se precisar
+function closeModals() { 
+    document.querySelectorAll('.modal').forEach(m => {
+        if(!m.classList.contains('custom-alert-modal')) m.classList.remove('active'); 
+    }); 
+}
+function toggleSidebar() {} 
 
 // ==========================================
-// INÍCIO (Mensagem e Contador)
+// INÍCIO (Relógio para 18:30)
 // ==========================================
 function loadDashboard() { startCountdown(); fetchDailyMessage(); fetchNextScaleHome(); }
 
 function startCountdown() {
     clearInterval(countdownInterval);
     function updateTimer() {
-        const now = new Date(); const nextSunday = new Date();
+        const now = new Date(); const target = new Date();
         const daysUntilSunday = (7 - now.getDay()) % 7;
-        if (daysUntilSunday === 0 && now.getHours() >= 18) nextSunday.setDate(now.getDate() + 7);
-        else nextSunday.setDate(now.getDate() + daysUntilSunday);
-        nextSunday.setHours(18, 0, 0, 0);
-        const diff = nextSunday - now;
+        
+        // Domingo as 18:30
+        if (daysUntilSunday === 0 && (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 30))) {
+            target.setDate(now.getDate() + 7);
+        } else {
+            target.setDate(now.getDate() + daysUntilSunday);
+        }
+        target.setHours(18, 30, 0, 0);
+        
+        const diff = target - now;
         const d = Math.floor(diff / (1000 * 60 * 60 * 24)); const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); const s = Math.floor((diff % (1000 * 60)) / 1000);
         document.getElementById('countdown-timer').textContent = `${String(d).padStart(2, '0')}d ${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
@@ -139,74 +173,92 @@ async function fetchNextScaleHome() {
 }
 
 // ==========================================
-// REPERTÓRIO E BUSCA INTELIGENTE (iTunes API)
+// BUSCADOR 100% FIEL (Testa a letra antes de mostrar)
 // ==========================================
 function openRepertoireModal() { 
     document.getElementById('modal-add-repertoire').classList.add('active'); 
     document.getElementById('search-results').innerHTML = '';
 }
 
+let cachedLyricsSearch = {};
+
 async function searchMusicList() {
     const query = document.getElementById('search-query').value.trim();
     const resultsContainer = document.getElementById('search-results');
     const msgBox = document.getElementById('search-msg');
     
-    if(!query) { msgBox.textContent = 'Digite algo.'; return; }
+    if(!query) { showCustomAlert('Digite o nome da música ou cantor.'); return; }
     
-    msgBox.textContent = 'Buscando opções...';
+    msgBox.textContent = 'Buscando e testando letras... Aguarde.';
+    msgBox.className = 'admin-message';
     resultsContainer.innerHTML = '';
+    cachedLyricsSearch = {};
     
     try {
-        // API do iTunes é rápida e aceita busca parcial
         const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=5`);
         const data = await res.json();
         
-        if(data.results.length === 0) { msgBox.textContent = 'Nada encontrado. Tente nomes mais específicos.'; return; }
+        if(data.results.length === 0) { msgBox.textContent = 'Nada encontrado.'; return; }
         
-        msgBox.textContent = 'Selecione a música correta abaixo:';
-        data.results.forEach(track => {
-            const div = document.createElement('div');
-            div.className = 'search-result-item';
-            div.innerHTML = `<div><strong>${track.trackName}</strong><br><small>${track.artistName}</small></div> <span class="material-symbols-outlined">download</span>`;
-            div.onclick = () => fetchLyricsFromOption(track.artistName, track.trackName);
-            resultsContainer.appendChild(div);
-        });
-    } catch(e) { msgBox.textContent = 'Erro na busca.'; }
+        let foundAnyValid = false;
+
+        // Testa em silêncio
+        for(let track of data.results) {
+            try {
+                const lyrRes = await fetch(`https://api.lyrics.ovh/v1/${track.artistName}/${track.trackName}`);
+                if(lyrRes.ok) {
+                    const lyrData = await lyrRes.json();
+                    if(lyrData.lyrics && lyrData.lyrics.length > 20) {
+                        foundAnyValid = true;
+                        const uniqueId = track.trackId;
+                        cachedLyricsSearch[uniqueId] = { artist: track.artistName, song: track.trackName, lyrics: lyrData.lyrics };
+                        
+                        const div = document.createElement('div');
+                        div.className = 'search-result-item';
+                        div.innerHTML = `<div><strong>${track.trackName}</strong><br><small>${track.artistName}</small></div> <span class="material-symbols-outlined" style="color:var(--primary-color);">download_done</span>`;
+                        div.onclick = () => importPreCheckedLyrics(uniqueId);
+                        resultsContainer.appendChild(div);
+                    }
+                }
+            } catch(err) {} // Ignora falhas individuais e segue pro próximo
+        }
+
+        if(!foundAnyValid) {
+            msgBox.textContent = 'Nenhuma letra completa foi encontrada para essa busca. Digite outra ou adicione manualmente.';
+            msgBox.className = 'admin-message msg-error';
+        } else {
+            msgBox.textContent = 'Opções com letras confirmadas encontradas!';
+            msgBox.className = 'admin-message msg-success';
+        }
+
+    } catch(e) { msgBox.textContent = 'Erro ao se conectar ao buscador.'; }
 }
 
-async function fetchLyricsFromOption(artist, song) {
-    const msgBox = document.getElementById('search-msg');
-    msgBox.textContent = `Importando letra de "${song}"...`;
-    try {
-        const res = await fetch(`https://api.lyrics.ovh/v1/${artist}/${song}`);
-        if(res.ok) {
-            const data = await res.json();
-            document.getElementById('rep-lyrics').value = data.lyrics;
-            document.getElementById('rep-title').value = `${song} - ${artist}`;
-            msgBox.textContent = 'Letra importada! Pode salvar.';
-            msgBox.className = 'admin-message msg-success';
-        } else {
-            msgBox.textContent = 'Letra não encontrada na base. Digite manualmente abaixo.';
-            document.getElementById('rep-title').value = `${song} - ${artist}`;
-        }
-    } catch(e) { msgBox.textContent = 'Erro ao baixar letra.'; }
+function importPreCheckedLyrics(id) {
+    const data = cachedLyricsSearch[id];
+    document.getElementById('rep-lyrics').value = data.lyrics;
+    document.getElementById('rep-title').value = `${data.song} - ${data.artist}`;
+    showCustomAlert(`A letra de "${data.song}" foi importada! Role para baixo para salvar.`, "Letra Importada");
 }
 
 async function saveNewRepertoire() {
     const title = document.getElementById('rep-title').value.trim();
     const lyrics = document.getElementById('rep-lyrics').value.trim();
     const initialKey = document.getElementById('rep-key').value.trim();
-    if(!title || !lyrics) { alert('Título e Letra obrigatórios!'); return; }
+    if(!title || !lyrics) { showCustomAlert('Título e Letra são obrigatórios!'); return; }
     try {
         const res = await fetch(`${SUPABASE_URL}/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title, lyrics_text: lyrics, created_by: currentUserData.id }) });
         const savedData = await res.json();
         if(initialKey && savedData.length > 0) {
             await fetch(`${SUPABASE_URL}/repertoire_keys`, { method: 'POST', headers, body: JSON.stringify({ repertoire_id: savedData[0].id, ton: initialKey }) });
         }
-        alert('Música salva!'); closeModals(); loadRepertoire();
-    } catch(e) { alert('Erro ao salvar.'); }
+        showCustomAlert('Música salva com sucesso!', "Sucesso"); closeModals(); loadRepertoire();
+    } catch(e) { showCustomAlert('Erro ao salvar no banco.'); }
 }
 
+// ==========================================
+// REPERTÓRIO & MEDLEY MELHORADO
+// ==========================================
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
     list.innerHTML = '<p class="loading-text">Buscando músicas...</p>';
@@ -228,6 +280,67 @@ async function loadRepertoire() {
         });
         list.innerHTML = html;
     } catch (e) { list.innerHTML = '<p>Erro.</p>'; }
+}
+
+function openMedleyModal() {
+    document.getElementById('modal-add-medley').classList.add('active');
+    medleyDraft = []; renderMedleyDraft();
+    const selector = document.getElementById('medley-song-selector');
+    selector.innerHTML = '<option value="">Selecione a música...</option>';
+    const songs = allRepertoireCache.filter(s => !s.is_medley);
+    songs.forEach(s => { selector.innerHTML += `<option value="${s.id}">${s.title}</option>`; });
+}
+
+function addSongToMedleyDraft() {
+    const select = document.getElementById('medley-song-selector');
+    const songId = select.value;
+    if(!songId) return;
+    const songObj = allRepertoireCache.find(s => s.id === songId);
+    
+    // Adiciona ao rascunho com uma parte em branco
+    medleyDraft.push({ id: songId, title: songObj.title, part: "" });
+    select.value = ""; // reseta
+    renderMedleyDraft();
+}
+
+function renderMedleyDraft() {
+    const list = document.getElementById('medley-draft-list');
+    if(medleyDraft.length === 0) { list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Nenhuma música adicionada ainda.</p>'; return; }
+    
+    let html = '';
+    medleyDraft.forEach((item, index) => {
+        html += `
+            <div class="medley-draft-item">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <strong>${index+1}. ${item.title}</strong>
+                    <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removeMedleyDraftItem(${index})">delete</span>
+                </div>
+                <input type="text" placeholder="Qual parte vai cantar? (Ex: Só o Refrão e Ponte)" value="${item.part}" oninput="updateMedleyPart(${index}, this.value)" style="padding:6px; border:1px solid #ccc; border-radius:6px; font-size:0.85rem; margin-top:5px;">
+            </div>
+        `;
+    });
+    list.innerHTML = html;
+}
+
+function updateMedleyPart(index, val) { medleyDraft[index].part = val; }
+function removeMedleyDraftItem(index) { medleyDraft.splice(index, 1); renderMedleyDraft(); }
+
+async function saveNewMedley() {
+    const title = document.getElementById('medley-title').value.trim();
+    if(!title) { showCustomAlert('Dê um nome ao Medley.'); return; }
+    if(medleyDraft.length < 2) { showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); return; }
+
+    try {
+        const res = await fetch(`${SUPABASE_URL}/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title: title, is_medley: true, created_by: currentUserData.id }) });
+        const savedMedley = await res.json();
+        const medleyId = savedMedley[0].id;
+
+        for(let item of medleyDraft) {
+            const section = item.part.trim() || 'Completa';
+            await fetch(`${SUPABASE_URL}/repertoire_medley_parts`, { method: 'POST', headers, body: JSON.stringify({ medley_repertoire_id: medleyId, song_repertoire_id: item.id, section: section }) });
+        }
+        showCustomAlert('Medley criado com sucesso!'); closeModals(); loadRepertoire();
+    } catch(e) { showCustomAlert('Erro ao salvar medley.'); }
 }
 
 async function openViewRepertoire(id, title, encodedLyrics, isMedley) {
@@ -271,168 +384,188 @@ async function addKeyToRepertoire() {
     try {
         await fetch(`${SUPABASE_URL}/repertoire_keys`, { method: 'POST', headers, body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey }) });
         document.getElementById('new-key-input').value = ''; loadKeysForRepertoire(currentViewingRepertoireId); loadRepertoire();
-    } catch(e) { alert('Erro.'); }
+    } catch(e) { showCustomAlert('Erro ao adicionar tom.'); }
 }
 
 async function deleteKey(keyId) {
-    if(!confirm('Remover tom?')) return;
-    try { await fetch(`${SUPABASE_URL}/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); loadKeysForRepertoire(currentViewingRepertoireId); loadRepertoire(); } 
-    catch(e) {}
-}
-
-// ==========================================
-// MEDLEY
-// ==========================================
-function openMedleyModal() {
-    document.getElementById('modal-add-medley').classList.add('active');
-    const container = document.getElementById('medley-songs-selection');
-    container.innerHTML = '';
-    
-    // Lista apenas músicas que NÃO são medleys
-    const songs = allRepertoireCache.filter(s => !s.is_medley);
-    songs.forEach(s => {
-        const div = document.createElement('div'); div.className = 'medley-song-item';
-        div.innerHTML = `
-            <label style="font-weight:600;"><input type="checkbox" value="${s.id}" onchange="toggleMedleyPartInput(this, '${s.id}')"> ${s.title}</label>
-            <input type="text" id="part-${s.id}" class="medley-part-input hidden" placeholder="Qual parte cantará? (Ex: Refrão, Estrofe 1)">
-        `;
-        container.appendChild(div);
+    showCustomConfirm('Deseja remover este tom?', async () => {
+        try { await fetch(`${SUPABASE_URL}/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); loadKeysForRepertoire(currentViewingRepertoireId); loadRepertoire(); } 
+        catch(e) {}
     });
 }
 
-function toggleMedleyPartInput(checkbox, songId) {
-    const input = document.getElementById(`part-${songId}`);
-    if(checkbox.checked) { input.classList.remove('hidden'); input.focus(); } 
-    else { input.classList.add('hidden'); input.value = ''; }
+// ==========================================
+// ESCALAS (Escalação Estilo Time & Histórico)
+// ==========================================
+function switchScaleTab(tab) {
+    document.getElementById('tab-future').classList.remove('active');
+    document.getElementById('tab-past').classList.remove('active');
+    document.getElementById('scales-list-future').classList.add('hidden');
+    document.getElementById('scales-list-past').classList.add('hidden');
+
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('scales-list-' + tab).classList.remove('hidden');
 }
 
-async function saveNewMedley() {
-    const title = document.getElementById('medley-title').value.trim();
-    const msg = document.getElementById('medley-msg');
-    
-    const checkboxes = document.querySelectorAll('#medley-songs-selection input[type="checkbox"]:checked');
-    if(!title || checkboxes.length < 2) { msg.textContent = 'Dê um nome e selecione no mínimo 2 músicas.'; return; }
-
-    msg.textContent = 'Salvando medley...';
-    try {
-        // 1. Cria a música "Medley" no repertório
-        const res = await fetch(`${SUPABASE_URL}/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title: title, is_medley: true, created_by: currentUserData.id }) });
-        const savedMedley = await res.json();
-        const medleyId = savedMedley[0].id;
-
-        // 2. Salva as partes
-        for(let cb of checkboxes) {
-            const songId = cb.value;
-            const section = document.getElementById(`part-${songId}`).value || 'Parte Completa';
-            await fetch(`${SUPABASE_URL}/repertoire_medley_parts`, { method: 'POST', headers, body: JSON.stringify({ medley_repertoire_id: medleyId, song_repertoire_id: songId, section: section }) });
-        }
-        alert('Medley criado com sucesso!'); closeModals(); loadRepertoire();
-    } catch(e) { msg.textContent = 'Erro ao salvar medley.'; }
-}
-
-// ==========================================
-// ESCALAS (PASSO 5)
-// ==========================================
 async function loadScales() {
-    const list = document.getElementById('scales-list');
-    list.innerHTML = '<p>Buscando escalas...</p>';
+    const listFuture = document.getElementById('scales-list-future');
+    const listPast = document.getElementById('scales-list-past');
+    listFuture.innerHTML = '<p>Buscando...</p>'; listPast.innerHTML = '<p>Buscando...</p>';
+    
     try {
         const res = await fetch(`${SUPABASE_URL}/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title))&order=event_date.asc`, { headers });
         const scales = await res.json();
-        if(scales.length === 0) { list.innerHTML = '<p>Nenhuma escala registrada.</p>'; return; }
+        
+        const todayStr = new Date().toISOString().split('T')[0];
+        const futures = scales.filter(s => s.event_date >= todayStr);
+        const pasts = scales.filter(s => s.event_date < todayStr).reverse(); // Histórico do mais recente pro mais antigo
 
-        let html = '';
-        scales.forEach(s => {
-            const dateObj = new Date(s.event_date);
-            const dateStr = dateObj.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-            
-            let teamHtml = ''; s.scale_items.forEach(i => { teamHtml += `<div><span>${i.role.toUpperCase()}</span> <strong>${i.members.full_name}</strong></div>`; });
-            let songsHtml = ''; s.scale_songs.forEach(song => { songsHtml += `<span>🎵 ${song.repertoire.title}</span>`; });
+        listFuture.innerHTML = renderScaleCards(futures, true);
+        listPast.innerHTML = renderScaleCards(pasts, false);
 
-            html += `
-                <div class="scale-folder">
-                    <h3><span class="material-symbols-outlined">event</span> Culto: ${dateStr}</h3>
-                    <p>${s.notes || 'Sem observações'}</p>
-                    <div class="scale-member-list">${teamHtml}</div>
-                    <div class="scale-songs-list">${songsHtml}</div>
-                </div>`;
+    } catch(e) { listFuture.innerHTML = '<p>Erro.</p>'; listPast.innerHTML = '';}
+}
+
+function renderScaleCards(scaleArray, isFuture) {
+    if(scaleArray.length === 0) return isFuture ? '<p>Nenhuma escala programada.</p>' : '<p>O histórico está vazio.</p>';
+    
+    let html = '';
+    scaleArray.forEach(s => {
+        const dateObj = new Date(s.event_date);
+        // Corrige fuso horário para exibição
+        const dateStr = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
+        
+        // Agrupar equipe por função para renderizar o "Campo"
+        let team = { lider:[], vocal:[], banda:[] };
+        s.scale_items.forEach(i => {
+            let p = { name: i.members.full_name, role: i.role };
+            if(i.role === 'lider') team.lider.push(p);
+            else if(i.role === 'vocal') team.vocal.push(p);
+            else team.banda.push(p);
         });
-        list.innerHTML = html;
-    } catch(e) { list.innerHTML = '<p>Erro.</p>'; }
+
+        // Monta o "Campo" (Lineup)
+        let lineupHtml = '<div class="lineup-field">';
+        // Linha 1: Lideres
+        if(team.lider.length > 0) {
+            lineupHtml += '<div class="lineup-row">';
+            team.lider.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar lider">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Líder</span></div>`);
+            lineupHtml += '</div>';
+        }
+        // Linha 2: Vocal
+        if(team.vocal.length > 0) {
+            lineupHtml += '<div class="lineup-row">';
+            team.vocal.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Vocal</span></div>`);
+            lineupHtml += '</div>';
+        }
+        // Linha 3: Banda
+        if(team.banda.length > 0) {
+            lineupHtml += '<div class="lineup-row">';
+            team.banda.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">${p.role}</span></div>`);
+            lineupHtml += '</div>';
+        }
+        lineupHtml += '</div>';
+
+        let songsHtml = ''; s.scale_songs.forEach(song => { songsHtml += `<span>🎵 ${song.repertoire.title}</span>`; });
+
+        html += `
+            <div class="scale-folder">
+                <div class="scale-folder-header">
+                    <h3><span class="material-symbols-outlined">${isFuture ? 'event' : 'inventory_2'}</span> Culto: ${dateStr}</h3>
+                    <p>${s.notes || 'Sem observações'}</p>
+                </div>
+                ${lineupHtml}
+                <div class="scale-songs-list">${songsHtml || 'Nenhuma música definida.'}</div>
+            </div>`;
+    });
+    return html;
 }
 
 async function openScaleModal() {
     document.getElementById('modal-add-scale').classList.add('active');
+    scaleDraftTeam = []; renderScaleDraftTeam();
     
-    // Busca Membros para popular os Selects filtrados pela função
     if(allMembersCache.length === 0) {
         const res = await fetch(`${SUPABASE_URL}/members?select=id,full_name,member_roles(role)`, { headers });
         allMembersCache = await res.json();
     }
-    
-    // Garante que temos o repertório
     if(allRepertoireCache.length === 0) {
         const resRep = await fetch(`${SUPABASE_URL}/repertoire?select=id,title&order=title.asc`, { headers });
         allRepertoireCache = await resRep.json();
     }
 
-    const teamContainer = document.getElementById('scale-team-selectors');
-    teamContainer.innerHTML = '';
-    
-    const roles = ['lider', 'vocal', 'baterista', 'teclado', 'violao', 'baixo'];
-    roles.forEach(role => {
-        // Filtra membros que tem aquela função específica
-        const ableMembers = allMembersCache.filter(m => m.member_roles.some(r => r.role === role));
-        let options = '<option value="">Não escalado</option>';
-        ableMembers.forEach(m => { options += `<option value="${m.id}">${m.full_name}</option>`; });
-        
-        teamContainer.innerHTML += `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-                <label style="width:80px; font-weight:600; text-transform:capitalize;">${role}</label>
-                <select id="scale-role-${role}" style="flex:1; padding:8px;">${options}</select>
-            </div>
-        `;
-    });
+    const memberSelect = document.getElementById('scale-draft-member');
+    memberSelect.innerHTML = '<option value="">Selecionar Membro...</option>';
+    allMembersCache.forEach(m => { memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; });
 
     const songsContainer = document.getElementById('scale-songs-selectors');
     songsContainer.innerHTML = '';
     allRepertoireCache.forEach(song => {
-        songsContainer.innerHTML += `<label style="display:block; padding:5px; border-bottom:1px solid #eee;"><input type="checkbox" value="${song.id}" class="scale-song-cb"> ${song.title}</label>`;
+        songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb"> ${song.title}</label>`;
     });
+}
+
+function addMemberToScaleDraft() {
+    const memSel = document.getElementById('scale-draft-member');
+    const rolSel = document.getElementById('scale-draft-role');
+    const memberId = memSel.value; const role = rolSel.value;
+    
+    if(!memberId) return;
+    const memberName = memSel.options[memSel.selectedIndex].text;
+    
+    // Evita duplicar a mesma pessoa na mesma função exata
+    if(!scaleDraftTeam.find(i => i.memberId === memberId && i.role === role)) {
+        scaleDraftTeam.push({ memberId, role, name: memberName });
+    }
+    memSel.value = ''; renderScaleDraftTeam();
+}
+
+function removeScaleDraftMember(index) { scaleDraftTeam.splice(index, 1); renderScaleDraftTeam(); }
+
+function renderScaleDraftTeam() {
+    const list = document.getElementById('scale-draft-team-list');
+    if(scaleDraftTeam.length === 0) { list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Equipe vazia.</p>'; return; }
+    
+    let html = '';
+    scaleDraftTeam.forEach((item, index) => {
+        html += `
+            <div style="display:flex; justify-content:space-between; background:#fff; padding:8px; border:1px solid #eee; border-radius:6px; margin-bottom:5px;">
+                <span><strong>${item.name}</strong> <small>(${item.role.toUpperCase()})</small></span>
+                <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removeScaleDraftMember(${index})">close</span>
+            </div>
+        `;
+    });
+    list.innerHTML = html;
 }
 
 async function saveNewScale() {
     const date = document.getElementById('scale-date').value;
     const notes = document.getElementById('scale-notes').value;
-    if(!date) { alert('Data obrigatória.'); return; }
+    if(!date) { showCustomAlert('A data do culto é obrigatória.'); return; }
+    if(scaleDraftTeam.length === 0) { showCustomAlert('Escalone pelo menos 1 membro na equipe.'); return; }
 
     try {
-        // 1. Cria a Escala principal
         const resScale = await fetch(`${SUPABASE_URL}/scales`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ time_key: date.substring(0,7), event_date: date, notes: notes, created_by: currentUserData.id }) });
         const savedScale = await resScale.json();
         const scaleId = savedScale[0].id;
 
-        // 2. Salva a Equipe (pega os selects que tem valor)
-        const roles = ['lider', 'vocal', 'baterista', 'teclado', 'violao', 'baixo'];
-        for(let role of roles) {
-            const memberId = document.getElementById(`scale-role-${role}`).value;
-            if(memberId) {
-                await fetch(`${SUPABASE_URL}/scale_items`, { method: 'POST', headers, body: JSON.stringify({ scale_id: scaleId, member_id: memberId, role: role }) });
-            }
+        // Salva a equipe múltipla
+        for(let item of scaleDraftTeam) {
+            await fetch(`${SUPABASE_URL}/scale_items`, { method: 'POST', headers, body: JSON.stringify({ scale_id: scaleId, member_id: item.memberId, role: item.role }) });
         }
 
-        // 3. Salva as Músicas
+        // Salva as músicas
         const songCbs = document.querySelectorAll('.scale-song-cb:checked');
         for(let cb of songCbs) {
             await fetch(`${SUPABASE_URL}/scale_songs`, { method: 'POST', headers, body: JSON.stringify({ scale_id: scaleId, repertoire_id: cb.value }) });
         }
 
-        alert('Escala criada com sucesso!'); closeModals(); loadScales();
-    } catch(e) { alert('Erro ao salvar escala.'); }
+        showCustomAlert('Escala criada e salva com sucesso!'); closeModals(); loadScales();
+    } catch(e) { showCustomAlert('Erro ao salvar escala. Verifique a conexão.'); }
 }
 
 // ==========================================
-// MEMBROS E ADMINISTRAÇÃO (Mantidos)
+// MEMBROS E ADMINISTRAÇÃO 
 // ==========================================
 async function loadMembers() {
     const grid = document.getElementById('members-grid'); grid.innerHTML = '<p class="loading-text">Buscando equipe...</p>';
@@ -452,14 +585,14 @@ async function loadMembers() {
 }
 
 async function createNewMember() {
-    const username = document.getElementById('new-username').value.trim().toLowerCase(); const fullname = document.getElementById('new-fullname').value.trim(); const isLeader = document.getElementById('new-is-leader').checked; const msgBox = document.getElementById('admin-msg');
-    if (!username || !fullname) { msgBox.textContent = 'Preencha usuário e nome!'; msgBox.className = 'admin-message msg-error'; return; }
+    const username = document.getElementById('new-username').value.trim().toLowerCase(); const fullname = document.getElementById('new-fullname').value.trim(); const isLeader = document.getElementById('new-is-leader').checked; 
+    if (!username || !fullname) { showCustomAlert('Preencha usuário e nome!'); return; }
     try {
         const res = await fetch(`${SUPABASE_URL}/members`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ username, full_name: fullname, is_leader: isLeader }) });
         if (!res.ok) throw new Error('Usuário já existe.');
-        msgBox.textContent = 'Cadastrado com sucesso!'; msgBox.className = 'admin-message msg-success';
+        showCustomAlert('Membro cadastrado com sucesso!', 'Sucesso'); 
         document.getElementById('new-username').value = ''; document.getElementById('new-fullname').value = ''; document.getElementById('new-is-leader').checked = false; loadAdminMembers();
-    } catch (e) { msgBox.textContent = e.message; msgBox.className = 'admin-message msg-error'; }
+    } catch (e) { showCustomAlert(e.message, 'Erro'); }
 }
 
 async function loadAdminMembers() {
@@ -484,12 +617,13 @@ async function updateRole(memberId, role, isAdding) {
         if(role === 'lider') { await fetch(`${SUPABASE_URL}/members?id=eq.${memberId}`, { method: 'PATCH', headers, body: JSON.stringify({ is_leader: isAdding }) }); return; }
         if (isAdding) await fetch(`${SUPABASE_URL}/member_roles`, { method: 'POST', headers, body: JSON.stringify({ member_id: memberId, role: role }) });
         else await fetch(`${SUPABASE_URL}/member_roles?member_id=eq.${memberId}&role=eq.${role}`, { method: 'DELETE', headers });
-    } catch (e) { alert('Erro no banco.'); }
+    } catch (e) { showCustomAlert('Erro ao atualizar banco.'); }
 }
 
 async function deleteMember(id) {
-    if(!confirm('Deseja remover este membro?')) return;
-    try { await fetch(`${SUPABASE_URL}/members?id=eq.${id}`, { method: 'DELETE', headers }); loadAdminMembers(); } catch (e) { alert('Erro ao excluir.'); }
+    showCustomConfirm('Deseja remover este membro do sistema?', async () => {
+        try { await fetch(`${SUPABASE_URL}/members?id=eq.${id}`, { method: 'DELETE', headers }); loadAdminMembers(); } catch (e) { showCustomAlert('Erro ao excluir.'); }
+    });
 }
 
 window.onload = () => {
