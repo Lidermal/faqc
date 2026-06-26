@@ -1,21 +1,25 @@
-const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co/rest/v1';
+const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos';
 
 const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
+
+// Inicializar Supabase Client com Realtime
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUserData = null;
 let countdownInterval;
 let currentViewingRepertoireId = null;
 let allRepertoireCache = [];
 let allMembersCache = [];
+let realtimeChannels = [];
 
 // Variáveis para os rascunhos (Medley e Escala)
-let medleyDraft = []; 
 let scaleDraftTeam = [];
 
-// Variáveis do fluxo passo-a-passo do Medley
-let medleyCurrentSong = null; // {id, title, lyrics}
-let medleySelectedSection = null; // string
+// Variáveis do Medley com estrofes
+let medleyDraft = []; // [{songId, songTitle, sections: [{label, content}]}]
+let medleyCurrentSongId = null;
+let medleyCurrentSongVerses = []; // [{label, content, selected}]
 
 // ==========================================
 // ALERTAS PERSONALIZADOS
@@ -52,7 +56,7 @@ async function handleLogin() {
     btnLogin.disabled = true; btnLogin.textContent = 'Validando...';
 
     try {
-        const response = await fetch(`${SUPABASE_URL}/members?username=eq.${usernameInput}&select=*`, { method: 'GET', headers });
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${usernameInput}&select=*`, { method: 'GET', headers });
         const data = await response.json();
 
         if (data.length > 0) {
@@ -71,16 +75,22 @@ function showSystemScreen() {
 
     if (currentUserData.is_leader) {
         document.getElementById('nav-admin').classList.remove('hidden');
-    }
-    // Botões de adicionar música e medley visíveis para TODOS
-    document.getElementById('repertoire-actions').classList.remove('hidden');
-    if (currentUserData.is_leader) {
         document.getElementById('btn-add-scale').classList.remove('hidden');
     }
+    // Todos podem adicionar música e medley
+    document.getElementById('repertoire-actions').classList.remove('hidden');
+    
     navigate('home');
+    setupRealtimeSubscriptions();
 }
 
 function handleLogout() {
+    // Desinscrever dos canais realtime
+    realtimeChannels.forEach(ch => {
+        try { supabase.removeChannel(ch); } catch(e) {}
+    });
+    realtimeChannels = [];
+    
     localStorage.removeItem('sessionUser'); currentUserData = null; clearInterval(countdownInterval);
     document.getElementById('system-screen').classList.remove('active'); document.getElementById('system-screen').classList.add('hidden');
     document.getElementById('login-screen').classList.remove('hidden'); document.getElementById('login-screen').classList.add('active');
@@ -109,15 +119,64 @@ function closeModals() {
     document.querySelectorAll('.modal').forEach(m => {
         if(!m.classList.contains('custom-alert-modal')) m.classList.remove('active'); 
     });
-    // Reset do modo de edição de escala
     const editingField = document.getElementById('editing-scale-id');
     if(editingField) editingField.value = '';
     const modalTitle = document.getElementById('scale-modal-title');
     if(modalTitle) modalTitle.textContent = 'Nova Escala';
-    // Reset do fluxo do medley
     resetMedleyFlow();
 }
 function toggleSidebar() {} 
+
+// ==========================================
+// SUPABASE REALTIME - Sincronização ao vivo
+// ==========================================
+function setupRealtimeSubscriptions() {
+    // Canal para mudanças no repertório
+    const repChannel = supabase
+        .channel('repertoire-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire' }, (payload) => {
+            console.log('Mudança no repertório:', payload);
+            if(document.getElementById('page-repertorio').classList.contains('active')) {
+                loadRepertoire();
+            }
+            // Atualizar o seletor de músicas do medley se estiver aberto
+            if(document.getElementById('modal-add-medley').classList.contains('active')) {
+                loadMedleySongsList();
+            }
+        })
+        .subscribe();
+    realtimeChannels.push(repChannel);
+
+    // Canal para mudanças nas escalas
+    const scaleChannel = supabase
+        .channel('scale-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'scales' }, (payload) => {
+            console.log('Mudança nas escalas:', payload);
+            if(document.getElementById('page-escalas').classList.contains('active')) {
+                loadScales();
+            }
+            if(document.getElementById('page-home').classList.contains('active')) {
+                fetchNextScaleHome();
+            }
+        })
+        .subscribe();
+    realtimeChannels.push(scaleChannel);
+
+    // Canal para mudanças nos membros
+    const memberChannel = supabase
+        .channel('member-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
+            console.log('Mudança nos membros:', payload);
+            if(document.getElementById('page-membros').classList.contains('active')) {
+                loadMembers();
+            }
+            if(document.getElementById('page-admin').classList.contains('active')) {
+                loadAdminMembers();
+            }
+        })
+        .subscribe();
+    realtimeChannels.push(memberChannel);
+}
 
 // ==========================================
 // INÍCIO (Relógio para 18:30)
@@ -155,7 +214,7 @@ async function fetchDailyMessage() {
     const dateString = new Date().toISOString().split('T')[0];
     const container = document.getElementById('daily-message-content');
     try {
-        const res = await fetch(`${SUPABASE_URL}/daily_message?date=eq.${dateString}&select=*`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/daily_message?date=eq.${dateString}&select=*`, { headers });
         const data = await res.json();
         if (data.length > 0) container.innerHTML = `<p>"${data[0].verse_text}"</p><span class="verse-ref">- ${data[0].verse_ref}</span>`;
         else {
@@ -165,26 +224,24 @@ async function fetchDailyMessage() {
     } catch (e) { container.innerHTML = `<p>Erro na mensagem.</p>`; }
 }
 
-// EQUIPE ESCALADA NO DASHBOARD - NOVO DESIGN MODERNO
+// EQUIPE ESCALADA NO DASHBOARD - NOVO DESIGN
 async function fetchNextScaleHome() {
     const container = document.getElementById('next-scale-team');
     const today = new Date().toISOString().split('T')[0];
     try {
-        const scaleRes = await fetch(`${SUPABASE_URL}/scales?event_date=gte.${today}&order=event_date.asc&limit=1`, { headers });
+        const scaleRes = await fetch(`${SUPABASE_URL}/rest/v1/scales?event_date=gte.${today}&order=event_date.asc&limit=1`, { headers });
         const scaleData = await scaleRes.json();
         if (scaleData.length > 0) {
             const scaleId = scaleData[0].id;
-            const itemsRes = await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name)&order=role.asc`, { headers });
+            const itemsRes = await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name)&order=role.asc`, { headers });
             const itemsData = await itemsRes.json();
             if (itemsData.length > 0) {
                 let html = '<div class="team-scale-container">';
                 
-                // Agrupar por função
                 const leaders = itemsData.filter(i => i.role === 'lider');
                 const vocals = itemsData.filter(i => i.role === 'vocal');
                 const band = itemsData.filter(i => !['lider', 'vocal'].includes(i.role));
                 
-                // Líderes
                 leaders.forEach(i => {
                     const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
                     html += `
@@ -198,7 +255,6 @@ async function fetchNextScaleHome() {
                     `;
                 });
                 
-                // Vocais
                 vocals.forEach(i => {
                     const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
                     html += `
@@ -212,7 +268,6 @@ async function fetchNextScaleHome() {
                     `;
                 });
                 
-                // Banda/Instrumentos
                 band.forEach(i => {
                     const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
                     const roleName = i.role.charAt(0).toUpperCase() + i.role.slice(1);
@@ -252,7 +307,6 @@ async function searchMusicList() {
     if(!query) { showCustomAlert('Digite o nome da música ou cantor.'); return; }
     
     msgBox.textContent = 'Buscando e testando letras... Aguarde.';
-    msgBox.className = 'admin-message';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
     
@@ -285,11 +339,9 @@ async function searchMusicList() {
         }
 
         if(!foundAnyValid) {
-            msgBox.textContent = 'Nenhuma letra completa foi encontrada para essa busca. Digite outra ou adicione manualmente.';
-            msgBox.className = 'admin-message msg-error';
+            msgBox.textContent = 'Nenhuma letra completa foi encontrada. Tente outra busca.';
         } else {
             msgBox.textContent = 'Opções com letras confirmadas encontradas!';
-            msgBox.className = 'admin-message msg-success';
         }
 
     } catch(e) { msgBox.textContent = 'Erro ao se conectar ao buscador.'; }
@@ -299,7 +351,7 @@ function importPreCheckedLyrics(id) {
     const data = cachedLyricsSearch[id];
     document.getElementById('rep-lyrics').value = data.lyrics;
     document.getElementById('rep-title').value = `${data.song} - ${data.artist}`;
-    showCustomAlert(`A letra de "${data.song}" foi importada! Role para baixo para salvar.`, "Letra Importada");
+    showCustomAlert(`A letra de "${data.song}" foi importada!`, "Letra Importada");
 }
 
 async function saveNewRepertoire() {
@@ -308,10 +360,10 @@ async function saveNewRepertoire() {
     const initialKey = document.getElementById('rep-key').value.trim();
     if(!title || !lyrics) { showCustomAlert('Título e Letra são obrigatórios!'); return; }
     try {
-        const res = await fetch(`${SUPABASE_URL}/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title, lyrics_text: lyrics, created_by: currentUserData.id }) });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title, lyrics_text: lyrics, created_by: currentUserData.id }) });
         const savedData = await res.json();
         if(initialKey && savedData.length > 0) {
-            await fetch(`${SUPABASE_URL}/repertoire_keys`, { method: 'POST', headers, body: JSON.stringify({ repertoire_id: savedData[0].id, ton: initialKey }) });
+            await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { method: 'POST', headers, body: JSON.stringify({ repertoire_id: savedData[0].id, ton: initialKey }) });
         }
         showCustomAlert('Música salva com sucesso!', "Sucesso"); closeModals(); loadRepertoire();
     } catch(e) { showCustomAlert('Erro ao salvar no banco.'); }
@@ -324,7 +376,7 @@ async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
     list.innerHTML = '<p class="loading-text">Buscando músicas...</p>';
     try {
-        const res = await fetch(`${SUPABASE_URL}/repertoire?select=*,repertoire_keys(ton)&order=title.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&order=title.asc`, { headers });
         allRepertoireCache = await res.json();
         if (allRepertoireCache.length === 0) { list.innerHTML = '<p>Nenhuma música.</p>'; return; }
         let html = '';
@@ -344,175 +396,367 @@ async function loadRepertoire() {
 }
 
 // ==========================================
-// MEDLEY - FLUXO MELHORADO COM LETRA
+// MEDLEY - SELEÇÃO DE ESTROFES
 // ==========================================
+
+// Parser de estrofes: detecta padrões como "Verso 1", "Refrão", "Ponte", etc.
+function parseLyricsIntoVerses(lyrics) {
+    if (!lyrics) return [];
+    
+    const lines = lyrics.split('\n');
+    const verses = [];
+    let currentLabel = 'Intro';
+    let currentLines = [];
+    
+    // Padrões conhecidos de seções
+    const sectionPatterns = [
+        /^(intro|introdução)\s*\d*$/i,
+        /^(verso|verse)\s*\d*$/i,
+        /^(pr[eé]-?refr[aã]o|pre-?chorus)\s*\d*$/i,
+        /^(refr[aã]o|chorus)\s*\d*$/i,
+        /^(ponte|bridge)\s*\d*$/i,
+        /^(final|outro|encerramento)\s*\d*$/i,
+        /^(interlúdio|interlude)\s*\d*$/i,
+        /^(solo)\s*\d*$/i
+    ];
+    
+    function detectSection(line) {
+        const cleanLine = line.trim().replace(/[:\[\]()]/g, '');
+        for (let pattern of sectionPatterns) {
+            if (pattern.test(cleanLine)) {
+                // Normalizar o label
+                if (/^intro/i.test(cleanLine)) return 'Intro';
+                if (/^verso/i.test(cleanLine)) {
+                    const num = cleanLine.match(/\d+/);
+                    return num ? `Verso ${num[0]}` : 'Verso';
+                }
+                if (/^pr[eé]/i.test(cleanLine)) return 'Pré-Refrão';
+                if (/^refr/i.test(cleanLine)) {
+                    const num = cleanLine.match(/\d+/);
+                    return num ? `Refrão ${num[0]}` : 'Refrão';
+                }
+                if (/^ponte|^bridge/i.test(cleanLine)) return 'Ponte';
+                if (/^final|^outro/i.test(cleanLine)) return 'Final';
+                if (/^inter/i.test(cleanLine)) return 'Interlúdio';
+                if (/^solo/i.test(cleanLine)) return 'Solo';
+            }
+        }
+        return null;
+    }
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const detectedSection = detectSection(line);
+        
+        if (detectedSection) {
+            // Salvar seção anterior se tiver conteúdo
+            if (currentLines.length > 0) {
+                verses.push({ label: currentLabel, content: currentLines.join('\n').trim() });
+            }
+            currentLabel = detectedSection;
+            currentLines = [];
+        } else if (line.trim() === '') {
+            // Linha em branco pode indicar separação
+            if (currentLines.length > 0 && i + 1 < lines.length && lines[i+1].trim() !== '') {
+                // Verificar se a próxima linha é uma nova seção
+                const nextDetected = detectSection(lines[i+1]);
+                if (!nextDetected) {
+                    // Não é nova seção, continua
+                }
+            }
+        } else {
+            currentLines.push(line);
+        }
+    }
+    
+    // Salvar última seção
+    if (currentLines.length > 0) {
+        verses.push({ label: currentLabel, content: currentLines.join('\n').trim() });
+    }
+    
+    // Se não detectou nada, dividir por blocos de texto
+    if (verses.length <= 1 && lyrics.trim().split(/\n\s*\n/).length > 1) {
+        const blocks = lyrics.trim().split(/\n\s*\n/);
+        return blocks.map((block, idx) => ({
+            label: `Parte ${idx + 1}`,
+            content: block.trim()
+        }));
+    }
+    
+    return verses;
+}
+
 function openMedleyModal() {
     document.getElementById('modal-add-medley').classList.add('active');
     resetMedleyFlow();
-    
-    const selector = document.getElementById('medley-song-selector');
-    selector.innerHTML = '<option value="">Selecione do Repertório...</option>';
-    const songs = allRepertoireCache.filter(s => !s.is_medley);
-    songs.forEach(s => { selector.innerHTML += `<option value="${s.id}">${s.title}</option>`; });
-    
-    // Adicionar evento de mudança para mostrar letra
-    selector.addEventListener('change', function() {
-        if(this.value) {
-            showMedleyLyricsPreview(this.value);
-        } else {
-            document.getElementById('medley-lyrics-container').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música para ver a letra</p>';
-        }
-    });
+    loadMedleySongsList();
 }
 
 function resetMedleyFlow() {
     medleyDraft = [];
-    medleyCurrentSong = null;
-    medleySelectedSection = null;
-    renderMedleyDraft();
-    backToMedleySongStep();
+    medleyCurrentSongId = null;
+    medleyCurrentSongVerses = [];
+    renderMedleyPreview();
     document.getElementById('medley-title').value = '';
-    document.getElementById('medley-song-selector').value = '';
-    document.getElementById('medley-lyrics-container').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música para ver a letra</p>';
+    document.getElementById('medley-verses-selector').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música ao lado para escolher as partes</p>';
 }
 
-async function showMedleyLyricsPreview(songId) {
-    const song = allRepertoireCache.find(s => s.id === songId);
-    if(!song) return;
+async function loadMedleySongsList() {
+    const container = document.getElementById('medley-songs-list');
+    container.innerHTML = '<p class="loading-text">Carregando...</p>';
     
-    const container = document.getElementById('medley-lyrics-container');
-    if(song.lyrics_text) {
-        container.innerHTML = `<pre>${song.lyrics_text}</pre>`;
-    } else {
-        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Letra não disponível</p>';
-    }
-}
-
-function renderMedleyDraft() {
-    const list = document.getElementById('medley-draft-list');
-    if(medleyDraft.length === 0) { 
-        list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Nenhuma música adicionada ainda. Use os passos abaixo para adicionar.</p>'; 
-        return; 
-    }
-    
-    let html = '';
-    medleyDraft.forEach((item, index) => {
-        html += `
-            <div class="medley-draft-item">
-                <div class="medley-draft-item-header">
-                    <span class="medley-draft-item-title">${index+1}. ${item.title}</span>
-                    <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removeMedleyDraftItem(${index})">delete</span>
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&is_medley=eq.false&order=title.asc`, { headers });
+        const songs = await res.json();
+        allRepertoireCache = songs; // Atualiza cache
+        
+        if (songs.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhuma música no repertório</p>';
+            return;
+        }
+        
+        let html = '';
+        songs.forEach(song => {
+            const keysStr = song.repertoire_keys.map(k => k.ton).join(', ');
+            const keyBadge = keysStr ? `<span class="badge tom" style="font-size:0.7rem;">${keysStr}</span>` : '';
+            const isSelected = medleyDraft.some(d => d.songId === song.id);
+            html += `
+                <div class="medley-song-item ${isSelected ? 'active' : ''}" onclick="selectMedleySong('${song.id}')">
+                    <div class="medley-song-item-title">${song.title} ${keyBadge}</div>
+                    ${isSelected ? '<div style="font-size:0.75rem; color:var(--success); margin-top:4px;">✓ Já adicionada ao medley</div>' : ''}
                 </div>
-                <div class="medley-draft-item-section">
-                    <span class="material-symbols-outlined" style="color:var(--primary-color); font-size:1rem;">music_note</span>
-                    <span>Seção: <strong>${item.part}</strong></span>
+            `;
+        });
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<p style="color:var(--danger); text-align:center;">Erro ao carregar músicas</p>';
+    }
+}
+
+async function selectMedleySong(songId) {
+    medleyCurrentSongId = songId;
+    const song = allRepertoireCache.find(s => s.id === songId);
+    if (!song) return;
+    
+    // Parse da letra em estrofes
+    const verses = parseLyricsIntoVerses(song.lyrics_text);
+    
+    // Verificar se já está no draft (para manter seleções anteriores)
+    const existingDraft = medleyDraft.find(d => d.songId === songId);
+    
+    medleyCurrentSongVerses = verses.map((v, idx) => ({
+        ...v,
+        id: `${songId}_v${idx}`,
+        selected: existingDraft ? existingDraft.sections.some(s => s.label === v.label && s.content === v.content) : false
+    }));
+    
+    renderVersesSelector(song.title);
+}
+
+function renderVersesSelector(songTitle) {
+    const container = document.getElementById('medley-verses-selector');
+    
+    if (medleyCurrentSongVerses.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Não foi possível identificar as estrofes desta música</p>';
+        return;
+    }
+    
+    let html = `
+        <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border-color);">
+            <strong style="color:var(--primary-color);">${songTitle}</strong>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Selecione as partes que deseja incluir no medley:</div>
+        </div>
+        <button class="btn-secondary" onclick="selectAllVerses()" style="width:100%; margin-bottom:10px; font-size:0.85rem;">✓ Selecionar Todas</button>
+    `;
+    
+    medleyCurrentSongVerses.forEach((verse, idx) => {
+        html += `
+            <div class="verse-selector-item ${verse.selected ? 'selected' : ''}" id="verse-item-${idx}">
+                <div class="verse-checkbox-wrapper">
+                    <input type="checkbox" class="verse-checkbox" id="verse-cb-${idx}" ${verse.selected ? 'checked' : ''} onchange="toggleVerse(${idx})">
+                    <div class="verse-label" onclick="toggleVerse(${idx})">
+                        <div class="verse-section-title">
+                            <span class="material-symbols-outlined" style="font-size:1rem;">music_note</span>
+                            ${verse.label}
+                        </div>
+                        <div class="verse-content">${verse.content}</div>
+                    </div>
                 </div>
             </div>
         `;
     });
-    list.innerHTML = html;
+    
+    html += `<button class="btn-primary" onclick="addSelectedVersesToMedley()" style="margin-top:12px;">+ Adicionar Partes Selecionadas ao Medley</button>`;
+    
+    container.innerHTML = html;
 }
 
-function removeMedleyDraftItem(index) { 
-    medleyDraft.splice(index, 1); 
-    renderMedleyDraft(); 
-}
-
-// PASSO 1 → PASSO 2: Avança da seleção de música para seleção de seção
-function goToMedleySectionStep() {
-    const select = document.getElementById('medley-song-selector');
-    const songId = select.value;
-    if(!songId) { 
-        showCustomAlert('Selecione uma música do repertório antes de avançar.'); 
-        return; 
+function toggleVerse(idx) {
+    medleyCurrentSongVerses[idx].selected = !medleyCurrentSongVerses[idx].selected;
+    const item = document.getElementById(`verse-item-${idx}`);
+    const cb = document.getElementById(`verse-cb-${idx}`);
+    if (medleyCurrentSongVerses[idx].selected) {
+        item.classList.add('selected');
+        cb.checked = true;
+    } else {
+        item.classList.remove('selected');
+        cb.checked = false;
     }
-    
-    const songObj = allRepertoireCache.find(s => s.id === songId);
-    medleyCurrentSong = { id: songObj.id, title: songObj.title, lyrics: songObj.lyrics_text };
-    
-    document.getElementById('medley-step-song').classList.add('hidden');
-    document.getElementById('medley-step-section').classList.remove('hidden');
-    
-    medleySelectedSection = null;
-    document.getElementById('medley-custom-section').value = '';
-    document.querySelectorAll('.section-btn').forEach(btn => btn.classList.remove('selected'));
 }
 
-// PASSO 2 → PASSO 1: Volta para seleção de música
-function backToMedleySongStep() {
-    document.getElementById('medley-step-section').classList.add('hidden');
-    document.getElementById('medley-step-song').classList.remove('hidden');
-    medleyCurrentSong = null;
-    medleySelectedSection = null;
-    document.getElementById('medley-custom-section').value = '';
-    document.querySelectorAll('.section-btn').forEach(btn => btn.classList.remove('selected'));
+function selectAllVerses() {
+    const allSelected = medleyCurrentSongVerses.every(v => v.selected);
+    medleyCurrentSongVerses.forEach((v, idx) => {
+        v.selected = !allSelected;
+        const item = document.getElementById(`verse-item-${idx}`);
+        const cb = document.getElementById(`verse-cb-${idx}`);
+        if (v.selected) {
+            item.classList.add('selected');
+            cb.checked = true;
+        } else {
+            item.classList.remove('selected');
+            cb.checked = false;
+        }
+    });
 }
 
-// Seleciona uma seção pré-definida (clicando no botão)
-function selectMedleySection(btn, section) {
-    document.querySelectorAll('.section-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    medleySelectedSection = section;
-    document.getElementById('medley-custom-section').value = section;
-}
-
-// Limpa seleção dos botões quando o usuário digita manualmente
-function clearMedleySectionButtons() {
-    document.querySelectorAll('.section-btn').forEach(b => b.classList.remove('selected'));
-    medleySelectedSection = null;
-}
-
-// Confirma a seção e adiciona ao draft
-function confirmMedleySection() {
-    const customSection = document.getElementById('medley-custom-section').value.trim();
-    const finalSection = customSection || medleySelectedSection;
-    
-    if(!finalSection) {
-        showCustomAlert('Você precisa escolher ou digitar uma seção/parte para esta música.');
+function addSelectedVersesToMedley() {
+    const selectedVerses = medleyCurrentSongVerses.filter(v => v.selected);
+    if (selectedVerses.length === 0) {
+        showCustomAlert('Selecione pelo menos uma parte para adicionar ao medley.');
         return;
     }
     
-    if(!medleyCurrentSong) {
-        showCustomAlert('Erro: nenhuma música selecionada.');
-        return;
-    }
+    const song = allRepertoireCache.find(s => s.id === medleyCurrentSongId);
     
+    // Remover entrada anterior desta música se existir
+    medleyDraft = medleyDraft.filter(d => d.songId !== medleyCurrentSongId);
+    
+    // Adicionar nova entrada
     medleyDraft.push({
-        id: medleyCurrentSong.id,
-        title: medleyCurrentSong.title,
-        part: finalSection
+        songId: medleyCurrentSongId,
+        songTitle: song.title,
+        sections: selectedVerses.map(v => ({ label: v.label, content: v.content }))
     });
     
-    renderMedleyDraft();
-    backToMedleySongStep();
-    document.getElementById('medley-song-selector').value = '';
-    document.getElementById('medley-lyrics-container').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música para ver a letra</p>';
+    renderMedleyPreview();
+    loadMedleySongsList(); // Atualiza para mostrar "Já adicionada"
     
-    showCustomAlert(`"${medleyCurrentSong.title}" adicionada com a seção "${finalSection}". Adicione mais músicas ou salve o Medley.`, 'Música Adicionada');
+    showCustomAlert(`${selectedVerses.length} parte(s) de "${song.title}" adicionada(s) ao medley!`, 'Partes Adicionadas');
 }
 
-// Salva o Medley completo no banco
+function removeMedleySong(songId) {
+    medleyDraft = medleyDraft.filter(d => d.songId !== songId);
+    renderMedleyPreview();
+    loadMedleySongsList();
+}
+
+function renderMedleyPreview() {
+    const container = document.getElementById('medley-preview');
+    
+    if (medleyDraft.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">As partes selecionadas aparecerão aqui</p>';
+        return;
+    }
+    
+    let html = '<div class="medley-preview-content">';
+    let totalParts = 0;
+    
+    medleyDraft.forEach((item, idx) => {
+        html += `
+            <div class="medley-preview-song">
+                <div class="medley-preview-song-title">
+                    <span class="material-symbols-outlined" style="font-size:1.1rem;">queue_music</span>
+                    ${idx + 1}. ${item.songTitle}
+                    <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.1rem; margin-left:auto;" onclick="removeMedleySong('${item.songId}')">delete</span>
+                </div>
+        `;
+        
+        item.sections.forEach(section => {
+            totalParts++;
+            html += `
+                <div class="medley-preview-section">
+                    <div class="medley-preview-section-label">${section.label}</div>
+                    <div class="medley-preview-section-content">${section.content}</div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+    });
+    
+    html += `
+        </div>
+        <div style="margin-top:12px; padding:10px; background:#e3f2fd; border-radius:8px; font-size:0.85rem;">
+            <strong>Resumo:</strong> ${medleyDraft.length} música(s), ${totalParts} parte(s) selecionada(s)
+        </div>
+    `;
+    
+    container.innerHTML = html;
+}
+
 async function saveNewMedley() {
     const title = document.getElementById('medley-title').value.trim();
     if(!title) { showCustomAlert('Dê um nome ao Medley.'); return; }
     if(medleyDraft.length < 2) { showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); return; }
+    
+    // Verificar se todas as músicas têm pelo menos uma seção
+    for (let item of medleyDraft) {
+        if (item.sections.length === 0) {
+            showCustomAlert(`A música "${item.songTitle}" não tem partes selecionadas.`);
+            return;
+        }
+    }
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/repertoire`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ title: title, is_medley: true, created_by: currentUserData.id }) });
+        // Criar o medley no repertório
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, { 
+            method: 'POST', 
+            headers: { ...headers, 'Prefer': 'return=representation' }, 
+            body: JSON.stringify({ 
+                title: title, 
+                is_medley: true, 
+                created_by: currentUserData.id,
+                lyrics_text: generateMedleyLyrics() // Letra completa do medley
+            }) 
+        });
         const savedMedley = await res.json();
         const medleyId = savedMedley[0].id;
 
+        // Salvar cada parte no repertoire_medley_parts
         for(let item of medleyDraft) {
-            await fetch(`${SUPABASE_URL}/repertoire_medley_parts`, { 
-                method: 'POST', 
-                headers, 
-                body: JSON.stringify({ medley_repertoire_id: medleyId, song_repertoire_id: item.id, section: item.part }) 
-            });
+            for(let section of item.sections) {
+                await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts`, { 
+                    method: 'POST', 
+                    headers, 
+                    body: JSON.stringify({ 
+                        medley_repertoire_id: medleyId, 
+                        song_repertoire_id: item.songId, 
+                        section: section.label,
+                        section_content: section.content
+                    }) 
+                });
+            }
         }
+        
         showCustomAlert('Medley criado com sucesso!', 'Sucesso'); 
         closeModals(); 
         loadRepertoire();
-    } catch(e) { showCustomAlert('Erro ao salvar medley.'); }
+    } catch(e) { 
+        console.error(e);
+        showCustomAlert('Erro ao salvar medley.'); 
+    }
+}
+
+function generateMedleyLyrics() {
+    let lyrics = '';
+    medleyDraft.forEach((item, idx) => {
+        lyrics += `\n\n=== ${item.songTitle} ===\n\n`;
+        item.sections.forEach(section => {
+            lyrics += `[${section.label}]\n${section.content}\n\n`;
+        });
+    });
+    return lyrics.trim();
 }
 
 async function openViewRepertoire(id, title, encodedLyrics, isMedley) {
@@ -527,19 +771,45 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley) {
 
     const partsDisplay = document.getElementById('medley-parts-display');
     if(isMedley) {
-        partsDisplay.classList.remove('hidden'); partsDisplay.innerHTML = 'Carregando partes...';
-        const res = await fetch(`${SUPABASE_URL}/repertoire_medley_parts?medley_repertoire_id=eq.${id}&select=section,repertoire!song_repertoire_id(title)`, { headers });
-        const parts = await res.json();
-        let html = '<strong>Estrutura do Medley:</strong><br>';
-        parts.forEach((p, idx) => { html += `<div style="padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.05);">• <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span></div>`; });
-        partsDisplay.innerHTML = html;
-    } else { partsDisplay.classList.add('hidden'); }
+        partsDisplay.classList.remove('hidden'); 
+        partsDisplay.innerHTML = 'Carregando estrutura...';
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts?medley_repertoire_id=eq.${id}&select=section,section_content,repertoire!song_repertoire_id(title)&order=created_at.asc`, { headers });
+            const parts = await res.json();
+            
+            if (parts.length > 0 && parts[0].section_content) {
+                // Nova estrutura com conteúdo das seções
+                let html = '<strong>Estrutura do Medley:</strong><br>';
+                parts.forEach((p, idx) => { 
+                    html += `<div style="padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.08);">
+                        <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> 
+                        <span style="color:var(--primary-color); font-weight:600;">→ ${p.section}</span>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px; white-space:pre-wrap; max-height:80px; overflow:hidden;">${p.section_content}</div>
+                    </div>`; 
+                });
+                partsDisplay.innerHTML = html;
+            } else {
+                // Estrutura antiga (sem conteúdo)
+                let html = '<strong>Estrutura do Medley:</strong><br>';
+                parts.forEach((p, idx) => { 
+                    html += `<div style="padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
+                        • <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span>
+                    </div>`; 
+                });
+                partsDisplay.innerHTML = html;
+            }
+        } catch(e) {
+            partsDisplay.innerHTML = 'Erro ao carregar estrutura.';
+        }
+    } else { 
+        partsDisplay.classList.add('hidden'); 
+    }
 }
 
 async function loadKeysForRepertoire(id) {
     const container = document.getElementById('view-rep-keys'); container.innerHTML = '';
     try {
-        const res = await fetch(`${SUPABASE_URL}/repertoire_keys?repertoire_id=eq.${id}`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?repertoire_id=eq.${id}`, { headers });
         const keys = await res.json();
         let html = '';
         keys.forEach(k => {
@@ -554,14 +824,14 @@ async function addKeyToRepertoire() {
     const newKey = document.getElementById('new-key-input').value.trim();
     if(!newKey || !currentViewingRepertoireId) return;
     try {
-        await fetch(`${SUPABASE_URL}/repertoire_keys`, { method: 'POST', headers, body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey }) });
+        await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { method: 'POST', headers, body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey }) });
         document.getElementById('new-key-input').value = ''; loadKeysForRepertoire(currentViewingRepertoireId); loadRepertoire();
     } catch(e) { showCustomAlert('Erro ao adicionar tom.'); }
 }
 
 async function deleteKey(keyId) {
     showCustomConfirm('Deseja remover este tom?', async () => {
-        try { await fetch(`${SUPABASE_URL}/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); loadKeysForRepertoire(currentViewingRepertoireId); loadRepertoire(); } 
+        try { await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); loadKeysForRepertoire(currentViewingRepertoireId); loadRepertoire(); } 
         catch(e) {}
     });
 }
@@ -573,7 +843,7 @@ async function loadMembers() {
     const lineup = document.getElementById('members-lineup');
     lineup.innerHTML = '<p class="loading-text" style="color:white;">Buscando equipe...</p>';
     try {
-        const res = await fetch(`${SUPABASE_URL}/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
         const members = await res.json();
         if (members.length === 0) { lineup.innerHTML = '<p style="color:white; text-align:center;">Nenhum membro cadastrado.</p>'; return; }
         
@@ -582,15 +852,10 @@ async function loadMembers() {
             let p = { id: m.id, name: m.full_name };
             const roles = m.member_roles.map(r => r.role);
             
-            if(m.is_leader) {
-                team.lider.push(p);
-            } else if(roles.includes('vocal')) {
-                team.vocal.push(p);
-            } else if(roles.length > 0) {
-                team.banda.push({...p, role: roles[0]});
-            } else {
-                team.membro.push(p);
-            }
+            if(m.is_leader) team.lider.push(p);
+            else if(roles.includes('vocal')) team.vocal.push(p);
+            else if(roles.length > 0) team.banda.push({...p, role: roles[0]});
+            else team.membro.push(p);
         });
         
         let html = '';
@@ -654,7 +919,7 @@ async function loadScales() {
     listFuture.innerHTML = '<p>Buscando...</p>'; listPast.innerHTML = '<p>Buscando...</p>';
     
     try {
-        const res = await fetch(`${SUPABASE_URL}/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title,repertoire_keys(ton)))&order=event_date.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title,repertoire_keys(ton)))&order=event_date.asc`, { headers });
         const scales = await res.json();
         
         const todayStr = new Date().toISOString().split('T')[0];
@@ -706,7 +971,7 @@ function renderScaleCards(scaleArray, isFuture) {
             const keys = song.repertoire.repertoire_keys || [];
             const keysStr = keys.length > 0 ? keys.map(k => k.ton).join(', ') : '';
             const keyBadge = keysStr ? `<span class="badge tom" style="font-size:0.7rem; padding:2px 8px; margin-left:auto;">${keysStr}</span>` : '';
-            songsHtml += `<span>🎵 ${song.repertoire.title} ${keyBadge}</span>`; 
+            songsHtml += `<span> ${song.repertoire.title} ${keyBadge}</span>`; 
         });
 
         const actionsHtml = currentUserData.is_leader ? `
@@ -735,9 +1000,9 @@ function renderScaleCards(scaleArray, isFuture) {
 async function deleteScale(scaleId) {
     showCustomConfirm('Deseja realmente excluir esta escala? Esta ação removerá a equipe e o repertório vinculados e não pode ser desfeita.', async () => {
         try {
-            await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
-            await fetch(`${SUPABASE_URL}/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
-            const res = await fetch(`${SUPABASE_URL}/scales?id=eq.${scaleId}`, { method: 'DELETE', headers });
+            await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
+            await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}`, { method: 'DELETE', headers });
             
             if(!res.ok) throw new Error('Falha ao excluir');
             
@@ -754,7 +1019,7 @@ async function deleteScale(scaleId) {
 
 async function openEditScaleModal(scaleId) {
     try {
-        const res = await fetch(`${SUPABASE_URL}/scales?id=eq.${scaleId}&select=*,scale_items(member_id,role,members(full_name)),scale_songs(repertoire_id)`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=*,scale_items(member_id,role,members(full_name)),scale_songs(repertoire_id)`, { headers });
         const data = await res.json();
         if(data.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
         
@@ -775,11 +1040,11 @@ async function openEditScaleModal(scaleId) {
         renderScaleDraftTeam();
         
         if(allMembersCache.length === 0) {
-            const resMem = await fetch(`${SUPABASE_URL}/members?select=id,full_name,member_roles(role)`, { headers });
+            const resMem = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,member_roles(role)`, { headers });
             allMembersCache = await resMem.json();
         }
         if(allRepertoireCache.length === 0) {
-            const resRep = await fetch(`${SUPABASE_URL}/repertoire?select=id,title&order=title.asc`, { headers });
+            const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title&order=title.asc`, { headers });
             allRepertoireCache = await resRep.json();
         }
         
@@ -807,11 +1072,11 @@ async function openScaleModal() {
     scaleDraftTeam = []; renderScaleDraftTeam();
     
     if(allMembersCache.length === 0) {
-        const res = await fetch(`${SUPABASE_URL}/members?select=id,full_name,member_roles(role)`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,member_roles(role)`, { headers });
         allMembersCache = await res.json();
     }
     if(allRepertoireCache.length === 0) {
-        const resRep = await fetch(`${SUPABASE_URL}/repertoire?select=id,title&order=title.asc`, { headers });
+        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title&order=title.asc`, { headers });
         allRepertoireCache = await resRep.json();
     }
 
@@ -870,17 +1135,17 @@ async function saveNewScale() {
         let scaleId;
         
         if(editingId) {
-            await fetch(`${SUPABASE_URL}/scales?id=eq.${editingId}`, { 
+            await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${editingId}`, { 
                 method: 'PATCH', 
                 headers, 
                 body: JSON.stringify({ event_date: date, notes: notes, time_key: date.substring(0,7) }) 
             });
             scaleId = editingId;
             
-            await fetch(`${SUPABASE_URL}/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
-            await fetch(`${SUPABASE_URL}/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
+            await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
+            await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
         } else {
-            const resScale = await fetch(`${SUPABASE_URL}/scales`, { 
+            const resScale = await fetch(`${SUPABASE_URL}/rest/v1/scales`, { 
                 method: 'POST', 
                 headers: { ...headers, 'Prefer': 'return=representation' }, 
                 body: JSON.stringify({ time_key: date.substring(0,7), event_date: date, notes: notes, created_by: currentUserData.id }) 
@@ -890,7 +1155,7 @@ async function saveNewScale() {
         }
 
         for(let item of scaleDraftTeam) {
-            await fetch(`${SUPABASE_URL}/scale_items`, { 
+            await fetch(`${SUPABASE_URL}/rest/v1/scale_items`, { 
                 method: 'POST', 
                 headers, 
                 body: JSON.stringify({ scale_id: scaleId, member_id: item.memberId, role: item.role }) 
@@ -899,7 +1164,7 @@ async function saveNewScale() {
 
         const songCbs = document.querySelectorAll('.scale-song-cb:checked');
         for(let cb of songCbs) {
-            await fetch(`${SUPABASE_URL}/scale_songs`, { 
+            await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, { 
                 method: 'POST', 
                 headers, 
                 body: JSON.stringify({ scale_id: scaleId, repertoire_id: cb.value }) 
@@ -920,20 +1185,25 @@ async function saveNewScale() {
 // MEMBROS E ADMINISTRAÇÃO 
 // ==========================================
 async function createNewMember() {
-    const username = document.getElementById('new-username').value.trim().toLowerCase(); const fullname = document.getElementById('new-fullname').value.trim(); const isLeader = document.getElementById('new-is-leader').checked; 
+    const username = document.getElementById('new-username').value.trim().toLowerCase(); 
+    const fullname = document.getElementById('new-fullname').value.trim(); 
+    const isLeader = document.getElementById('new-is-leader').checked; 
     if (!username || !fullname) { showCustomAlert('Preencha usuário e nome!'); return; }
     try {
-        const res = await fetch(`${SUPABASE_URL}/members`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ username, full_name: fullname, is_leader: isLeader }) });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members`, { method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' }, body: JSON.stringify({ username, full_name: fullname, is_leader: isLeader }) });
         if (!res.ok) throw new Error('Usuário já existe.');
         showCustomAlert('Membro cadastrado com sucesso!', 'Sucesso'); 
-        document.getElementById('new-username').value = ''; document.getElementById('new-fullname').value = ''; document.getElementById('new-is-leader').checked = false; loadAdminMembers();
+        document.getElementById('new-username').value = ''; 
+        document.getElementById('new-fullname').value = ''; 
+        document.getElementById('new-is-leader').checked = false; 
+        loadAdminMembers();
     } catch (e) { showCustomAlert(e.message, 'Erro'); }
 }
 
 async function loadAdminMembers() {
     const list = document.getElementById('admin-members-list'); list.innerHTML = '<p>Carregando...</p>';
     try {
-        const res = await fetch(`${SUPABASE_URL}/members?select=id,username,full_name,is_leader,member_roles(role)&order=full_name.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,is_leader,member_roles(role)&order=full_name.asc`, { headers });
         const members = await res.json(); let html = '';
         members.forEach(m => {
             const currentRoles = m.member_roles.map(r => r.role);
@@ -949,15 +1219,15 @@ async function loadAdminMembers() {
 
 async function updateRole(memberId, role, isAdding) {
     try {
-        if(role === 'lider') { await fetch(`${SUPABASE_URL}/members?id=eq.${memberId}`, { method: 'PATCH', headers, body: JSON.stringify({ is_leader: isAdding }) }); return; }
-        if (isAdding) await fetch(`${SUPABASE_URL}/member_roles`, { method: 'POST', headers, body: JSON.stringify({ member_id: memberId, role: role }) });
-        else await fetch(`${SUPABASE_URL}/member_roles?member_id=eq.${memberId}&role=eq.${role}`, { method: 'DELETE', headers });
+        if(role === 'lider') { await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${memberId}`, { method: 'PATCH', headers, body: JSON.stringify({ is_leader: isAdding }) }); return; }
+        if (isAdding) await fetch(`${SUPABASE_URL}/rest/v1/member_roles`, { method: 'POST', headers, body: JSON.stringify({ member_id: memberId, role: role }) });
+        else await fetch(`${SUPABASE_URL}/rest/v1/member_roles?member_id=eq.${memberId}&role=eq.${role}`, { method: 'DELETE', headers });
     } catch (e) { showCustomAlert('Erro ao atualizar banco.'); }
 }
 
 async function deleteMember(id) {
     showCustomConfirm('Deseja remover este membro do sistema?', async () => {
-        try { await fetch(`${SUPABASE_URL}/members?id=eq.${id}`, { method: 'DELETE', headers }); loadAdminMembers(); } catch (e) { showCustomAlert('Erro ao excluir.'); }
+        try { await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, { method: 'DELETE', headers }); loadAdminMembers(); } catch (e) { showCustomAlert('Erro ao excluir.'); }
     });
 }
 
