@@ -587,12 +587,29 @@ function parseLyricsIntoVerses(lyrics) {
     return verses;
 }
 
+// Substitua a função openMedleyModal por esta:
 function openMedleyModal() {
-    document.getElementById('modal-add-medley').classList.add('active');
+    document.getElementById('drawer-medley').classList.add('active');
+    document.getElementById('drawer-medley-overlay').classList.add('active');
     resetMedleyFlow();
     loadMedleySongsList();
 }
 
+// Substitua a função closeModals por esta:
+function closeModals() { 
+    document.querySelectorAll('.modal').forEach(m => {
+        if(!m.classList.contains('custom-alert-modal')) m.classList.remove('active'); 
+    });
+    // Fechar drawer
+    document.getElementById('drawer-medley').classList.remove('active');
+    document.getElementById('drawer-medley-overlay').classList.remove('active');
+    
+    const editingField = document.getElementById('editing-scale-id');
+    if(editingField) editingField.value = '';
+    const modalTitle = document.getElementById('scale-modal-title');
+    if(modalTitle) modalTitle.textContent = 'Nova Escala';
+    resetMedleyFlow();
+}
 function resetMedleyFlow() {
     medleyDraft = [];
     medleyCurrentSongId = null;
