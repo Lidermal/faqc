@@ -16,13 +16,11 @@
         <div class="login-container">
             <img src="logo.png" alt="Família Amor que Cura Church" class="logo">
             <h2>Portal do Ministério</h2>
-            
             <div class="input-group">
                 <label for="username">Usuário de Acesso</label>
                 <input type="text" id="username" placeholder="ex: nome.sobrenome" autocomplete="off">
                 <span id="login-error" class="error-message"></span>
             </div>
-
             <button onclick="handleLogin()" class="btn-primary" id="btn-login">Entrar</button>
         </div>
     </main>
@@ -30,36 +28,22 @@
     <!-- TELA PRINCIPAL (SYSTEM) -->
     <main id="system-screen" class="screen hidden">
         
-        <!-- MENU LATERAL (Sidebar PC / Bottom Nav Mobile) -->
+        <!-- MENU LATERAL -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <img src="logo.png" alt="Logo" class="logo-small">
                 <span>Amor que Cura</span>
                 <button class="btn-close-sidebar" onclick="toggleSidebar()"><span class="material-symbols-outlined">close</span></button>
             </div>
-            
             <nav class="sidebar-nav">
-                <button onclick="navigate('home')" class="nav-item active" id="nav-home">
-                    <span class="material-symbols-outlined">space_dashboard</span> <span>Início</span>
-                </button>
-                <button onclick="navigate('membros')" class="nav-item" id="nav-membros">
-                    <span class="material-symbols-outlined">group</span> <span>Membros</span>
-                </button>
-                <button onclick="navigate('escalas')" class="nav-item" id="nav-escalas">
-                    <span class="material-symbols-outlined">calendar_month</span> <span>Escalas</span>
-                </button>
-                <button onclick="navigate('repertorio')" class="nav-item" id="nav-repertorio">
-                    <span class="material-symbols-outlined">library_music</span> <span>Repertório</span>
-                </button>
-                <button onclick="navigate('admin')" class="nav-item hidden" id="nav-admin">
-                    <span class="material-symbols-outlined">admin_panel_settings</span> <span>Admin</span>
-                </button>
+                <button onclick="navigate('home')" class="nav-item active" id="nav-home"><span class="material-symbols-outlined">space_dashboard</span> <span>Início</span></button>
+                <button onclick="navigate('membros')" class="nav-item" id="nav-membros"><span class="material-symbols-outlined">group</span> <span>Membros</span></button>
+                <button onclick="navigate('escalas')" class="nav-item" id="nav-escalas"><span class="material-symbols-outlined">calendar_month</span> <span>Escalas</span></button>
+                <button onclick="navigate('repertorio')" class="nav-item" id="nav-repertorio"><span class="material-symbols-outlined">library_music</span> <span>Repertório</span></button>
+                <button onclick="navigate('admin')" class="nav-item hidden" id="nav-admin"><span class="material-symbols-outlined">admin_panel_settings</span> <span>Admin</span></button>
             </nav>
-
             <div class="sidebar-footer">
-                <button onclick="handleLogout()" class="btn-logout">
-                    <span class="material-symbols-outlined">logout</span> <span>Sair</span>
-                </button>
+                <button onclick="handleLogout()" class="btn-logout"><span class="material-symbols-outlined">logout</span> <span>Sair</span></button>
             </div>
         </aside>
 
@@ -72,7 +56,7 @@
 
             <div class="content-area">
                 
-                <!-- Subpágina: INÍCIO -->
+                <!-- INÍCIO -->
                 <section id="page-home" class="subpage active">
                     <div class="dashboard-grid">
                         <div class="card daily-message-card">
@@ -83,6 +67,7 @@
                         <div class="card countdown-card">
                             <div class="card-header"><span class="material-symbols-outlined">timer</span><h3>Próximo Culto</h3></div>
                             <div class="card-body text-center">
+                                <h4 style="color:var(--text-muted); margin-bottom:10px;">Domingo às 18:30</h4>
                                 <div class="countdown" id="countdown-timer">00d 00h 00m 00s</div>
                                 <hr class="divider">
                                 <h4>Equipe Escalada</h4>
@@ -92,22 +77,29 @@
                     </div>
                 </section>
 
-                <!-- Subpágina: MEMBROS -->
+                <!-- MEMBROS -->
                 <section id="page-membros" class="subpage">
                     <div class="page-header"><h2>Equipe do Ministério</h2></div>
                     <div id="members-grid" class="members-grid"><p class="loading-text">Carregando membros...</p></div>
                 </section>
 
-                <!-- Subpágina: ESCALAS -->
+                <!-- ESCALAS -->
                 <section id="page-escalas" class="subpage">
                     <div class="page-header">
                         <h2>Escalas de Culto</h2>
                         <button class="btn-primary hidden" id="btn-add-scale" onclick="openScaleModal()">+ Nova Escala</button>
                     </div>
-                    <div id="scales-list" class="scales-grid"><p class="loading-text">Carregando escalas...</p></div>
+                    
+                    <div class="scale-tabs">
+                        <button class="tab-btn active" onclick="switchScaleTab('future')" id="tab-future">Próximos Cultos</button>
+                        <button class="tab-btn" onclick="switchScaleTab('past')" id="tab-past">Histórico (Arquivados)</button>
+                    </div>
+
+                    <div id="scales-list-future" class="scales-grid"><p class="loading-text">Carregando...</p></div>
+                    <div id="scales-list-past" class="scales-grid hidden"><p class="loading-text">Carregando...</p></div>
                 </section>
 
-                <!-- Subpágina: REPERTÓRIO -->
+                <!-- REPERTÓRIO -->
                 <section id="page-repertorio" class="subpage">
                     <div class="page-header">
                         <h2>Repertório</h2>
@@ -119,7 +111,7 @@
                     <div class="repertoire-playlist" id="repertoire-list"><p class="loading-text">Carregando músicas...</p></div>
                 </section>
 
-                <!-- Subpágina: ADMINISTRAÇÃO -->
+                <!-- ADMINISTRAÇÃO -->
                 <section id="page-admin" class="subpage">
                     <div class="page-header"><h2>Administração de Membros</h2></div>
                     <div class="admin-container">
@@ -130,7 +122,6 @@
                                 <div class="input-group"><label>Nome Completo</label><input type="text" id="new-fullname" placeholder="João da Silva"></div>
                                 <div class="checkbox-group"><label><input type="checkbox" id="new-is-leader"> É Líder?</label></div>
                                 <button class="btn-primary" onclick="createNewMember()">Cadastrar</button>
-                                <span id="admin-msg" class="admin-message"></span>
                             </div>
                         </div>
                         <div class="card list-card">
@@ -147,29 +138,46 @@
 
     <!-- ================= MODAIS ================= -->
     
-    <!-- Modal: Adicionar Música (Busca Inteligente) -->
+    <!-- Modal: Alerta Personalizado -->
+    <div id="modal-alert" class="modal custom-alert-modal">
+        <div class="modal-content alert-content">
+            <h3 id="alert-title">Aviso</h3>
+            <p id="alert-msg"></p>
+            <button class="btn-primary" onclick="closeCustomAlert()">Entendi</button>
+        </div>
+    </div>
+
+    <!-- Modal: Confirmar Ação -->
+    <div id="modal-confirm" class="modal custom-alert-modal">
+        <div class="modal-content alert-content">
+            <h3 id="confirm-title">Atenção</h3>
+            <p id="confirm-msg"></p>
+            <div style="display:flex; gap:10px; width:100%;">
+                <button class="btn-secondary" onclick="closeCustomConfirm()" style="flex:1;">Cancelar</button>
+                <button class="btn-primary" id="btn-confirm-yes" style="flex:1; background:var(--danger);">Sim, Remover</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Adicionar Música -->
     <div id="modal-add-repertoire" class="modal bottom-sheet">
         <div class="modal-content">
-            <div class="modal-header">
-                <h3>Adicionar Música</h3>
-                <button class="close-btn" onclick="closeModals()">✕</button>
-            </div>
+            <div class="modal-header"><h3>Adicionar Música</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
             <div class="modal-body">
                 <div class="search-music-box">
-                    <h4>Buscador Inteligente</h4>
+                    <h4>Buscador 100% Fiel</h4>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Só aparecerão músicas com letras verificadas e prontas.</p>
                     <div class="search-inputs">
-                        <input type="text" id="search-query" placeholder="Digite o nome da música ou cantor...">
+                        <input type="text" id="search-query" placeholder="Música ou Cantor...">
                         <button class="btn-secondary" onclick="searchMusicList()" id="btn-search-music">Buscar</button>
                     </div>
                     <div id="search-results" class="search-results-list"></div>
                     <span id="search-msg" class="admin-message"></span>
                 </div>
-                
                 <hr class="divider">
-                
                 <div class="input-group"><label>Título Final no Sistema *</label><input type="text" id="rep-title" placeholder="Ex: Ressuscita-me - Aline Barros"></div>
                 <div class="input-group"><label>Tom Principal (opcional)</label><input type="text" id="rep-key" placeholder="Ex: G, Am"></div>
-                <div class="input-group"><label>Letra da Música *</label><textarea id="rep-lyrics" rows="5" placeholder="A letra importada aparecerá aqui... ou digite manualmente."></textarea></div>
+                <div class="input-group"><label>Letra da Música *</label><textarea id="rep-lyrics" rows="5" placeholder="Letra importada aparecerá aqui..."></textarea></div>
                 <button class="btn-primary" onclick="saveNewRepertoire()">Salvar no Repertório</button>
             </div>
         </div>
@@ -178,23 +186,28 @@
     <!-- Modal: Criar Medley -->
     <div id="modal-add-medley" class="modal bottom-sheet">
         <div class="modal-content">
-            <div class="modal-header">
-                <h3>Criar Medley Especial</h3>
-                <button class="close-btn" onclick="closeModals()">✕</button>
-            </div>
+            <div class="modal-header"><h3>Criar Medley</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
             <div class="modal-body">
-                <div class="input-group"><label>Nome do Medley *</label><input type="text" id="medley-title" placeholder="Ex: Medley Adoração (Ressuscita-me / Para Sempre)"></div>
-                <h4>Selecione as músicas e informe a parte de cada uma:</h4>
-                <div id="medley-songs-selection" class="medley-list">
-                    <p class="loading-text">Carregando repertório...</p>
+                <div class="input-group"><label>Nome do Medley *</label><input type="text" id="medley-title" placeholder="Ex: Medley Adoração"></div>
+                
+                <div class="medley-builder">
+                    <h4>Músicas do Medley:</h4>
+                    <div class="input-group" style="flex-direction:row; gap:10px;">
+                        <select id="medley-song-selector" style="flex:1;"><option value="">Selecione do Repertório...</option></select>
+                        <button class="btn-secondary" onclick="addSongToMedleyDraft()">Adicionar</button>
+                    </div>
+                    
+                    <div id="medley-draft-list" class="medley-draft-list">
+                        <p class="loading-text" style="font-size:0.85rem;" id="medley-empty-text">Nenhuma música adicionada ainda.</p>
+                    </div>
                 </div>
+
                 <button class="btn-primary" onclick="saveNewMedley()" style="margin-top: 15px;">Salvar Medley</button>
-                <span id="medley-msg" class="admin-message"></span>
             </div>
         </div>
     </div>
 
-    <!-- Modal: Visualizar Letra (Formato Instagram Fullscreen) -->
+    <!-- Modal: Visualizar Letra -->
     <div id="modal-view-repertoire" class="modal fullscreen-mobile">
         <div class="modal-content">
             <div class="modal-header">
@@ -204,52 +217,44 @@
             <div class="modal-body">
                 <div class="keys-manager">
                     <div id="view-rep-keys" class="keys-list"></div>
-                    <div class="add-key-box hidden" id="box-add-key" style="margin-top: 10px;">
+                    <div class="add-key-box hidden" id="box-add-key" style="margin-top: 10px; display:flex; gap:10px;">
                         <input type="text" id="new-key-input" placeholder="Novo Tom" style="width: 100px; padding: 8px; border-radius:6px; border:1px solid #ccc;">
                         <button class="btn-secondary" onclick="addKeyToRepertoire()">+ Tom</button>
                     </div>
                 </div>
-                
                 <div id="medley-parts-display" class="hidden" style="background: #e3f2fd; padding: 10px; border-radius: 8px; margin-bottom: 15px;"></div>
-                
-                <div class="lyrics-display">
-                    <pre id="view-rep-lyrics"></pre>
-                </div>
+                <div class="lyrics-display"><pre id="view-rep-lyrics"></pre></div>
             </div>
         </div>
     </div>
 
-    <!-- Modal: Criar Escala -->
-    <div id="modal-add-scale" class="modal bottom-sheet">
+    <!-- Modal: Criar Escala Múltipla -->
+    <div id="modal-add-scale" class="modal fullscreen-mobile">
         <div class="modal-content">
-            <div class="modal-header">
-                <h3>Nova Escala</h3>
-                <button class="close-btn" onclick="closeModals()">✕</button>
-            </div>
+            <div class="modal-header"><h3>Nova Escala</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
             <div class="modal-body">
-                <div class="input-group">
-                    <label>Data do Culto *</label>
-                    <input type="date" id="scale-date">
-                </div>
-                <div class="input-group">
-                    <label>Observações</label>
-                    <input type="text" id="scale-notes" placeholder="Ex: Culto de Santa Ceia">
-                </div>
+                <div class="input-group"><label>Data do Culto *</label><input type="date" id="scale-date"></div>
+                <div class="input-group"><label>Observações</label><input type="text" id="scale-notes" placeholder="Ex: Culto de Santa Ceia"></div>
                 
                 <hr class="divider">
-                <h4>Equipe</h4>
-                <div id="scale-team-selectors" style="display:flex; flex-direction:column; gap:10px; margin-bottom: 15px;">
-                    <!-- Preenchido via JS -->
+                <h4>1. Escalar Equipe</h4>
+                <div class="scale-builder-box">
+                    <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                        <select id="scale-draft-member" style="flex:1; padding:10px; border-radius:8px;"><option value="">Selecionar Membro...</option></select>
+                        <select id="scale-draft-role" style="flex:1; padding:10px; border-radius:8px;">
+                            <option value="lider">Líder</option><option value="vocal">Vocal</option><option value="baterista">Baterista</option>
+                            <option value="teclado">Teclado</option><option value="violao">Violão</option><option value="baixo">Baixo</option>
+                        </select>
+                        <button class="btn-secondary" onclick="addMemberToScaleDraft()">Adicionar</button>
+                    </div>
+                    <div id="scale-draft-team-list" class="medley-draft-list"><p class="loading-text" style="font-size:0.85rem;" id="scale-team-empty">Equipe vazia.</p></div>
                 </div>
 
                 <hr class="divider">
-                <h4>Repertório do Culto</h4>
-                <div id="scale-songs-selectors" style="max-height: 200px; overflow-y: auto; background: #fafafa; padding: 10px; border: 1px solid #ddd; border-radius: 8px;">
-                    <!-- Preenchido via JS -->
-                </div>
+                <h4>2. Repertório do Culto</h4>
+                <div id="scale-songs-selectors" class="scale-songs-box"></div>
 
-                <button class="btn-primary" onclick="saveNewScale()" style="margin-top: 20px;">Salvar Escala</button>
-                <span id="scale-msg" class="admin-message"></span>
+                <button class="btn-primary" onclick="saveNewScale()" style="margin-top: 20px;">Salvar Escala Completa</button>
             </div>
         </div>
     </div>
