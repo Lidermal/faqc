@@ -8,12 +8,16 @@ const headers = {
     'Content-Type': 'application/json' 
 };
 
-// Variáveis globais
+// ==========================================
+// VARIÁVEIS GLOBAIS
+// ==========================================
 let currentUserData = null;
 let countdownInterval;
 let currentViewingRepertoireId = null;
+let currentFolderId = null;
 let allRepertoireCache = [];
 let allMembersCache = [];
+let allFoldersCache = [];
 let realtimeChannels = [];
 let supabaseClient = null;
 
@@ -23,6 +27,7 @@ let medleyCurrentSongId = null;
 let medleyCurrentSongVerses = [];
 let cachedLyricsSearch = {};
 let selectedVocalists = [];
+let carouselInterval = null;
 
 // ==========================================
 // INICIALIZAÇÃO SUPABASE
@@ -115,9 +120,20 @@ function showSystemScreen() {
     document.getElementById('system-screen').classList.add('active');
     document.getElementById('user-display-name').textContent = currentUserData.full_name;
 
-    if (currentUserData.is_leader) {
+    // Verificar permissões
+    const isLeader = currentUserData.is_leader;
+    const isMedia = currentUserData.role === 'midia' || currentUserData.is_media;
+    
+    if (isLeader) {
         document.getElementById('nav-admin').classList.remove('hidden');
         document.getElementById('btn-add-scale').classList.remove('hidden');
+    } else if (isMedia) {
+        // Mídia só vê Início, Membros e Repertório
+        document.getElementById('nav-escalas').classList.add('hidden');
+        document.getElementById('nav-admin').classList.add('hidden');
+        document.getElementById('btn-add-scale').classList.add('hidden');
+    } else {
+        document.getElementById('btn-add-scale').classList.add('hidden');
     }
     
     document.getElementById('repertoire-actions').classList.remove('hidden');
@@ -140,6 +156,11 @@ function handleLogout() {
         realtimeChannels = [];
     }
     
+    if(carouselInterval) {
+        clearInterval(carouselInterval);
+        carouselInterval = null;
+    }
+    
     localStorage.removeItem('sessionUser'); 
     currentUserData = null; 
     clearInterval(countdownInterval);
@@ -150,6 +171,7 @@ function handleLogout() {
     document.getElementById('login-screen').classList.add('active');
     document.getElementById('username').value = '';
     document.getElementById('nav-admin').classList.add('hidden');
+    document.getElementById('nav-escalas').classList.remove('hidden');
     document.getElementById('btn-add-scale').classList.add('hidden');
 }
 
@@ -164,11 +186,20 @@ function navigate(pageId) {
     const targetNav = document.getElementById('nav-' + pageId);
     if(targetNav) targetNav.classList.add('active');
     
-    if (pageId === 'home') loadDashboard();
-    if (pageId === 'membros') loadMembers();
-    if (pageId === 'admin') loadAdminDashboard();
-    if (pageId === 'repertorio') loadRepertoire();
-    if (pageId === 'escalas') loadScales();
+    if (pageId === 'home') {
+        loadDashboard();
+    } else if (pageId === 'membros') {
+        loadMembers();
+    } else if (pageId === 'admin') {
+        loadAdminDashboard();
+    } else if (pageId === 'repertorio') {
+        loadFolders();
+        loadRepertoire();
+    } else if (pageId === 'escalas') {
+        loadScales();
+    } else if (pageId === 'perfil') {
+        loadProfile();
+    }
 }
 
 function closeModals() { 
@@ -230,6 +261,19 @@ function setupRealtimeSubscriptions() {
             })
             .subscribe();
         realtimeChannels.push(repChannel);
+
+        // Canal para mudanças nas pastas
+        const folderChannel = supabaseClient
+            .channel('folder-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'folders' }, () => {
+                console.log('🔄 Mudança nas pastas');
+                if(document.getElementById('page-repertorio').classList.contains('active')) {
+                    loadFolders();
+                    loadRepertoire();
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(folderChannel);
 
         // Canal para mudanças nas escalas
         const scaleChannel = supabaseClient
@@ -407,11 +451,30 @@ function startCountdown() {
     countdownInterval = setInterval(updateTimer, 1000);
 }
 
-// Scroll do carousel
+// Carrossel automático
+function startCarouselAutoScroll() {
+    if(carouselInterval) clearInterval(carouselInterval);
+    carouselInterval = setInterval(() => {
+        scrollCarousel(1);
+    }, 4000); // Muda a cada 4 segundos
+}
+
 function scrollCarousel(direction) {
     const carousel = document.getElementById('next-scale-team');
     if(carousel) {
-        carousel.scrollBy({ left: direction * 160, behavior: 'smooth' });
+        const scrollAmount = 160;
+        const maxScroll = carousel.scrollWidth - carousel.clientWidth;
+        const currentScroll = carousel.scrollLeft;
+        
+        if(direction > 0 && currentScroll >= maxScroll - 10) {
+            // Voltar ao início
+            carousel.scrollTo({ left: 0, behavior: 'smooth' });
+        } else if(direction < 0 && currentScroll <= 10) {
+            // Ir para o final
+            carousel.scrollTo({ left: maxScroll, behavior: 'smooth' });
+        } else {
+            carousel.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+        }
     }
 }
 
@@ -482,15 +545,18 @@ async function fetchDailyMessage() {
     }
 }
 
-// Ícones e nomes das funções
+// ==========================================
+// ÍCONES E NOMES DAS FUNÇÕES (CORRIGIDO)
+// ==========================================
 function getRoleIcon(role) {
     const icons = {
         'lider': 'star',
         'vocal': 'mic',
-        'baterista': 'drum',
+        'baterista': 'music_note',  // Ícone genérico de música
         'teclado': 'piano',
-        'violao': 'guitar',
-        'baixo': 'graphic_eq'
+        'violao': 'music_note',     // Ícone genérico de música
+        'baixo': 'graphic_eq',
+        'midia': 'videocam'
     };
     return icons[role] || 'person';
 }
@@ -502,7 +568,8 @@ function getRoleName(role) {
         'baterista': 'Baterista',
         'teclado': 'Teclado',
         'violao': 'Violão',
-        'baixo': 'Baixo'
+        'baixo': 'Baixo',
+        'midia': 'Mídia'
     };
     return names[role] || role.charAt(0).toUpperCase() + role.slice(1);
 }
@@ -551,6 +618,9 @@ async function fetchNextScaleHome() {
                 });
                 
                 container.innerHTML = html;
+                
+                // Iniciar carrossel automático
+                startCarouselAutoScroll();
             } else {
                 container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:20px;">Escala vazia.</p>`;
             }
@@ -564,24 +634,188 @@ async function fetchNextScaleHome() {
 }
 
 // ==========================================
-// MEMBROS - SHOWCASE MODERNO
+// PERFIL DO USUÁRIO
+// ==========================================
+async function loadProfile() {
+    const container = document.getElementById('profile-container');
+    if(!container) return;
+    
+    container.innerHTML = `
+        <div class="profile-card">
+            <div class="profile-header">
+                <div class="profile-photo-wrapper">
+                    ${currentUserData.photo_url ? 
+                        `<img src="${currentUserData.photo_url}" alt="${currentUserData.full_name}" class="profile-photo" id="current-photo">` : 
+                        `<div class="photo-placeholder-large">${currentUserData.full_name.charAt(0)}</div>`
+                    }
+                    <label for="photo-upload" class="photo-upload-btn" title="Alterar foto">
+                        <span class="material-symbols-outlined">camera_alt</span>
+                    </label>
+                    <input type="file" id="photo-upload" accept="image/*" style="display:none" onchange="uploadPhoto(event)">
+                </div>
+                <h2>${currentUserData.full_name}</h2>
+                <p class="profile-username">@${currentUserData.username}</p>
+                <div class="profile-badges">
+                    ${currentUserData.is_leader ? '<span class="badge-role leader">Líder</span>' : ''}
+                    ${currentUserData.role === 'midia' ? '<span class="badge-role">Mídia</span>' : ''}
+                </div>
+            </div>
+            
+            <div class="profile-body">
+                <div class="profile-section">
+                    <h3>Informações Pessoais</h3>
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Nome Completo</label>
+                            <input type="text" id="profile-fullname" value="${currentUserData.full_name}">
+                        </div>
+                        <div class="input-group">
+                            <label>Email</label>
+                            <input type="email" id="profile-email" value="${currentUserData.email || ''}">
+                        </div>
+                        <div class="input-group">
+                            <label>Telefone</label>
+                            <input type="tel" id="profile-phone" value="${currentUserData.phone || ''}">
+                        </div>
+                    </div>
+                </div>
+                
+                <button class="btn-primary" onclick="updateProfile()" style="width:100%; margin-top:1rem;">
+                    <span class="material-symbols-outlined">save</span> Salvar Alterações
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+async function uploadPhoto(event) {
+    const file = event.target.files[0];
+    if(!file) return;
+    
+    // Validar arquivo
+    if(file.size > 5 * 1024 * 1024) {
+        showCustomAlert('A foto deve ter no máximo 5MB.', 'Erro');
+        return;
+    }
+    
+    if(!file.type.startsWith('image/')) {
+        showCustomAlert('Por favor, selecione uma imagem válida.', 'Erro');
+        return;
+    }
+    
+    try {
+        showCustomAlert('Fazendo upload da foto...', 'Aguarde');
+        
+        // Upload para Supabase Storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${currentUserData.id}_${Date.now()}.${fileExt}`;
+        const { data, error } = await supabaseClient.storage
+            .from('member-photos')
+            .upload(fileName, file, {
+                cacheControl: '3600',
+                upsert: false
+            });
+        
+        if(error) throw error;
+        
+        // Obter URL pública
+        const { data: { publicUrl } } = supabaseClient.storage
+            .from('member-photos')
+            .getPublicUrl(fileName);
+        
+        // Atualizar no banco
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ photo_url: publicUrl })
+        });
+        
+        if(!res.ok) throw new Error('Erro ao atualizar');
+        
+        // Atualizar dados locais
+        currentUserData.photo_url = publicUrl;
+        localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
+        
+        showCustomAlert('Foto atualizada com sucesso!', 'Sucesso');
+        loadProfile();
+        
+    } catch(e) {
+        console.error('Erro upload:', e);
+        showCustomAlert('Erro ao fazer upload da foto: ' + e.message, 'Erro');
+    }
+}
+
+async function updateProfile() {
+    const fullname = document.getElementById('profile-fullname').value.trim();
+    const email = document.getElementById('profile-email').value.trim();
+    const phone = document.getElementById('profile-phone').value.trim();
+    
+    if(!fullname) {
+        showCustomAlert('Nome completo é obrigatório.', 'Erro');
+        return;
+    }
+    
+    try {
+        const updateData = {
+            full_name: fullname,
+            email: email || null,
+            phone: phone || null
+        };
+        
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(updateData)
+        });
+        
+        if(!res.ok) throw new Error('Erro ao atualizar');
+        
+        // Atualizar dados locais
+        currentUserData.full_name = fullname;
+        currentUserData.email = email || null;
+        currentUserData.phone = phone || null;
+        localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
+        
+        showCustomAlert('Perfil atualizado com sucesso!', 'Sucesso');
+        
+        // Atualizar nome no header
+        const displayName = document.getElementById('user-display-name');
+        if(displayName) {
+            displayName.textContent = fullname;
+        }
+        
+    } catch(e) {
+        console.error('Erro atualizar:', e);
+        showCustomAlert('Erro ao atualizar perfil.', 'Erro');
+    }
+}
+
+// ==========================================
+// MEMBROS - SHOWCASE MODERNO (CORRIGIDO)
 // ==========================================
 async function loadMembers() {
     const container = document.getElementById('members-lineup');
     container.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,email,phone,is_leader,member_roles(role)&order=full_name.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,email,phone,is_leader,role,member_roles(role)&order=full_name.asc`, { headers });
+        
+        if(!res.ok) {
+            throw new Error('Erro na requisição: ' + res.status);
+        }
+        
         const members = await res.json();
+        console.log('Membros carregados:', members);
         
         if (members.length === 0) { 
             container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:40px;">Nenhum membro cadastrado.</p>'; 
             return; 
         }
         
+        // CORREÇÃO: Verificar se member_roles é null ou undefined
         const leaders = members.filter(m => m.is_leader);
-        const vocals = members.filter(m => !m.is_leader && m.member_roles.some(r => r.role === 'vocal'));
-        const band = members.filter(m => !m.is_leader && !m.member_roles.some(r => r.role === 'vocal'));
+        const vocals = members.filter(m => !m.is_leader && m.member_roles && m.member_roles.some(r => r.role === 'vocal'));
+        const band = members.filter(m => !m.is_leader && (!m.member_roles || !m.member_roles.some(r => r.role === 'vocal')));
         
         let html = '';
         
@@ -613,13 +847,14 @@ async function loadMembers() {
         
     } catch (e) { 
         console.error('Erro ao carregar membros:', e);
-        container.innerHTML = '<p style="color:var(--danger); text-align:center; padding:40px;">Erro ao carregar equipe.</p>'; 
+        container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:40px;">Erro ao carregar: ${e.message}</p>`; 
     }
 }
 
 function createMemberCard(member, type) {
     const photoUrl = member.photo_url || null;
-    const roles = member.member_roles.map(r => r.role);
+    // CORREÇÃO: Verificar se member_roles existe
+    const roles = member.member_roles ? member.member_roles.map(r => r.role) : [];
     
     return `
         <div class="member-showcase-card ${type}">
@@ -640,13 +875,126 @@ function createMemberCard(member, type) {
             <div class="member-card-body">
                 <h3 class="member-name">${member.full_name}</h3>
                 <div class="member-roles">
+                    ${member.is_leader ? '<span class="role-badge leader">Líder</span>' : ''}
                     ${roles.map(r => `<span class="role-badge ${r}">${getRoleName(r)}</span>`).join('')}
+                    ${member.role === 'midia' ? '<span class="role-badge">Mídia</span>' : ''}
                 </div>
                 ${member.email ? `<p class="member-contact"><span class="material-symbols-outlined">mail</span> ${member.email}</p>` : ''}
                 ${member.phone ? `<p class="member-contact"><span class="material-symbols-outlined">phone</span> ${member.phone}</p>` : ''}
             </div>
         </div>
     `;
+}
+
+// ==========================================
+// PASTAS DO REPERTÓRIO
+// ==========================================
+async function loadFolders() {
+    const container = document.getElementById('folders-list');
+    if(!container) return;
+    
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=*,members!created_by(full_name)&order=name.asc`, { headers });
+        const folders = await res.json();
+        
+        allFoldersCache = folders;
+        
+        let html = `
+            <button class="folder-item ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+                <span class="material-symbols-outlined">folder</span>
+                <div class="folder-info">
+                    <span>Pasta Geral</span>
+                    <small>Todas as músicas</small>
+                </div>
+            </button>
+        `;
+        
+        folders.forEach(folder => {
+            const canEdit = folder.created_by === currentUserData.id || currentUserData.is_leader;
+            html += `
+                <div class="folder-wrapper">
+                    <button class="folder-item ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
+                        <span class="material-symbols-outlined">folder</span>
+                        <div class="folder-info">
+                            <span>${folder.name}</span>
+                            <small>Por: ${folder.members ? folder.members.full_name : 'Desconhecido'}</small>
+                        </div>
+                    </button>
+                    ${canEdit ? `
+                        <button class="btn-folder-delete" onclick="deleteFolder('${folder.id}')" title="Excluir pasta">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
+        });
+        
+        if(currentUserData.is_leader) {
+            html += `
+                <button class="btn-create-folder" onclick="openCreateFolderModal()">
+                    <span class="material-symbols-outlined">create_new_folder</span>
+                    Nova Pasta
+                </button>
+            `;
+        }
+        
+        container.innerHTML = html;
+        
+    } catch (e) {
+        console.error('Erro ao carregar pastas:', e);
+    }
+}
+
+function selectFolder(folderId) {
+    currentFolderId = folderId;
+    loadFolders();
+    loadRepertoire();
+}
+
+async function openCreateFolderModal() {
+    const name = prompt('Nome da pasta:');
+    if(!name) return;
+    
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'return=representation' },
+            body: JSON.stringify({
+                name: name,
+                created_by: currentUserData.id
+            })
+        });
+        
+        loadFolders();
+        showCustomAlert('Pasta criada com sucesso!', 'Sucesso');
+    } catch(e) {
+        console.error('Erro ao criar pasta:', e);
+        showCustomAlert('Erro ao criar pasta.', 'Erro');
+    }
+}
+
+async function deleteFolder(folderId) {
+    if(!confirm('Deseja excluir esta pasta? As músicas serão movidas para Pasta Geral.')) return;
+    
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/repertoire?folder_id=eq.${folderId}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ folder_id: null })
+        });
+        
+        await fetch(`${SUPABASE_URL}/rest/v1/folders?id=eq.${folderId}`, {
+            method: 'DELETE',
+            headers
+        });
+        
+        loadFolders();
+        loadRepertoire();
+        showCustomAlert('Pasta excluída!', 'Sucesso');
+    } catch(e) {
+        console.error('Erro ao excluir pasta:', e);
+        showCustomAlert('Erro ao excluir pasta.', 'Erro');
+    }
 }
 
 // ==========================================
@@ -1001,7 +1349,8 @@ async function saveNewRepertoire() {
                 title, 
                 lyrics_text: lyrics, 
                 created_by: currentUserData.id,
-                vocalist: vocalist || null
+                vocalist: vocalist || null,
+                folder_id: currentFolderId || null
             }) 
         });
         const savedData = await res.json();
@@ -1021,46 +1370,87 @@ async function saveNewRepertoire() {
 }
 
 // ==========================================
-// REPERTÓRIO
+// REPERTÓRIO COM PASTAS
 // ==========================================
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
+    if(!list) return;
+    
     list.innerHTML = '<div class="loading-spinner"></div>';
+    
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&order=title.asc`, { headers });
+        let query = `${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton),members!created_by(full_name)`;
+        
+        if(currentFolderId) {
+            query += `&folder_id=eq.${currentFolderId}`;
+        }
+        
+        query += '&order=title.asc';
+        
+        const res = await fetch(query, { headers });
         allRepertoireCache = await res.json();
+        
         if (allRepertoireCache.length === 0) { 
-            list.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Nenhuma música.</p>'; 
+            list.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Nenhuma música nesta pasta.</p>'; 
             return; 
         }
+        
         let html = '';
         allRepertoireCache.forEach(song => {
             let keysHtml = ''; 
-            song.repertoire_keys.forEach(k => { 
-                keysHtml += `<span class="badge tom">${k.ton}</span>`; 
-            });
+            if(song.repertoire_keys) {
+                song.repertoire_keys.forEach(k => { 
+                    keysHtml += `<span class="badge tom">${k.ton}</span>`; 
+                });
+            }
             
             let vocalistHtml = '';
             if(song.vocalist) {
                 vocalistHtml = `<div class="vocalist-badge"><span class="material-symbols-outlined" style="font-size:0.9rem;">mic</span> ${song.vocalist}</div>`;
             }
             
+            const ownerInfo = song.members ? `<small style="color:var(--text-muted); font-size:0.75rem;">Por: ${song.members.full_name}</small>` : '';
+            
+            // Verificar permissão de edição
+            const canEdit = song.created_by === currentUserData.id || 
+                           (currentFolderId && allFoldersCache.find(f => f.id === currentFolderId)?.created_by === currentUserData.id) ||
+                           currentUserData.is_leader;
+            
             html += `
-                <div class="playlist-item" onclick="openViewRepertoire('${song.id}', \`${song.title.replace(/`/g, "'")}\`, \`${encodeURIComponent(song.lyrics_text || '')}\`, ${song.is_medley}, \`${encodeURIComponent(song.vocalist || '')}\`)">
+                <div class="playlist-item" onclick="${canEdit ? `openViewRepertoire('${song.id}', \`${song.title.replace(/`/g, "'")}\`, \`${encodeURIComponent(song.lyrics_text || '')}\`, ${song.is_medley}, \`${encodeURIComponent(song.vocalist || '')}\`)` : ''}">
                     <div class="play-info">
                         <div class="play-icon"><span class="material-symbols-outlined">${song.is_medley ? 'queue_music' : 'music_note'}</span></div>
                         <div class="play-title">
                             <h4>${song.title}</h4>
                             <p>${song.is_medley ? 'Medley' : 'Louvor'} ${vocalistHtml}</p>
+                            ${ownerInfo}
                         </div>
                     </div>
                     <div class="play-keys">${keysHtml}</div>
+                    ${canEdit ? `<button class="btn-edit-rep" onclick="event.stopPropagation(); deleteRepertoire('${song.id}')" title="Excluir"><span class="material-symbols-outlined">delete</span></button>` : ''}
                 </div>`;
         });
         list.innerHTML = html;
     } catch (e) { 
         console.error('Erro ao carregar repertório:', e);
         list.innerHTML = '<p style="text-align:center; color:var(--danger);">Erro.</p>'; 
+    }
+}
+
+async function deleteRepertoire(id) {
+    if(!confirm('Deseja excluir esta música?')) return;
+    
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/repertoire?id=eq.${id}`, {
+            method: 'DELETE',
+            headers
+        });
+        
+        loadRepertoire();
+        showCustomAlert('Música excluída!', 'Sucesso');
+    } catch(e) {
+        console.error('Erro ao excluir:', e);
+        showCustomAlert('Erro ao excluir música.', 'Erro');
     }
 }
 
@@ -1545,7 +1935,7 @@ async function deleteKey(keyId) {
 }
 
 // ==========================================
-// ESCALAS
+// ESCALAS (CORRIGIDO PARA MOSTRAR FUNÇÃO ESPECÍFICA)
 // ==========================================
 function switchScaleTab(tab) {
     document.getElementById('tab-future').classList.remove('active');
@@ -1589,41 +1979,20 @@ function renderScaleCards(scaleArray, isFuture) {
         const dateObj = new Date(s.event_date);
         const dateStr = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
         
-        const leaders = s.scale_items.filter(i => i.role === 'lider');
-        const vocals = s.scale_items.filter(i => i.role === 'vocal');
-        const band = s.scale_items.filter(i => !['lider', 'vocal'].includes(i.role));
-        
+        // CORREÇÃO: Mostrar função específica da escala, não do membro
         let teamHtml = '<div class="scale-team-section">';
         teamHtml += '<h4 class="scale-section-title"><span class="material-symbols-outlined">group</span> Equipe</h4>';
         teamHtml += '<div class="scale-team-list">';
         
-        leaders.forEach(i => {
+        s.scale_items.forEach(item => {
+            const icon = getRoleIcon(item.role);
+            const roleName = getRoleName(item.role);
+            
             teamHtml += `
-                <div class="scale-team-member role-lider">
-                    <span class="material-symbols-outlined scale-team-icon">star</span>
-                    <span class="scale-team-name">${i.members.full_name}</span>
-                    <span class="scale-team-role">Líder</span>
-                </div>
-            `;
-        });
-        
-        vocals.forEach(i => {
-            teamHtml += `
-                <div class="scale-team-member role-vocal">
-                    <span class="material-symbols-outlined scale-team-icon">mic</span>
-                    <span class="scale-team-name">${i.members.full_name}</span>
-                    <span class="scale-team-role">Vocal</span>
-                </div>
-            `;
-        });
-        
-        band.forEach(i => {
-            const iconName = getRoleIcon(i.role);
-            teamHtml += `
-                <div class="scale-team-member role-band">
-                    <span class="material-symbols-outlined scale-team-icon">${iconName}</span>
-                    <span class="scale-team-name">${i.members.full_name}</span>
-                    <span class="scale-team-role">${getRoleName(i.role)}</span>
+                <div class="scale-team-member">
+                    <span class="material-symbols-outlined scale-team-icon">${icon}</span>
+                    <span class="scale-team-name">${item.members.full_name}</span>
+                    <span class="scale-team-role">${roleName}</span>
                 </div>
             `;
         });
@@ -1956,7 +2325,7 @@ async function saveNewScale() {
 }
 
 // ==========================================
-// ADMINISTRAÇÃO
+// ADMINISTRAÇÃO MELHORADA
 // ==========================================
 function loadAdminDashboard() {
     showAdminSection('new-member');
@@ -1984,7 +2353,8 @@ async function createNewMember() {
                 full_name: fullname, 
                 email: email || null,
                 phone: phone || null,
-                is_leader: isLeader 
+                is_leader: isLeader,
+                role: role === 'midia' ? 'midia' : null
             }) 
         });
         
@@ -1992,7 +2362,7 @@ async function createNewMember() {
         
         const saved = await res.json();
         
-        if(role && role !== 'lider') {
+        if(role && role !== 'lider' && role !== 'midia') {
             await fetch(`${SUPABASE_URL}/rest/v1/member_roles`, {
                 method: 'POST',
                 headers,
@@ -2019,7 +2389,7 @@ async function loadAdminMembers() {
     container.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,email,phone,is_leader,member_roles(role)&order=full_name.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,email,phone,is_leader,role,member_roles(role)&order=full_name.asc`, { headers });
         const members = await res.json(); 
         
         if(members.length === 0) {
@@ -2029,7 +2399,7 @@ async function loadAdminMembers() {
         
         let html = '<div class="admin-members-grid">';
         members.forEach(m => {
-            const currentRoles = m.member_roles.map(r => r.role);
+            const currentRoles = m.member_roles ? m.member_roles.map(r => r.role) : [];
             html += `
                 <div class="admin-member-card" data-name="${m.full_name.toLowerCase()}">
                     <div class="member-info">
@@ -2039,6 +2409,7 @@ async function loadAdminMembers() {
                         ${m.phone ? `<p class="member-contact"><span class="material-symbols-outlined">phone</span> ${m.phone}</p>` : ''}
                         <div class="member-roles-tags">
                             ${m.is_leader ? '<span class="role-badge leader">Líder</span>' : ''}
+                            ${m.role === 'midia' ? '<span class="role-badge">Mídia</span>' : ''}
                             ${currentRoles.map(r => `<span class="role-badge">${getRoleName(r)}</span>`).join('')}
                         </div>
                     </div>
