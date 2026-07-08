@@ -30,15 +30,20 @@
         
         <div class="main-content">
             <header class="app-header">
-                <div class="header-brand">
-                    <img src="logo.png" alt="Logo" class="header-logo">
+                <div class="header-brand" onclick="navigate('home')" style="cursor: pointer;">
+                    <img src="logo.png" alt="Logo" class="header-logo" id="header-user-avatar">
                     <div class="header-text">
                         <span class="header-title">Família Amor que Cura</span>
                         <p>Ministério de Louvor</p>
                     </div>
                 </div>
                 <div class="header-right">
-                    <div class="user-info"><span id="user-display-name"></span></div>
+                    <div class="user-info" onclick="navigate('perfil')" style="cursor: pointer;" title="Meu Perfil">
+                        <span id="user-display-name"></span>
+                    </div>
+                    <button class="btn-logout-header" style="border-color: var(--primary-color); color: var(--primary-color);" onclick="navigate('perfil')" title="Editar Perfil">
+                        <span class="material-symbols-outlined">account_circle</span>
+                    </button>
                     <button class="btn-logout-header" onclick="handleLogout()" title="Sair">
                         <span class="material-symbols-outlined">logout</span>
                     </button>
@@ -91,7 +96,6 @@
                         <h2>Nossa Equipe</h2>
                         <p class="page-subtitle">Conheça os membros do ministério</p>
                     </div>
-                    
                     <div class="members-showcase" id="members-lineup">
                         <p class="loading-text">Carregando equipe...</p>
                     </div>
@@ -130,6 +134,14 @@
                     </div>
                     <div id="folders-list"></div>
                     <div class="repertoire-playlist" id="repertoire-list"><p class="loading-text">Carregando músicas...</p></div>
+                </section>
+
+                <section id="page-perfil" class="subpage">
+                    <div class="page-header">
+                        <h2>Meu Perfil</h2>
+                        <p class="page-subtitle">Altere suas informações de exibição e foto de perfil</p>
+                    </div>
+                    <div id="profile-container"></div>
                 </section>
 
                 <section id="page-admin" class="subpage">
@@ -230,6 +242,10 @@
                 <span class="material-symbols-outlined">library_music</span>
                 <span>Repertório</span>
             </button>
+            <button onclick="navigate('perfil')" class="bottom-nav-item" id="nav-perfil">
+                <span class="material-symbols-outlined">account_box</span>
+                <span>Perfil</span>
+            </button>
             <button onclick="navigate('admin')" class="bottom-nav-item hidden" id="nav-admin">
                 <span class="material-symbols-outlined">admin_panel_settings</span>
                 <span>Admin</span>
@@ -261,11 +277,11 @@
             <div class="modal-header"><h3>Adicionar Música</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
             <div class="modal-body">
                 <div class="search-music-box">
-                    <h4>🔍 Buscador Gospel</h4>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Busque por artista, música ou trecho da letra</p>
+                    <h4>🔍 Buscador Gospel Integrado com YouTube</h4>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Encontra letras oficiais e vincula o vídeo automaticamente</p>
                     <div class="search-inputs">
                         <input type="text" id="search-query" placeholder="Ex: 'Ressuscita-me', 'Aline Barros'...">
-                        <button class="btn-secondary" onclick="searchMusicList()">🔍</button>
+                        <button class="btn-secondary" onclick="searchMusicList()">🔍 Buscar</button>
                     </div>
                     <div id="search-results" class="search-results-list"></div>
                     <span id="search-msg" class="admin-message"></span>
