@@ -2,8 +2,13 @@
 const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos';
 
-const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
+const headers = { 
+    'apikey': SUPABASE_KEY, 
+    'Authorization': `Bearer ${SUPABASE_KEY}`, 
+    'Content-Type': 'application/json' 
+};
 
+// Variáveis globais
 let currentUserData = null;
 let countdownInterval;
 let currentViewingRepertoireId = null;
@@ -17,6 +22,7 @@ let medleyDraft = [];
 let medleyCurrentSongId = null;
 let medleyCurrentSongVerses = [];
 let cachedLyricsSearch = {};
+let selectedVocalists = [];
 
 // ==========================================
 // INICIALIZAÇÃO SUPABASE
@@ -28,6 +34,7 @@ function initSupabase() {
             console.log('✅ Supabase client inicializado');
             return true;
         }
+        console.warn('⚠️ Supabase library não carregada');
         return false;
     } catch (e) {
         console.error('❌ Erro ao inicializar Supabase:', e);
@@ -36,7 +43,7 @@ function initSupabase() {
 }
 
 // ==========================================
-// ALERTAS
+// ALERTAS PERSONALIZADOS
 // ==========================================
 function showCustomAlert(msg, title = "Aviso") {
     document.getElementById('alert-title').textContent = title;
@@ -52,6 +59,7 @@ function showCustomConfirm(msg, callback, title = "Atenção") {
     document.getElementById('confirm-title').textContent = title;
     document.getElementById('confirm-msg').textContent = msg;
     document.getElementById('modal-confirm').classList.add('active');
+    
     document.getElementById('btn-confirm-yes').onclick = () => {
         closeCustomConfirm();
         if(callback) callback();
@@ -63,7 +71,7 @@ function closeCustomConfirm() {
 }
 
 // ==========================================
-// AUTENTICAÇÃO
+// AUTENTICAÇÃO E NAVEGAÇÃO
 // ==========================================
 async function handleLogin() {
     const usernameInput = document.getElementById('username').value.trim().toLowerCase();
@@ -79,7 +87,8 @@ async function handleLogin() {
 
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${usernameInput}&select=*`, { 
-            method: 'GET', headers 
+            method: 'GET', 
+            headers 
         });
         const data = await response.json();
 
@@ -122,7 +131,11 @@ function showSystemScreen() {
 function handleLogout() {
     if (realtimeChannels.length > 0 && supabaseClient) {
         realtimeChannels.forEach(ch => {
-            try { supabaseClient.removeChannel(ch); } catch(e) {}
+            try { 
+                supabaseClient.removeChannel(ch); 
+            } catch(e) {
+                console.error('Erro ao remover canal:', e);
+            }
         });
         realtimeChannels = [];
     }
@@ -153,7 +166,7 @@ function navigate(pageId) {
     
     if (pageId === 'home') loadDashboard();
     if (pageId === 'membros') loadMembers();
-    if (pageId === 'admin') loadAdminMembers();
+    if (pageId === 'admin') loadAdminDashboard();
     if (pageId === 'repertorio') loadRepertoire();
     if (pageId === 'escalas') loadScales();
 }
@@ -172,59 +185,111 @@ function closeModals() {
     resetMedleyFlow();
 }
 
+function showAdminSection(section) {
+    document.querySelectorAll('.admin-section').forEach(s => s.classList.add('hidden'));
+    const targetSection = document.getElementById('admin-' + section);
+    if(targetSection) {
+        targetSection.classList.remove('hidden');
+        if(section === 'manage-members') loadAdminMembers();
+    }
+}
+
 // ==========================================
-// REALTIME 100% AO VIVO
+// SUPABASE REALTIME - 100% AO VIVO
 // ==========================================
 function setupRealtimeSubscriptions() {
-    if (!supabaseClient) return;
+    if (!supabaseClient) {
+        console.warn('Realtime não disponível');
+        return;
+    }
 
     try {
+        // Canal para mudanças no repertório
         const repChannel = supabaseClient
             .channel('repertoire-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire' }, (payload) => {
-                if(document.getElementById('page-repertorio').classList.contains('active')) loadRepertoire();
-                if(document.getElementById('drawer-medley').classList.contains('active')) loadMedleySongsList();
-                if(currentViewingRepertoireId && payload.new && payload.new.id == currentViewingRepertoireId) {
-                    openViewRepertoire(payload.new.id, payload.new.title, encodeURIComponent(payload.new.lyrics_text || ''), payload.new.is_medley, encodeURIComponent(payload.new.vocalist || ''));
+                console.log('🔄 Mudança no repertório:', payload);
+                if(document.getElementById('page-repertorio').classList.contains('active')) {
+                    loadRepertoire();
                 }
-                if(document.getElementById('modal-add-scale').classList.contains('active')) openScaleModalRefreshSongs();
+                if(document.getElementById('drawer-medley').classList.contains('active')) {
+                    loadMedleySongsList();
+                }
+                if(currentViewingRepertoireId && payload.new && payload.new.id == currentViewingRepertoireId) {
+                    openViewRepertoire(
+                        payload.new.id,
+                        payload.new.title,
+                        encodeURIComponent(payload.new.lyrics_text || ''),
+                        payload.new.is_medley,
+                        encodeURIComponent(payload.new.vocalist || '')
+                    );
+                }
+                if(document.getElementById('modal-add-scale').classList.contains('active')) {
+                    openScaleModalRefreshSongs();
+                }
             })
             .subscribe();
         realtimeChannels.push(repChannel);
 
+        // Canal para mudanças nas escalas
         const scaleChannel = supabaseClient
             .channel('scale-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'scales' }, () => {
-                if(document.getElementById('page-escalas').classList.contains('active')) loadScales();
-                if(document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'scales' }, (payload) => {
+                console.log('🔄 Mudança nas escalas:', payload);
+                if(document.getElementById('page-escalas').classList.contains('active')) {
+                    loadScales();
+                }
+                if(document.getElementById('page-home').classList.contains('active')) {
+                    fetchNextScaleHome();
+                }
             })
             .subscribe();
         realtimeChannels.push(scaleChannel);
 
+        // Canal para mudanças nos itens de escala
         const scaleItemsChannel = supabaseClient
             .channel('scale-items-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'scale_items' }, () => {
-                if(document.getElementById('page-escalas').classList.contains('active')) loadScales();
-                if(document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'scale_items' }, (payload) => {
+                console.log('🔄 Mudança em scale_items:', payload);
+                if(document.getElementById('page-escalas').classList.contains('active')) {
+                    loadScales();
+                }
+                if(document.getElementById('page-home').classList.contains('active')) {
+                    fetchNextScaleHome();
+                }
             })
             .subscribe();
         realtimeChannels.push(scaleItemsChannel);
 
+        // Canal para mudanças nas músicas das escalas
         const scaleSongsChannel = supabaseClient
             .channel('scale-songs-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'scale_songs' }, () => {
-                if(document.getElementById('page-escalas').classList.contains('active')) loadScales();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'scale_songs' }, (payload) => {
+                console.log('🔄 Mudança em scale_songs:', payload);
+                if(document.getElementById('page-escalas').classList.contains('active')) {
+                    loadScales();
+                }
             })
             .subscribe();
         realtimeChannels.push(scaleSongsChannel);
 
+        // Canal para mudanças nos membros
         const memberChannel = supabaseClient
             .channel('member-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
-                if(document.getElementById('page-membros').classList.contains('active')) loadMembers();
-                if(document.getElementById('page-admin').classList.contains('active')) loadAdminMembers();
-                if(document.getElementById('page-escalas').classList.contains('active')) loadScales();
-                if(document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
+                console.log('🔄 Mudança nos membros:', payload);
+                if(document.getElementById('page-membros').classList.contains('active')) {
+                    loadMembers();
+                }
+                if(document.getElementById('page-admin').classList.contains('active')) {
+                    loadAdminMembers();
+                }
+                if(document.getElementById('page-escalas').classList.contains('active')) {
+                    loadScales();
+                }
+                if(document.getElementById('page-home').classList.contains('active')) {
+                    fetchNextScaleHome();
+                }
                 if(currentUserData && payload.new && payload.new.id == currentUserData.id) {
                     currentUserData = payload.new;
                     document.getElementById('user-display-name').textContent = currentUserData.full_name;
@@ -234,37 +299,55 @@ function setupRealtimeSubscriptions() {
             .subscribe();
         realtimeChannels.push(memberChannel);
 
+        // Canal para mudanças nos papéis dos membros
         const memberRolesChannel = supabaseClient
             .channel('member-roles-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'member_roles' }, () => {
-                if(document.getElementById('page-membros').classList.contains('active')) loadMembers();
-                if(document.getElementById('page-admin').classList.contains('active')) loadAdminMembers();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'member_roles' }, (payload) => {
+                console.log('🔄 Mudança em member_roles:', payload);
+                if(document.getElementById('page-membros').classList.contains('active')) {
+                    loadMembers();
+                }
+                if(document.getElementById('page-admin').classList.contains('active')) {
+                    loadAdminMembers();
+                }
             })
             .subscribe();
         realtimeChannels.push(memberRolesChannel);
         
+        // Canal para mudanças nas chaves de tom
         const keyChannel = supabaseClient
             .channel('key-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire_keys' }, (payload) => {
-                if(document.getElementById('modal-view-repertoire').classList.contains('active') && payload.new && payload.new.repertoire_id == currentViewingRepertoireId) {
+                console.log('🔄 Mudança nas chaves:', payload);
+                if(document.getElementById('modal-view-repertoire').classList.contains('active') && 
+                   payload.new && payload.new.repertoire_id == currentViewingRepertoireId) {
                     loadKeysForRepertoire(currentViewingRepertoireId);
                 }
-                if(document.getElementById('page-repertorio').classList.contains('active')) loadRepertoire();
+                if(document.getElementById('page-repertorio').classList.contains('active')) {
+                    loadRepertoire();
+                }
             })
             .subscribe();
         realtimeChannels.push(keyChannel);
         
+        // Canal para mudanças nas partes de medley
         const medleyPartChannel = supabaseClient
             .channel('medley-part-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire_medley_parts' }, () => {
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire_medley_parts' }, (payload) => {
+                console.log('🔄 Mudança nas partes de medley:', payload);
                 if(document.getElementById('modal-view-repertoire').classList.contains('active')) {
                     const partsDisplay = document.getElementById('medley-parts-display');
                     if(!partsDisplay.classList.contains('hidden')) {
-                        partsDisplay.innerHTML = 'Atualizando...';
+                        partsDisplay.innerHTML = 'Atualizando estrutura...';
                         setTimeout(() => {
                             const title = document.getElementById('view-rep-title').textContent;
                             const lyrics = document.getElementById('view-rep-lyrics').textContent;
-                            openViewRepertoire(currentViewingRepertoireId, title, encodeURIComponent(lyrics), true);
+                            openViewRepertoire(
+                                currentViewingRepertoireId,
+                                title,
+                                encodeURIComponent(lyrics),
+                                true
+                            );
                         }, 500);
                     }
                 }
@@ -272,22 +355,26 @@ function setupRealtimeSubscriptions() {
             .subscribe();
         realtimeChannels.push(medleyPartChannel);
         
+        // Canal para mudanças nas mensagens diárias
         const dailyMsgChannel = supabaseClient
             .channel('daily-message-changes')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_message' }, () => {
-                if(document.getElementById('page-home').classList.contains('active')) fetchDailyMessage();
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_message' }, (payload) => {
+                console.log('🔄 Mudança na mensagem do dia:', payload);
+                if(document.getElementById('page-home').classList.contains('active')) {
+                    fetchDailyMessage();
+                }
             })
             .subscribe();
         realtimeChannels.push(dailyMsgChannel);
         
-        console.log('✅ Realtime configurado (100% ao vivo)');
+        console.log('✅ Realtime subscriptions configuradas (100% ao vivo)');
     } catch (e) {
-        console.error('❌ Erro realtime:', e);
+        console.error('❌ Erro ao configurar realtime:', e);
     }
 }
 
 // ==========================================
-// DASHBOARD
+// INÍCIO (Dashboard)
 // ==========================================
 function loadDashboard() { 
     startCountdown(); 
@@ -320,8 +407,16 @@ function startCountdown() {
     countdownInterval = setInterval(updateTimer, 1000);
 }
 
+// Scroll do carousel
+function scrollCarousel(direction) {
+    const carousel = document.getElementById('next-scale-team');
+    if(carousel) {
+        carousel.scrollBy({ left: direction * 160, behavior: 'smooth' });
+    }
+}
+
 // ==========================================
-// MENSAGEM DO DIA
+// MENSAGEM DO DIA - VERSÍCULOS BÍBLICOS
 // ==========================================
 const bibleVersesPool = [
     { text: "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.", ref: "João 3:16" },
@@ -333,7 +428,17 @@ const bibleVersesPool = [
     { text: "Confia no Senhor de todo o teu coração, e não te estribes no teu próprio entendimento.", ref: "Provérbios 3:5" },
     { text: "Deleita-te também no Senhor, e te concederá os desejos do teu coração.", ref: "Salmos 37:4" },
     { text: "Não temas, porque eu sou contigo; não te assombres, porque eu sou teu Deus; eu te esforço, e te ajudo, e te sustento com a destra da minha justiça.", ref: "Isaías 41:10" },
-    { text: "O Senhor é a minha luz e a minha salvação; a quem temerei? O Senhor é a força da minha vida; de quem me recearei?", ref: "Salmos 27:1" }
+    { text: "O Senhor é a minha luz e a minha salvação; a quem temerei? O Senhor é a força da minha vida; de quem me recearei?", ref: "Salmos 27:1" },
+    { text: "Em paz também me deitarei e dormirei, porque só tu, Senhor, me fazes habitar em segurança.", ref: "Salmos 4:8" },
+    { text: "Eu sou o caminho, e a verdade e a vida; ninguém vem ao Pai, senão por mim.", ref: "João 14:6" },
+    { text: "Vinde a mim, todos os que estais cansados e oprimidos, e eu vos aliviarei.", ref: "Mateus 11:28" },
+    { text: "Porque onde estiverem dois ou três reunidos em meu nome, aí estou eu no meio deles.", ref: "Mateus 18:20" },
+    { text: "E conhecereis a verdade, e a verdade vos libertará.", ref: "João 8:32" },
+    { text: "Mas Deus prova o seu amor para conosco, em que Cristo morreu por nós, sendo nós ainda pecadores.", ref: "Romanos 5:8" },
+    { text: "Se confessarmos os nossos pecados, ele é fiel e justo para nos perdoar os pecados, e nos purificar de toda a injustiça.", ref: "1 João 1:9" },
+    { text: "Alegrai-vos sempre no Senhor; outra vez digo, alegrai-vos.", ref: "Filipenses 4:4" },
+    { text: "Sede fortes e corajosos; não temais, nem vos espanteis diante deles, porque o Senhor vosso Deus é quem vai convosco.", ref: "Deuteronômio 31:6" },
+    { text: "O nome do Senhor é torre forte; o justo corre para ela, e está seguro.", ref: "Provérbios 18:10" }
 ];
 
 async function fetchDailyMessage() {
@@ -360,7 +465,7 @@ async function fetchDailyMessage() {
                 }
             }
         } catch(apiErr) {
-            console.warn('API bíblica indisponível');
+            console.warn('API bíblica indisponível, usando pool local');
         }
         
         const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
@@ -377,6 +482,7 @@ async function fetchDailyMessage() {
     }
 }
 
+// Ícones e nomes das funções
 function getRoleIcon(role) {
     const icons = {
         'lider': 'star',
@@ -404,13 +510,16 @@ function getRoleName(role) {
 async function fetchNextScaleHome() {
     const container = document.getElementById('next-scale-team');
     const today = new Date().toISOString().split('T')[0];
+    
     try {
         const scaleRes = await fetch(`${SUPABASE_URL}/rest/v1/scales?event_date=gte.${today}&order=event_date.asc&limit=1`, { headers });
         const scaleData = await scaleRes.json();
+        
         if (scaleData.length > 0) {
             const scaleId = scaleData[0].id;
             const itemsRes = await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name,photo_url)&order=role.asc`, { headers });
             const itemsData = await itemsRes.json();
+            
             if (itemsData.length > 0) {
                 let html = '';
                 
@@ -424,7 +533,8 @@ async function fetchNextScaleHome() {
                         <div class="team-carousel-card ${isCurrent}">
                             <div class="team-card-photo">
                                 ${photoUrl ? 
-                                    `<img src="${photoUrl}" alt="${item.members.full_name}">` : 
+                                    `<img src="${photoUrl}" alt="${item.members.full_name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                                     <div class="photo-placeholder" style="display:none">${item.members.full_name.charAt(0)}</div>` : 
                                     `<div class="photo-placeholder">${item.members.full_name.charAt(0)}</div>`
                                 }
                                 <div class="team-card-icon">
@@ -448,19 +558,20 @@ async function fetchNextScaleHome() {
             container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhuma escala programada.</p>`;
         }
     } catch (e) { 
+        console.error('Erro ao carregar escala:', e);
         container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:20px;">Erro ao carregar.</p>`; 
     }
 }
 
 // ==========================================
-// MEMBROS - GRID MODERNO
+// MEMBROS - SHOWCASE MODERNO
 // ==========================================
 async function loadMembers() {
     const container = document.getElementById('members-lineup');
-    container.innerHTML = '<p class="loading-text">Carregando equipe...</p>';
+    container.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,email,phone,is_leader,member_roles(role)&order=full_name.asc`, { headers });
         const members = await res.json();
         
         if (members.length === 0) { 
@@ -468,41 +579,74 @@ async function loadMembers() {
             return; 
         }
         
-        let html = '<div class="members-grid-cards">';
+        const leaders = members.filter(m => m.is_leader);
+        const vocals = members.filter(m => !m.is_leader && m.member_roles.some(r => r.role === 'vocal'));
+        const band = members.filter(m => !m.is_leader && !m.member_roles.some(r => r.role === 'vocal'));
         
-        members.forEach(m => {
-            const roles = m.member_roles.map(r => r.role);
-            const primaryRole = m.is_leader ? 'Líder' : (roles[0] ? getRoleName(roles[0]) : 'Membro');
-            const photoUrl = m.photo_url || null;
-            
-            html += `
-                <div class="member-card-modern">
-                    <div class="member-card-photo">
-                        ${photoUrl ? 
-                            `<img src="${photoUrl}" alt="${m.full_name}">` : 
-                            `<div class="photo-placeholder">${m.full_name.charAt(0)}</div>`
-                        }
-                        ${m.is_leader ? '<div class="leader-badge">★ Líder</div>' : ''}
-                    </div>
-                    <div class="member-card-body">
-                        <h3 class="member-name">${m.full_name}</h3>
-                        <div class="member-role-primary">${primaryRole}</div>
-                        ${roles.length > 0 && !m.is_leader ? `
-                            <div class="member-roles-secondary">
-                                ${roles.map(r => `<span class="role-tag">${getRoleName(r)}</span>`).join('')}
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            `;
-        });
+        let html = '';
         
-        html += '</div>';
+        if(leaders.length > 0) {
+            html += '<div class="members-section"><h3 class="section-title">👑 Liderança</h3><div class="members-cards-grid">';
+            leaders.forEach(m => {
+                html += createMemberCard(m, 'leader');
+            });
+            html += '</div></div>';
+        }
+        
+        if(vocals.length > 0) {
+            html += '<div class="members-section"><h3 class="section-title">🎤 Vocal</h3><div class="members-cards-grid">';
+            vocals.forEach(m => {
+                html += createMemberCard(m, 'vocal');
+            });
+            html += '</div></div>';
+        }
+        
+        if(band.length > 0) {
+            html += '<div class="members-section"><h3 class="section-title">🎸 Banda</h3><div class="members-cards-grid">';
+            band.forEach(m => {
+                html += createMemberCard(m, 'band');
+            });
+            html += '</div></div>';
+        }
+        
         container.innerHTML = html;
         
     } catch (e) { 
+        console.error('Erro ao carregar membros:', e);
         container.innerHTML = '<p style="color:var(--danger); text-align:center; padding:40px;">Erro ao carregar equipe.</p>'; 
     }
+}
+
+function createMemberCard(member, type) {
+    const photoUrl = member.photo_url || null;
+    const roles = member.member_roles.map(r => r.role);
+    
+    return `
+        <div class="member-showcase-card ${type}">
+            <div class="member-card-header">
+                <div class="member-photo-wrapper">
+                    ${photoUrl ? 
+                        `<img src="${photoUrl}" alt="${member.full_name}" class="member-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                         <div class="photo-placeholder" style="display:none">${member.full_name.charAt(0)}</div>` : 
+                        `<div class="photo-placeholder">${member.full_name.charAt(0)}</div>`
+                    }
+                    ${member.is_leader ? '<div class="leader-crown">★</div>' : ''}
+                </div>
+                <div class="member-social-links">
+                    ${member.email ? `<a href="mailto:${member.email}" class="social-link" title="Email"><span class="material-symbols-outlined">mail</span></a>` : ''}
+                    ${member.phone ? `<a href="tel:${member.phone}" class="social-link" title="Telefone"><span class="material-symbols-outlined">phone</span></a>` : ''}
+                </div>
+            </div>
+            <div class="member-card-body">
+                <h3 class="member-name">${member.full_name}</h3>
+                <div class="member-roles">
+                    ${roles.map(r => `<span class="role-badge ${r}">${getRoleName(r)}</span>`).join('')}
+                </div>
+                ${member.email ? `<p class="member-contact"><span class="material-symbols-outlined">mail</span> ${member.email}</p>` : ''}
+                ${member.phone ? `<p class="member-contact"><span class="material-symbols-outlined">phone</span> ${member.phone}</p>` : ''}
+            </div>
+        </div>
+    `;
 }
 
 // ==========================================
@@ -517,6 +661,8 @@ function openRepertoireModal() {
     document.getElementById('rep-vocalist').value = '';
     document.getElementById('rep-key').value = '';
     document.getElementById('rep-lyrics').value = '';
+    selectedVocalists = [];
+    updateSelectedVocalists();
 }
 
 function normalizeText(text) {
@@ -651,7 +797,7 @@ async function searchMusicList() {
                                             <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${artist}</small>
                                             <small style="color:var(--success); font-size:0.7rem; display:flex; align-items:center; gap:3px; margin-top:3px;">
                                                 <span class="material-symbols-outlined" style="font-size:0.8rem;">check_circle</span>
-                                                Letra completa • Letras.mus.br
+                                                Letra completa
                                             </small>
                                         </div> 
                                         <span class="material-symbols-outlined" style="color:var(--primary-color); flex-shrink:0;">download_done</span>
@@ -702,7 +848,7 @@ async function searchMusicList() {
                                                     <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${artist.name}</small>
                                                     <small style="color:var(--success); font-size:0.7rem; display:flex; align-items:center; gap:3px; margin-top:3px;">
                                                         <span class="material-symbols-outlined" style="font-size:0.8rem;">check_circle</span>
-                                                        Letra completa • Vagalume
+                                                        Letra completa
                                                     </small>
                                                 </div> 
                                                 <span class="material-symbols-outlined" style="color:var(--primary-color); flex-shrink:0;">download_done</span>
@@ -740,7 +886,7 @@ async function searchMusicList() {
                             <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ytResult.artist}</small>
                             <small style="color:var(--success); font-size:0.7rem; display:flex; align-items:center; gap:3px; margin-top:3px;">
                                 <span class="material-symbols-outlined" style="font-size:0.8rem;">check_circle</span>
-                                Letra extraída • YouTube
+                                Letra extraída
                             </small>
                         </div> 
                         <span class="material-symbols-outlined" style="color:var(--primary-color); flex-shrink:0;">download_done</span>
@@ -771,6 +917,70 @@ function importPreCheckedLyrics(id) {
     document.getElementById('rep-lyrics').value = data.lyrics;
     document.getElementById('rep-title').value = `${data.song} - ${data.artist}`;
     showCustomAlert(`✅ Letra de "${data.song}" importada!`, "Sucesso");
+}
+
+// Busca de vocalistas/membros
+async function searchVocalists(input) {
+    const query = input.value.trim().toLowerCase();
+    const dropdown = document.getElementById('vocalist-dropdown');
+    
+    if(query.length < 2) {
+        dropdown.innerHTML = '';
+        dropdown.style.display = 'none';
+        return;
+    }
+    
+    if(allMembersCache.length === 0) {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,member_roles(role)`, { headers });
+        allMembersCache = await res.json();
+    }
+    
+    const filtered = allMembersCache.filter(m => 
+        m.full_name.toLowerCase().includes(query)
+    ).slice(0, 5);
+    
+    if(filtered.length > 0) {
+        dropdown.innerHTML = filtered.map(m => `
+            <div class="dropdown-item" onclick="selectVocalist('${m.id}', '${m.full_name}')">
+                <span class="material-symbols-outlined">person</span>
+                ${m.full_name}
+            </div>
+        `).join('');
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.innerHTML = '<div class="dropdown-empty">Nenhum membro encontrado</div>';
+        dropdown.style.display = 'block';
+    }
+}
+
+function selectVocalist(id, name) {
+    if(!selectedVocalists.find(v => v.id === id)) {
+        selectedVocalists.push({ id, name });
+        updateSelectedVocalists();
+    }
+    document.getElementById('vocalist-dropdown').style.display = 'none';
+    document.querySelector('.searchable-select .search-input').value = '';
+}
+
+function removeVocalist(id) {
+    selectedVocalists = selectedVocalists.filter(v => v.id !== id);
+    updateSelectedVocalists();
+}
+
+function updateSelectedVocalists() {
+    const container = document.getElementById('selected-vocalists');
+    document.getElementById('rep-vocalist').value = selectedVocalists.map(v => v.name).join(', ');
+    
+    if(selectedVocalists.length > 0) {
+        container.innerHTML = selectedVocalists.map(v => `
+            <span class="selected-item">
+                ${v.name}
+                <span class="remove-item" onclick="removeVocalist('${v.id}')">×</span>
+            </span>
+        `).join('');
+    } else {
+        container.innerHTML = '';
+    }
 }
 
 async function saveNewRepertoire() {
@@ -805,7 +1015,8 @@ async function saveNewRepertoire() {
         closeModals(); 
         loadRepertoire();
     } catch(e) { 
-        showCustomAlert('Erro ao salvar.'); 
+        console.error('Erro ao salvar:', e);
+        showCustomAlert('Erro ao salvar no banco.'); 
     }
 }
 
@@ -814,12 +1025,12 @@ async function saveNewRepertoire() {
 // ==========================================
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
-    list.innerHTML = '<p class="loading-text">Buscando...</p>';
+    list.innerHTML = '<div class="loading-spinner"></div>';
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&order=title.asc`, { headers });
         allRepertoireCache = await res.json();
         if (allRepertoireCache.length === 0) { 
-            list.innerHTML = '<p>Nenhuma música.</p>'; 
+            list.innerHTML = '<p style="text-align:center; color:var(--text-muted);">Nenhuma música.</p>'; 
             return; 
         }
         let html = '';
@@ -848,7 +1059,8 @@ async function loadRepertoire() {
         });
         list.innerHTML = html;
     } catch (e) { 
-        list.innerHTML = '<p>Erro.</p>'; 
+        console.error('Erro ao carregar repertório:', e);
+        list.innerHTML = '<p style="text-align:center; color:var(--danger);">Erro.</p>'; 
     }
 }
 
@@ -868,7 +1080,7 @@ function resetMedleyFlow() {
     medleyCurrentSongVerses = [];
     renderMedleyPreview();
     document.getElementById('medley-title').value = '';
-    document.getElementById('medley-verses-selector').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música</p>';
+    document.getElementById('medley-verses-selector').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música ao lado</p>';
 }
 
 async function loadMedleySongsList() {
@@ -881,7 +1093,7 @@ async function loadMedleySongsList() {
         allRepertoireCache = songs;
         
         if (songs.length === 0) {
-            container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhuma música</p>';
+            container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhuma música no repertório</p>';
             return;
         }
         
@@ -895,13 +1107,14 @@ async function loadMedleySongsList() {
                 <div class="medley-song-item ${isSelected ? 'active' : ''}" onclick="selectMedleySong('${song.id}')">
                     <div class="medley-song-item-title">${song.title} ${keyBadge}</div>
                     ${vocalistBadge}
-                    ${isSelected ? '<div style="font-size:0.75rem; color:var(--success); margin-top:4px;">✓ Adicionada</div>' : ''}
+                    ${isSelected ? '<div style="font-size:0.75rem; color:var(--success); margin-top:4px;">✓ Já adicionada</div>' : ''}
                 </div>
             `;
         });
         container.innerHTML = html;
     } catch (e) {
-        container.innerHTML = '<p style="color:var(--danger); text-align:center;">Erro</p>';
+        console.error('Erro ao carregar músicas:', e);
+        container.innerHTML = '<p style="color:var(--danger); text-align:center;">Erro ao carregar</p>';
     }
 }
 
@@ -924,6 +1137,7 @@ async function selectMedleySong(songId) {
 
 function parseLyricsIntoVerses(lyrics) {
     if (!lyrics) return [];
+    
     const lines = lyrics.split('\n');
     const verses = [];
     let currentLabel = 'Intro';
@@ -935,7 +1149,9 @@ function parseLyricsIntoVerses(lyrics) {
         /^(pr[eé]-?refr[aã]o|pre-?chorus)\s*\d*$/i,
         /^(refr[aã]o|chorus)\s*\d*$/i,
         /^(ponte|bridge)\s*\d*$/i,
-        /^(final|outro)\s*\d*$/i
+        /^(final|outro|encerramento)\s*\d*$/i,
+        /^(interlúdio|interlude)\s*\d*$/i,
+        /^(solo)\s*\d*$/i
     ];
     
     function detectSection(line) {
@@ -943,11 +1159,19 @@ function parseLyricsIntoVerses(lyrics) {
         for (let pattern of sectionPatterns) {
             if (pattern.test(cleanLine)) {
                 if (/^intro/i.test(cleanLine)) return 'Intro';
-                if (/^verso/i.test(cleanLine)) return 'Verso';
+                if (/^verso/i.test(cleanLine)) {
+                    const num = cleanLine.match(/\d+/);
+                    return num ? `Verso ${num[0]}` : 'Verso';
+                }
                 if (/^pr[eé]/i.test(cleanLine)) return 'Pré-Refrão';
-                if (/^refr/i.test(cleanLine)) return 'Refrão';
+                if (/^refr/i.test(cleanLine)) {
+                    const num = cleanLine.match(/\d+/);
+                    return num ? `Refrão ${num[0]}` : 'Refrão';
+                }
                 if (/^ponte|^bridge/i.test(cleanLine)) return 'Ponte';
                 if (/^final|^outro/i.test(cleanLine)) return 'Final';
+                if (/^inter/i.test(cleanLine)) return 'Interlúdio';
+                if (/^solo/i.test(cleanLine)) return 'Solo';
             }
         }
         return null;
@@ -972,6 +1196,14 @@ function parseLyricsIntoVerses(lyrics) {
         verses.push({ label: currentLabel, content: currentLines.join('\n').trim() });
     }
     
+    if (verses.length <= 1 && lyrics.trim().split(/\n\s*\n/).length > 1) {
+        const blocks = lyrics.trim().split(/\n\s*\n/);
+        return blocks.map((block, idx) => ({
+            label: `Parte ${idx + 1}`,
+            content: block.trim()
+        }));
+    }
+    
     return verses;
 }
 
@@ -979,13 +1211,14 @@ function renderVersesSelector(songTitle) {
     const container = document.getElementById('medley-verses-selector');
     
     if (medleyCurrentSongVerses.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Não foi possível identificar estrofes</p>';
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Não foi possível identificar as estrofes</p>';
         return;
     }
     
     let html = `
         <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border-color);">
             <strong style="color:var(--primary-color);">${songTitle}</strong>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Selecione as partes:</div>
         </div>
         <button class="btn-secondary" onclick="selectAllVerses()" style="width:100%; margin-bottom:10px; font-size:0.85rem;">✓ Selecionar Todas</button>
     `;
@@ -996,7 +1229,10 @@ function renderVersesSelector(songTitle) {
                 <div class="verse-checkbox-wrapper">
                     <input type="checkbox" class="verse-checkbox" id="verse-cb-${idx}" ${verse.selected ? 'checked' : ''} onchange="toggleVerse(${idx})">
                     <div class="verse-label" onclick="toggleVerse(${idx})">
-                        <div class="verse-section-title">${verse.label}</div>
+                        <div class="verse-section-title">
+                            <span class="material-symbols-outlined" style="font-size:1rem;">music_note</span>
+                            ${verse.label}
+                        </div>
                         <div class="verse-content">${verse.content}</div>
                     </div>
                 </div>
@@ -1041,7 +1277,7 @@ function selectAllVerses() {
 function addSelectedVersesToMedley() {
     const selectedVerses = medleyCurrentSongVerses.filter(v => v.selected);
     if (selectedVerses.length === 0) {
-        showCustomAlert('Selecione pelo menos uma parte.');
+        showCustomAlert('Selecione pelo menos uma parte para adicionar.');
         return;
     }
     
@@ -1082,6 +1318,7 @@ function renderMedleyPreview() {
         html += `
             <div class="medley-preview-song">
                 <div class="medley-preview-song-title">
+                    <span class="material-symbols-outlined" style="font-size:1.1rem;">queue_music</span>
                     ${idx + 1}. ${item.songTitle}
                     <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.1rem; margin-left:auto;" onclick="removeMedleySong('${item.songId}')">delete</span>
                 </div>
@@ -1100,7 +1337,12 @@ function renderMedleyPreview() {
         html += '</div>';
     });
     
-    html += `</div><div style="margin-top:12px; padding:10px; background:#e3f2fd; border-radius:8px; font-size:0.85rem;"><strong>Resumo:</strong> ${medleyDraft.length} música(s), ${totalParts} parte(s)</div>`;
+    html += `
+        </div>
+        <div style="margin-top:12px; padding:10px; background:#e3f2fd; border-radius:8px; font-size:0.85rem;">
+            <strong>Resumo:</strong> ${medleyDraft.length} música(s), ${totalParts} parte(s)
+        </div>
+    `;
     
     container.innerHTML = html;
 }
@@ -1140,7 +1382,8 @@ async function saveNewMedley() {
         for(let item of medleyDraft) {
             for(let section of item.sections) {
                 await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts`, { 
-                    method: 'POST', headers, 
+                    method: 'POST', 
+                    headers, 
                     body: JSON.stringify({ 
                         medley_repertoire_id: medleyId, 
                         song_repertoire_id: item.songId, 
@@ -1151,7 +1394,7 @@ async function saveNewMedley() {
             }
         }
         
-        showCustomAlert('Medley criado!', 'Sucesso'); 
+        showCustomAlert('Medley criado com sucesso!', 'Sucesso'); 
         closeModals(); 
         loadRepertoire();
     } catch(e) { 
@@ -1197,24 +1440,33 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley, encodedVoc
     const partsDisplay = document.getElementById('medley-parts-display');
     if(isMedley) {
         partsDisplay.classList.remove('hidden'); 
-        partsDisplay.innerHTML = 'Carregando...';
+        partsDisplay.innerHTML = '<div class="loading-spinner"></div>';
         try {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts?medley_repertoire_id=eq.${id}&select=section,section_content,repertoire!song_repertoire_id(title)&order=created_at.asc`, { headers });
             const parts = await res.json();
             
-            if (parts.length > 0) {
-                let html = '<strong>Estrutura:</strong><br>';
+            if (parts.length > 0 && parts[0].section_content) {
+                let html = '<strong>Estrutura do Medley:</strong><br>';
                 parts.forEach((p, idx) => { 
                     html += `<div style="padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.08);">
-                        <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span>
+                        <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> 
+                        <span style="color:var(--primary-color); font-weight:600;">→ ${p.section}</span>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px; white-space:pre-wrap; max-height:80px; overflow:hidden;">${p.section_content}</div>
                     </div>`; 
                 });
                 partsDisplay.innerHTML = html;
             } else {
-                partsDisplay.innerHTML = 'Sem estrutura definida.';
+                let html = '<strong>Estrutura do Medley:</strong><br>';
+                parts.forEach((p, idx) => { 
+                    html += `<div style="padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
+                        • <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span>
+                    </div>`; 
+                });
+                partsDisplay.innerHTML = html;
             }
         } catch(e) {
-            partsDisplay.innerHTML = 'Erro ao carregar.';
+            console.error('Erro ao carregar estrutura:', e);
+            partsDisplay.innerHTML = 'Erro ao carregar estrutura.';
         }
     } else { 
         partsDisplay.classList.add('hidden'); 
@@ -1228,18 +1480,20 @@ async function saveVocalistToRepertoire(id) {
     
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?id=eq.${id}`, {
-            method: 'PATCH', headers,
+            method: 'PATCH',
+            headers,
             body: JSON.stringify({ vocalist: newVocalist || null })
         });
         
         if(res.ok) {
-            showCustomAlert('✅ Atualizado!', 'Sucesso');
+            showCustomAlert('✅ Voz/Cantor atualizado!', 'Sucesso');
             loadRepertoire();
         } else {
-            showCustomAlert('Erro ao atualizar.');
+            showCustomAlert('Erro ao atualizar voz/cantor.');
         }
     } catch(e) {
-        showCustomAlert('Erro de conexão.');
+        console.error(e);
+        showCustomAlert('Erro de conexão ao salvar.');
     }
 }
 
@@ -1255,7 +1509,9 @@ async function loadKeysForRepertoire(id) {
             html += `<span class="badge tom" style="font-size:1rem; padding:6px 12px; border-radius:20px;">${k.ton} ${deleteBtn}</span>`;
         });
         container.innerHTML = html;
-    } catch(e) {}
+    } catch(e) {
+        console.error('Erro ao carregar tons:', e);
+    }
 }
 
 async function addKeyToRepertoire() {
@@ -1263,13 +1519,15 @@ async function addKeyToRepertoire() {
     if(!newKey || !currentViewingRepertoireId) return;
     try {
         await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { 
-            method: 'POST', headers, 
+            method: 'POST', 
+            headers, 
             body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey }) 
         });
         document.getElementById('new-key-input').value = ''; 
         loadKeysForRepertoire(currentViewingRepertoireId); 
         loadRepertoire();
     } catch(e) { 
+        console.error('Erro ao adicionar tom:', e);
         showCustomAlert('Erro ao adicionar tom.'); 
     }
 }
@@ -1280,7 +1538,9 @@ async function deleteKey(keyId) {
             await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); 
             loadKeysForRepertoire(currentViewingRepertoireId); 
             loadRepertoire(); 
-        } catch(e) {}
+        } catch(e) {
+            console.error('Erro ao excluir tom:', e);
+        }
     });
 }
 
@@ -1300,11 +1560,11 @@ function switchScaleTab(tab) {
 async function loadScales() {
     const listFuture = document.getElementById('scales-list-future');
     const listPast = document.getElementById('scales-list-past');
-    listFuture.innerHTML = '<p>Buscando...</p>'; 
-    listPast.innerHTML = '<p>Buscando...</p>';
+    listFuture.innerHTML = '<div class="loading-spinner"></div>'; 
+    listPast.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title,repertoire_keys(ton),vocalist))&order=event_date.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?select=*,scale_items(role,members(full_name,photo_url)),scale_songs(repertoire(title,repertoire_keys(ton),vocalist))&order=event_date.asc`, { headers });
         const scales = await res.json();
         
         const todayStr = new Date().toISOString().split('T')[0];
@@ -1315,13 +1575,14 @@ async function loadScales() {
         listPast.innerHTML = renderScaleCards(pasts, false);
 
     } catch(e) { 
-        listFuture.innerHTML = '<p>Erro.</p>'; 
+        console.error('Erro ao carregar escalas:', e);
+        listFuture.innerHTML = '<p style="text-align:center; color:var(--danger);">Erro.</p>'; 
         listPast.innerHTML = '';
     }
 }
 
 function renderScaleCards(scaleArray, isFuture) {
-    if(scaleArray.length === 0) return isFuture ? '<p>Nenhuma escala.</p>' : '<p>Histórico vazio.</p>';
+    if(scaleArray.length === 0) return '<p style="text-align:center; color:var(--text-muted); padding:40px;">' + (isFuture ? 'Nenhuma escala programada.' : 'Histórico vazio.') + '</p>';
     
     let html = '';
     scaleArray.forEach(s => {
@@ -1333,7 +1594,7 @@ function renderScaleCards(scaleArray, isFuture) {
         const band = s.scale_items.filter(i => !['lider', 'vocal'].includes(i.role));
         
         let teamHtml = '<div class="scale-team-section">';
-        teamHtml += '<div class="scale-team-title"><span class="material-symbols-outlined">group</span> Equipe</div>';
+        teamHtml += '<h4 class="scale-section-title"><span class="material-symbols-outlined">group</span> Equipe</h4>';
         teamHtml += '<div class="scale-team-list">';
         
         leaders.forEach(i => {
@@ -1370,7 +1631,7 @@ function renderScaleCards(scaleArray, isFuture) {
         teamHtml += '</div></div>';
         
         let songsHtml = '<div class="scale-songs-section">';
-        songsHtml += '<div class="scale-songs-title"><span class="material-symbols-outlined">library_music</span> Repertório</div>';
+        songsHtml += '<h4 class="scale-section-title"><span class="material-symbols-outlined">library_music</span> Repertório</h4>';
         songsHtml += '<div class="scale-songs-list">';
         
         if(s.scale_songs.length > 0) {
@@ -1388,21 +1649,21 @@ function renderScaleCards(scaleArray, isFuture) {
                 `; 
             });
         } else {
-            songsHtml += '<div class="scale-empty">Nenhuma música.</div>';
+            songsHtml += '<div class="scale-empty">Nenhuma música definida.</div>';
         }
         
         songsHtml += '</div></div>';
 
         const actionsHtml = currentUserData.is_leader ? `
             <div class="scale-folder-actions">
-                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')"><span class="material-symbols-outlined">edit</span></button>
-                <button class="btn-icon danger" onclick="deleteScale('${s.id}')"><span class="material-symbols-outlined">delete</span></button>
+                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar"><span class="material-symbols-outlined">edit</span></button>
+                <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir"><span class="material-symbols-outlined">delete</span></button>
             </div>
         ` : '';
 
         html += `
-            <div class="scale-folder">
-                <div class="scale-folder-header">
+            <div class="scale-card">
+                <div class="scale-card-header">
                     <div class="scale-folder-date">
                         <span class="material-symbols-outlined">event</span>
                         <div>
@@ -1412,7 +1673,7 @@ function renderScaleCards(scaleArray, isFuture) {
                     </div>
                     ${actionsHtml}
                 </div>
-                <div class="scale-folder-body">
+                <div class="scale-card-body">
                     ${teamHtml}
                     ${songsHtml}
                 </div>
@@ -1423,19 +1684,22 @@ function renderScaleCards(scaleArray, isFuture) {
 }
 
 async function deleteScale(scaleId) {
-    showCustomConfirm('Deseja excluir esta escala?', async () => {
+    showCustomConfirm('Deseja realmente excluir esta escala? Esta ação não pode ser desfeita.', async () => {
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}`, { method: 'DELETE', headers });
             
-            if(!res.ok) throw new Error('Falha');
+            if(!res.ok) throw new Error('Falha ao excluir');
             
-            showCustomAlert('Escala excluída!', 'Sucesso');
+            showCustomAlert('Escala excluída com sucesso!', 'Sucesso');
             loadScales();
-            if(document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
+            if(document.getElementById('page-home').classList.contains('active')) {
+                fetchNextScaleHome();
+            }
         } catch (e) { 
-            showCustomAlert('Erro ao excluir.'); 
+            console.error('Erro ao excluir escala:', e);
+            showCustomAlert('Erro ao excluir escala. Verifique sua conexão.'); 
         }
     }, 'Excluir Escala');
 }
@@ -1474,23 +1738,18 @@ async function openEditScaleModal(scaleId) {
             allRepertoireCache = await resRep.json();
         }
         
-        const memberSelect = document.getElementById('scale-draft-member');
-        memberSelect.innerHTML = '<option value="">Selecionar Membro...</option>';
-        allMembersCache.forEach(m => { 
-            memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; 
-        });
-        
         const songsContainer = document.getElementById('scale-songs-selectors');
         const selectedSongIds = scale.scale_songs.map(s => s.repertoire_id);
         songsContainer.innerHTML = '';
         allRepertoireCache.forEach(song => {
             const checked = selectedSongIds.includes(song.id) ? 'checked' : '';
             const vocalistInfo = song.vocalist ? ` <small style="color:var(--text-muted);">🎤 ${song.vocalist}</small>` : '';
-            songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}> ${song.title}${vocalistInfo}</label>`;
+            songsContainer.innerHTML += `<label class="song-checkbox"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}><span>${song.title}</span>${vocalistInfo}</label>`;
         });
         
     } catch (e) { 
-        showCustomAlert('Erro ao carregar.'); 
+        console.error('Erro ao carregar escala:', e);
+        showCustomAlert('Erro ao carregar escala para edição.'); 
     }
 }
 
@@ -1510,17 +1769,11 @@ async function openScaleModal() {
         allRepertoireCache = await resRep.json();
     }
 
-    const memberSelect = document.getElementById('scale-draft-member');
-    memberSelect.innerHTML = '<option value="">Selecionar Membro...</option>';
-    allMembersCache.forEach(m => { 
-        memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; 
-    });
-
     const songsContainer = document.getElementById('scale-songs-selectors');
     songsContainer.innerHTML = '';
     allRepertoireCache.forEach(song => {
         const vocalistInfo = song.vocalist ? ` <small style="color:var(--text-muted);">🎤 ${song.vocalist}</small>` : '';
-        songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb"> ${song.title}${vocalistInfo}</label>`;
+        songsContainer.innerHTML += `<label class="song-checkbox"><input type="checkbox" value="${song.id}" class="scale-song-cb"><span>${song.title}</span>${vocalistInfo}</label>`;
     });
 }
 
@@ -1539,27 +1792,64 @@ async function openScaleModalRefreshSongs() {
         newRepertoire.forEach(song => {
             const checked = selectedIds.includes(song.id) ? 'checked' : '';
             const vocalistInfo = song.vocalist ? ` <small style="color:var(--text-muted);">🎤 ${song.vocalist}</small>` : '';
-            songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}> ${song.title}${vocalistInfo}</label>`;
+            songsContainer.innerHTML += `<label class="song-checkbox"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}><span>${song.title}</span>${vocalistInfo}</label>`;
         });
     } catch(e) {
-        console.warn('Erro ao atualizar:', e);
+        console.warn('Erro ao atualizar músicas no modal:', e);
     }
 }
 
-function addMemberToScaleDraft() {
-    const memSel = document.getElementById('scale-draft-member');
-    const rolSel = document.getElementById('scale-draft-role');
-    const memberId = memSel.value; 
-    const role = rolSel.value;
+function searchMembersForScale(input) {
+    const query = input.value.trim().toLowerCase();
+    const dropdown = document.getElementById('member-scale-dropdown');
     
-    if(!memberId) return;
-    const memberName = memSel.options[memSel.selectedIndex].text;
-    
-    if(!scaleDraftTeam.find(i => i.memberId === memberId && i.role === role)) {
-        scaleDraftTeam.push({ memberId, role, name: memberName });
+    if(query.length < 2) {
+        dropdown.style.display = 'none';
+        return;
     }
-    memSel.value = ''; 
-    renderScaleDraftTeam();
+    
+    const filtered = allMembersCache.filter(m => 
+        m.full_name.toLowerCase().includes(query)
+    ).slice(0, 5);
+    
+    if(filtered.length > 0) {
+        dropdown.innerHTML = filtered.map(m => `
+            <div class="dropdown-item" onclick="selectMemberForScale('${m.id}', '${m.full_name}')">
+                <span class="material-symbols-outlined">person</span> ${m.full_name}
+            </div>
+        `).join('');
+        dropdown.style.display = 'block';
+    } else {
+        dropdown.innerHTML = '<div class="dropdown-empty">Nenhum membro encontrado</div>';
+        dropdown.style.display = 'block';
+    }
+}
+
+let selectedMemberForScale = null;
+
+function selectMemberForScale(id, name) {
+    selectedMemberForScale = { id, name };
+    document.getElementById('member-scale-dropdown').style.display = 'none';
+    document.querySelector('.searchable-select-member .search-input').value = name;
+}
+
+function addMemberToScaleDraft() {
+    if(!selectedMemberForScale) {
+        showCustomAlert('Selecione um membro da lista.');
+        return;
+    }
+    
+    const role = document.getElementById('scale-draft-role').value;
+    
+    if(!scaleDraftTeam.find(m => m.memberId === selectedMemberForScale.id && m.role === role)) {
+        scaleDraftTeam.push({...selectedMemberForScale, role});
+        renderScaleDraftTeam();
+    } else {
+        showCustomAlert('Este membro já está na equipe com esta função.');
+    }
+    
+    selectedMemberForScale = null;
+    document.querySelector('.searchable-select-member .search-input').value = '';
 }
 
 function removeScaleDraftMember(index) { 
@@ -1570,20 +1860,32 @@ function removeScaleDraftMember(index) {
 function renderScaleDraftTeam() {
     const list = document.getElementById('scale-draft-team-list');
     if(scaleDraftTeam.length === 0) { 
-        list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Equipe vazia.</p>'; 
+        list.innerHTML = '<p class="loading-text" style="font-size:0.85rem; text-align:center;">Nenhum membro adicionado.</p>'; 
         return; 
     }
     
     let html = '';
     scaleDraftTeam.forEach((item, index) => {
         html += `
-            <div style="display:flex; justify-content:space-between; background:#fff; padding:8px; border:1px solid #eee; border-radius:6px; margin-bottom:5px;">
-                <span><strong>${item.name}</strong> <small>(${item.role.toUpperCase()})</small></span>
-                <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.2rem;" onclick="removeScaleDraftMember(${index})">close</span>
+            <div class="team-member-draft">
+                <span class="material-symbols-outlined">${getRoleIcon(item.role)}</span>
+                <span>${item.name}</span>
+                <span class="role-tag">${getRoleName(item.role)}</span>
+                <button class="btn-remove" onclick="removeScaleDraftMember(${index})"><span class="material-symbols-outlined">close</span></button>
             </div>
         `;
     });
     list.innerHTML = html;
+}
+
+function searchScaleSongs(input) {
+    const query = input.value.toLowerCase();
+    const checkboxes = document.querySelectorAll('.song-checkbox');
+    
+    checkboxes.forEach(cb => {
+        const text = cb.textContent.toLowerCase();
+        cb.style.display = text.includes(query) ? 'flex' : 'none';
+    });
 }
 
 async function saveNewScale() {
@@ -1592,11 +1894,11 @@ async function saveNewScale() {
     const editingId = document.getElementById('editing-scale-id').value;
     
     if(!date) { 
-        showCustomAlert('Data obrigatória.'); 
+        showCustomAlert('A data do culto é obrigatória.'); 
         return; 
     }
     if(scaleDraftTeam.length === 0) { 
-        showCustomAlert('Adicione pelo menos 1 membro.'); 
+        showCustomAlert('Adicione pelo menos 1 membro na equipe.'); 
         return; 
     }
 
@@ -1605,7 +1907,8 @@ async function saveNewScale() {
         
         if(editingId) {
             await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${editingId}`, { 
-                method: 'PATCH', headers, 
+                method: 'PATCH', 
+                headers, 
                 body: JSON.stringify({ event_date: date, notes: notes, time_key: date.substring(0,7) }) 
             });
             scaleId = editingId;
@@ -1624,7 +1927,8 @@ async function saveNewScale() {
 
         for(let item of scaleDraftTeam) {
             await fetch(`${SUPABASE_URL}/rest/v1/scale_items`, { 
-                method: 'POST', headers, 
+                method: 'POST', 
+                headers, 
                 body: JSON.stringify({ scale_id: scaleId, member_id: item.memberId, role: item.role }) 
             });
         }
@@ -1632,100 +1936,151 @@ async function saveNewScale() {
         const songCbs = document.querySelectorAll('.scale-song-cb:checked');
         for(let cb of songCbs) {
             await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, { 
-                method: 'POST', headers, 
+                method: 'POST', 
+                headers, 
                 body: JSON.stringify({ scale_id: scaleId, repertoire_id: cb.value }) 
             });
         }
 
-        showCustomAlert(editingId ? 'Escala atualizada!' : 'Escala criada!', 'Sucesso'); 
+        const successMsg = editingId ? 'Escala atualizada com sucesso!' : 'Escala criada com sucesso!';
+        showCustomAlert(successMsg, 'Sucesso'); 
         closeModals(); 
         loadScales();
-        if(document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
+        if(document.getElementById('page-home').classList.contains('active')) {
+            fetchNextScaleHome();
+        }
     } catch(e) { 
-        showCustomAlert('Erro ao salvar.'); 
+        console.error('Erro ao salvar escala:', e);
+        showCustomAlert('Erro ao salvar escala. Verifique a conexão.'); 
     }
 }
 
 // ==========================================
 // ADMINISTRAÇÃO
 // ==========================================
+function loadAdminDashboard() {
+    showAdminSection('new-member');
+}
+
 async function createNewMember() {
     const username = document.getElementById('new-username').value.trim().toLowerCase(); 
     const fullname = document.getElementById('new-fullname').value.trim(); 
+    const email = document.getElementById('new-email').value.trim();
+    const phone = document.getElementById('new-phone').value.trim();
+    const role = document.getElementById('new-role').value;
     const isLeader = document.getElementById('new-is-leader').checked; 
+    
     if (!username || !fullname) { 
-        showCustomAlert('Preencha usuário e nome!'); 
+        showCustomAlert('Preencha usuário e nome completo!'); 
         return; 
     }
+    
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members`, { 
             method: 'POST', 
             headers: { ...headers, 'Prefer': 'return=representation' }, 
-            body: JSON.stringify({ username, full_name: fullname, is_leader: isLeader }) 
+            body: JSON.stringify({ 
+                username, 
+                full_name: fullname, 
+                email: email || null,
+                phone: phone || null,
+                is_leader: isLeader 
+            }) 
         });
+        
         if (!res.ok) throw new Error('Usuário já existe.');
-        showCustomAlert('Membro cadastrado!', 'Sucesso'); 
+        
+        const saved = await res.json();
+        
+        if(role && role !== 'lider') {
+            await fetch(`${SUPABASE_URL}/rest/v1/member_roles`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ member_id: saved[0].id, role: role })
+            });
+        }
+        
+        showCustomAlert('Membro cadastrado com sucesso!', 'Sucesso'); 
+        
         document.getElementById('new-username').value = ''; 
         document.getElementById('new-fullname').value = ''; 
+        document.getElementById('new-email').value = '';
+        document.getElementById('new-phone').value = '';
         document.getElementById('new-is-leader').checked = false; 
-        loadAdminMembers();
+        
     } catch (e) { 
+        console.error('Erro ao cadastrar:', e);
         showCustomAlert(e.message, 'Erro'); 
     }
 }
 
 async function loadAdminMembers() {
-    const list = document.getElementById('admin-members-list'); 
-    list.innerHTML = '<p>Carregando...</p>';
+    const container = document.getElementById('admin-members-list'); 
+    container.innerHTML = '<div class="loading-spinner"></div>';
+    
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,is_leader,member_roles(role)&order=full_name.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,email,phone,is_leader,member_roles(role)&order=full_name.asc`, { headers });
         const members = await res.json(); 
-        let html = '';
+        
+        if(members.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:40px;">Nenhum membro cadastrado.</p>';
+            return;
+        }
+        
+        let html = '<div class="admin-members-grid">';
         members.forEach(m => {
             const currentRoles = m.member_roles.map(r => r.role);
-            html += `<div class="admin-list-item" id="admin-item-${m.id}">
-                    <div><strong>${m.full_name}</strong> <span style="font-size:0.8rem">(${m.username})</span></div>
-                    <div class="admin-actions"><button class="btn-icon" onclick="document.getElementById('editor-${m.id}').classList.toggle('hidden')"><span class="material-symbols-outlined">edit_attributes</span></button><button class="btn-icon danger" onclick="deleteMember('${m.id}')"><span class="material-symbols-outlined">delete</span></button></div>
-                    <div class="roles-editor hidden" id="editor-${m.id}">${['lider', 'vocal', 'baterista', 'teclado', 'violao', 'baixo'].map(role => `<label class="role-check-item"><input type="checkbox" onchange="updateRole('${m.id}', '${role}', this.checked)" ${currentRoles.includes(role) || (role==='lider' && m.is_leader) ? 'checked' : ''}>${role.toUpperCase()}</label>`).join('')}</div>
-                </div>`;
+            html += `
+                <div class="admin-member-card" data-name="${m.full_name.toLowerCase()}">
+                    <div class="member-info">
+                        <h4>${m.full_name}</h4>
+                        <p class="member-username">@${m.username}</p>
+                        ${m.email ? `<p class="member-contact"><span class="material-symbols-outlined">mail</span> ${m.email}</p>` : ''}
+                        ${m.phone ? `<p class="member-contact"><span class="material-symbols-outlined">phone</span> ${m.phone}</p>` : ''}
+                        <div class="member-roles-tags">
+                            ${m.is_leader ? '<span class="role-badge leader">Líder</span>' : ''}
+                            ${currentRoles.map(r => `<span class="role-badge">${getRoleName(r)}</span>`).join('')}
+                        </div>
+                    </div>
+                    <div class="member-actions">
+                        <button class="btn-icon" onclick="editMember('${m.id}')" title="Editar"><span class="material-symbols-outlined">edit</span></button>
+                        <button class="btn-icon danger" onclick="deleteMember('${m.id}')" title="Excluir"><span class="material-symbols-outlined">delete</span></button>
+                    </div>
+                </div>
+            `;
         });
-        list.innerHTML = html;
+        html += '</div>';
+        container.innerHTML = html;
+        
     } catch (e) { 
-        list.innerHTML = '<p>Erro.</p>'; 
+        console.error('Erro ao carregar membros:', e);
+        container.innerHTML = '<p style="text-align:center; color:var(--danger);">Erro ao carregar lista.</p>'; 
     }
 }
 
-async function updateRole(memberId, role, isAdding) {
-    try {
-        if(role === 'lider') { 
-            await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${memberId}`, { 
-                method: 'PATCH', headers, 
-                body: JSON.stringify({ is_leader: isAdding }) 
-            }); 
-            return; 
-        }
-        if (isAdding) {
-            await fetch(`${SUPABASE_URL}/rest/v1/member_roles`, { 
-                method: 'POST', headers, 
-                body: JSON.stringify({ member_id: memberId, role: role }) 
-            });
-        } else {
-            await fetch(`${SUPABASE_URL}/rest/v1/member_roles?member_id=eq.${memberId}&role=eq.${role}`, { 
-                method: 'DELETE', headers 
-            });
-        }
-    } catch (e) { 
-        showCustomAlert('Erro ao atualizar.'); 
-    }
+function filterAdminMembers() {
+    const query = document.getElementById('admin-search').value.toLowerCase();
+    const cards = document.querySelectorAll('.admin-member-card');
+    
+    cards.forEach(card => {
+        const name = card.getAttribute('data-name');
+        card.style.display = name.includes(query) ? 'flex' : 'none';
+    });
+}
+
+async function editMember(id) {
+    showCustomAlert('Função de edição em desenvolvimento. Use o cadastro para adicionar novos membros.');
 }
 
 async function deleteMember(id) {
-    showCustomConfirm('Deseja remover este membro?', async () => {
+    showCustomConfirm('Deseja remover este membro do sistema? Esta ação não pode ser desfeita.', async () => {
         try { 
             await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, { method: 'DELETE', headers }); 
+            showCustomAlert('Membro excluído com sucesso!', 'Sucesso');
             loadAdminMembers(); 
         } catch (e) { 
-            showCustomAlert('Erro ao excluir.'); 
+            console.error('Erro ao excluir:', e);
+            showCustomAlert('Erro ao excluir membro.'); 
         }
     });
 }
@@ -1735,6 +2090,7 @@ async function deleteMember(id) {
 // ==========================================
 window.onload = () => {
     initSupabase();
+    
     const storedUser = localStorage.getItem('sessionUser');
     if (storedUser) { 
         currentUserData = JSON.parse(storedUser); 
