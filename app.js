@@ -4,7 +4,6 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
 
-// Variáveis globais
 let currentUserData = null;
 let countdownInterval;
 let currentViewingRepertoireId = null;
@@ -322,7 +321,7 @@ function startCountdown() {
 }
 
 // ==========================================
-// MENSAGEM DO DIA - VERSÍCULOS BÍBLICOS
+// MENSAGEM DO DIA
 // ==========================================
 const bibleVersesPool = [
     { text: "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.", ref: "João 3:16" },
@@ -334,58 +333,7 @@ const bibleVersesPool = [
     { text: "Confia no Senhor de todo o teu coração, e não te estribes no teu próprio entendimento.", ref: "Provérbios 3:5" },
     { text: "Deleita-te também no Senhor, e te concederá os desejos do teu coração.", ref: "Salmos 37:4" },
     { text: "Não temas, porque eu sou contigo; não te assombres, porque eu sou teu Deus; eu te esforço, e te ajudo, e te sustento com a destra da minha justiça.", ref: "Isaías 41:10" },
-    { text: "O Senhor é a minha luz e a minha salvação; a quem temerei? O Senhor é a força da minha vida; de quem me recearei?", ref: "Salmos 27:1" },
-    { text: "Em paz também me deitarei e dormirei, porque só tu, Senhor, me fazes habitar em segurança.", ref: "Salmos 4:8" },
-    { text: "Eu sou o caminho, e a verdade e a vida; ninguém vem ao Pai, senão por mim.", ref: "João 14:6" },
-    { text: "Vinde a mim, todos os que estais cansados e oprimidos, e eu vos aliviarei.", ref: "Mateus 11:28" },
-    { text: "Porque onde estiverem dois ou três reunidos em meu nome, aí estou eu no meio deles.", ref: "Mateus 18:20" },
-    { text: "E conhecereis a verdade, e a verdade vos libertará.", ref: "João 8:32" },
-    { text: "Mas Deus prova o seu amor para conosco, em que Cristo morreu por nós, sendo nós ainda pecadores.", ref: "Romanos 5:8" },
-    { text: "Se confessarmos os nossos pecados, ele é fiel e justo para nos perdoar os pecados, e nos purificar de toda a injustiça.", ref: "1 João 1:9" },
-    { text: "Alegrai-vos sempre no Senhor; outra vez digo, alegrai-vos.", ref: "Filipenses 4:4" },
-    { text: "Sede fortes e corajosos; não temais, nem vos espanteis diante deles, porque o Senhor vosso Deus é quem vai convosco.", ref: "Deuteronômio 31:6" },
-    { text: "O nome do Senhor é torre forte; o justo corre para ela, e está seguro.", ref: "Provérbios 18:10" },
-    { text: "Entrega o teu caminho ao Senhor; confia nele, e ele tudo fará.", ref: "Salmos 37:5" },
-    { text: "Clama a mim, e responder-te-ei, e anunciar-te-ei coisas grandes e firmes, que não sabes.", ref: "Jeremias 33:3" },
-    { text: "Bem-aventurados os puros de coração, porque eles verão a Deus.", ref: "Mateus 5:8" },
-    { text: "Vós sois a luz do mundo; não se pode esconder uma cidade edificada sobre um monte.", ref: "Mateus 5:14" },
-    { text: "Buscai primeiro o reino de Deus, e a sua justiça, e todas estas coisas vos serão acrescentadas.", ref: "Mateus 6:33" },
-    { text: "E tudo quanto fizerdes, fazei-o de todo o coração, como ao Senhor, e não aos homens.", ref: "Colossenses 3:23" },
-    { text: "Porque pela graça sois salvos, por meio da fé; e isto não vem de vós, é dom de Deus.", ref: "Efésios 2:8" },
-    { text: "Ora, a fé é o firme fundamento das coisas que se esperam, e a prova das coisas que se não vêem.", ref: "Hebreus 11:1" },
-    { text: "Porque Deus não nos deu o espírito de temor, mas de fortaleza, e de amor, e de moderação.", ref: "2 Timóteo 1:7" },
-    { text: "A tua palavra é lâmpada para os meus pés e luz para o meu caminho.", ref: "Salmos 119:105" },
-    { text: "Mas o fruto do Espírito é: amor, gozo, paz, longanimidade, benignidade, bondade, fé, mansidão, temperança.", ref: "Gálatas 5:22" },
-    { text: "Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.", ref: "Salmos 46:1" },
-    { text: "Os céus declaram a glória de Deus e o firmamento anuncia a obra das suas mãos.", ref: "Salmos 19:1" },
-    { text: "E eis que eu estou convosco todos os dias, até a consumação dos séculos.", ref: "Mateus 28:20" },
-    { text: "Porque eu, o Senhor teu Deus, te tomo pela tua mão direita, e te digo: Não temas, eu te ajudo.", ref: "Isaías 41:13" },
-    { text: "O Senhor está perto dos que têm o coração quebrantado e salva os de espírito abatido.", ref: "Salmos 34:18" },
-    { text: "Não to mandei eu? Esforça-te, e tem bom ânimo; não temas, nem te espantes.", ref: "Josué 1:9" },
-    { text: "O coração alegre é bom remédio, mas o espírito abatido faz secar os ossos.", ref: "Provérbios 17:22" },
-    { text: "Deus é amor; e quem está em amor está em Deus, e Deus nele.", ref: "1 João 4:16" },
-    { text: "Se Deus é por nós, quem será contra nós?", ref: "Romanos 8:31" },
-    { text: "Porque a palavra de Deus é viva e eficaz, e mais penetrante do que espada alguma de dois gumes.", ref: "Hebreus 4:12" },
-    { text: "Graças ao Senhor, porque é bom; porque a sua benignidade dura para sempre.", ref: "Salmos 107:1" },
-    { text: "O Senhor pelejará por vós, e vos calareis.", ref: "Êxodo 14:14" },
-    { text: "O céu e a terra passarão, mas as minhas palavras não hão de passar.", ref: "Mateus 24:35" },
-    { text: "Bem-aventurados os misericordiosos, porque eles alcançarão misericórdia.", ref: "Mateus 5:7" },
-    { text: "A minha graça te basta, porque o meu poder se aperfeiçoa na fraqueza.", ref: "2 Coríntios 12:9" },
-    { text: "E a paz de Deus, que excede todo o entendimento, guardará os vossos corações e os vossos sentimentos em Cristo Jesus.", ref: "Filipenses 4:7" },
-    { text: "Não se turbe o vosso coração; credes em Deus, crede também em mim.", ref: "João 14:1" },
-    { text: "Mas em todas estas coisas somos mais do que vencedores, por aquele que nos amou.", ref: "Romanos 8:37" },
-    { text: "O Senhor te abençoe e te guarde; o Senhor faça resplandecer o seu rosto sobre ti, e tenha misericórdia de ti.", ref: "Números 6:24-25" },
-    { text: "Os que semeiam em lágrimas segarão com alegria.", ref: "Salmos 126:5" },
-    { text: "Alegrai-vos na esperança, sede pacientes na tribulação, perseverai na oração.", ref: "Romanos 12:12" },
-    { text: "Eu te louvarei, porque de um modo assombrosamente tão maravilhoso fui feito.", ref: "Salmos 139:14" },
-    { text: "Bendize, ó minha alma, ao Senhor, e tudo o que há em mim bendiga o seu santo nome.", ref: "Salmos 103:1" },
-    { text: "O Senhor é bom, ele serve de fortaleza no dia da angústia, e conhece os que confiam nele.", ref: "Naum 1:7" },
-    { text: "Bem-aventurados os perseguidos por causa da justiça, porque deles é o reino dos céus.", ref: "Mateus 5:10" },
-    { text: "Porque Deus não é Deus de confusão, senão de paz.", ref: "1 Coríntios 14:33" },
-    { text: "O Senhor é grande e muito digno de louvor na cidade do nosso Deus.", ref: "Salmos 48:1" },
-    { text: "Perto está o Senhor dos que têm o coração quebrantado, e salva os contritos de espírito.", ref: "Salmos 34:18" },
-    { text: "Porque eu estou bem certo de que nem a morte, nem a vida, nem anjos, nem principados, nem potestades, nem o presente, nem o porvir, nem a altura, nem a profundidade, nem alguma outra criatura nos poderá separar do amor de Deus, que está em Cristo Jesus nosso Senhor.", ref: "Romanos 8:38-39" },
-    { text: "Porque eu te hei de fortalecer, e te ajudarei, e te sustentarei com a destra da minha justiça.", ref: "Isaías 41:10" }
+    { text: "O Senhor é a minha luz e a minha salvação; a quem temerei? O Senhor é a força da minha vida; de quem me recearei?", ref: "Salmos 27:1" }
 ];
 
 async function fetchDailyMessage() {
@@ -412,7 +360,7 @@ async function fetchDailyMessage() {
                 }
             }
         } catch(apiErr) {
-            console.warn('API bíblica indisponível, usando pool local');
+            console.warn('API bíblica indisponível');
         }
         
         const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
@@ -429,70 +377,22 @@ async function fetchDailyMessage() {
     }
 }
 
-async function fetchNextScaleHome() {
-    const container = document.getElementById('next-scale-team');
-    const today = new Date().toISOString().split('T')[0];
-    try {
-        const scaleRes = await fetch(`${SUPABASE_URL}/rest/v1/scales?event_date=gte.${today}&order=event_date.asc&limit=1`, { headers });
-        const scaleData = await scaleRes.json();
-        if (scaleData.length > 0) {
-            const scaleId = scaleData[0].id;
-            const itemsRes = await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name)&order=role.asc`, { headers });
-            const itemsData = await itemsRes.json();
-            if (itemsData.length > 0) {
-                let html = '<div class="home-scale-list">';
-                
-                const leaders = itemsData.filter(i => i.role === 'lider');
-                const vocals = itemsData.filter(i => i.role === 'vocal');
-                const band = itemsData.filter(i => !['lider', 'vocal'].includes(i.role));
-                
-                const renderRow = (item, roleName, iconClass) => {
-                    const isCurrent = item.members.id === currentUserData.id ? 'current-user' : '';
-                    return `
-                        <div class="home-scale-row ${isCurrent}">
-                            <div class="home-scale-icon ${iconClass}">
-                                <span class="material-symbols-outlined">${getRoleIcon(item.role)}</span>
-                            </div>
-                            <div class="home-scale-info">
-                                <div class="home-scale-name">${item.members.full_name}</div>
-                                <div class="home-scale-role">${roleName}</div>
-                            </div>
-                            ${isCurrent ? '<span class="material-symbols-outlined home-scale-star">star</span>' : ''}
-                        </div>
-                    `;
-                };
-                
-                leaders.forEach(i => html += renderRow(i, 'Líder', 'role-lider'));
-                vocals.forEach(i => html += renderRow(i, 'Vocal', 'role-vocal'));
-                band.forEach(i => html += renderRow(i, capitalizeRole(i.role), 'role-band'));
-                
-                html += '</div>';
-                container.innerHTML = html;
-            } else {
-                container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Escala vazia.</p>`;
-            }
-        } else {
-            container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Nenhuma escala programada.</p>`;
-        }
-    } catch (e) { 
-        container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:10px 0;">Erro ao carregar.</p>`; 
-    }
-}
-
 function getRoleIcon(role) {
     const icons = {
         'lider': 'star',
         'vocal': 'mic',
         'baterista': 'drum',
         'teclado': 'piano',
-        'violao': 'music_note',
+        'violao': 'guitar',
         'baixo': 'graphic_eq'
     };
     return icons[role] || 'person';
 }
 
-function capitalizeRole(role) {
+function getRoleName(role) {
     const names = {
+        'lider': 'Líder',
+        'vocal': 'Vocal',
         'baterista': 'Baterista',
         'teclado': 'Teclado',
         'violao': 'Violão',
@@ -501,8 +401,112 @@ function capitalizeRole(role) {
     return names[role] || role.charAt(0).toUpperCase() + role.slice(1);
 }
 
+async function fetchNextScaleHome() {
+    const container = document.getElementById('next-scale-team');
+    const today = new Date().toISOString().split('T')[0];
+    try {
+        const scaleRes = await fetch(`${SUPABASE_URL}/rest/v1/scales?event_date=gte.${today}&order=event_date.asc&limit=1`, { headers });
+        const scaleData = await scaleRes.json();
+        if (scaleData.length > 0) {
+            const scaleId = scaleData[0].id;
+            const itemsRes = await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name,photo_url)&order=role.asc`, { headers });
+            const itemsData = await itemsRes.json();
+            if (itemsData.length > 0) {
+                let html = '';
+                
+                itemsData.forEach(item => {
+                    const isCurrent = item.members.id === currentUserData.id ? 'current-user' : '';
+                    const icon = getRoleIcon(item.role);
+                    const roleName = getRoleName(item.role);
+                    const photoUrl = item.members.photo_url || null;
+                    
+                    html += `
+                        <div class="team-carousel-card ${isCurrent}">
+                            <div class="team-card-photo">
+                                ${photoUrl ? 
+                                    `<img src="${photoUrl}" alt="${item.members.full_name}">` : 
+                                    `<div class="photo-placeholder">${item.members.full_name.charAt(0)}</div>`
+                                }
+                                <div class="team-card-icon">
+                                    <span class="material-symbols-outlined">${icon}</span>
+                                </div>
+                            </div>
+                            <div class="team-card-info">
+                                <div class="team-card-name">${item.members.full_name}</div>
+                                <div class="team-card-role">${roleName}</div>
+                            </div>
+                            ${isCurrent ? '<div class="current-badge">★ Você</div>' : ''}
+                        </div>
+                    `;
+                });
+                
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:20px;">Escala vazia.</p>`;
+            }
+        } else {
+            container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhuma escala programada.</p>`;
+        }
+    } catch (e) { 
+        container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:20px;">Erro ao carregar.</p>`; 
+    }
+}
+
 // ==========================================
-// BUSCADOR ULTRA-PODEROSO
+// MEMBROS - GRID MODERNO
+// ==========================================
+async function loadMembers() {
+    const container = document.getElementById('members-lineup');
+    container.innerHTML = '<p class="loading-text">Carregando equipe...</p>';
+    
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
+        const members = await res.json();
+        
+        if (members.length === 0) { 
+            container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:40px;">Nenhum membro cadastrado.</p>'; 
+            return; 
+        }
+        
+        let html = '<div class="members-grid-cards">';
+        
+        members.forEach(m => {
+            const roles = m.member_roles.map(r => r.role);
+            const primaryRole = m.is_leader ? 'Líder' : (roles[0] ? getRoleName(roles[0]) : 'Membro');
+            const photoUrl = m.photo_url || null;
+            
+            html += `
+                <div class="member-card-modern">
+                    <div class="member-card-photo">
+                        ${photoUrl ? 
+                            `<img src="${photoUrl}" alt="${m.full_name}">` : 
+                            `<div class="photo-placeholder">${m.full_name.charAt(0)}</div>`
+                        }
+                        ${m.is_leader ? '<div class="leader-badge">★ Líder</div>' : ''}
+                    </div>
+                    <div class="member-card-body">
+                        <h3 class="member-name">${m.full_name}</h3>
+                        <div class="member-role-primary">${primaryRole}</div>
+                        ${roles.length > 0 && !m.is_leader ? `
+                            <div class="member-roles-secondary">
+                                ${roles.map(r => `<span class="role-tag">${getRoleName(r)}</span>`).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        container.innerHTML = html;
+        
+    } catch (e) { 
+        container.innerHTML = '<p style="color:var(--danger); text-align:center; padding:40px;">Erro ao carregar equipe.</p>'; 
+    }
+}
+
+// ==========================================
+// BUSCA ULTRA-PODEROSA DE MÚSICAS
 // ==========================================
 function openRepertoireModal() { 
     document.getElementById('modal-add-repertoire').classList.add('active'); 
@@ -524,6 +528,70 @@ function normalizeText(text) {
         .trim();
 }
 
+async function extractLyricsFromLetras(url) {
+    try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        const data = await response.json();
+        
+        if(data.contents) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(data.contents, 'text/html');
+            
+            const lyricSelectors = [
+                '.lyrics-container',
+                '.lyrics',
+                '[data-lyrics-container]',
+                '.letra',
+                '#letra'
+            ];
+            
+            for(let selector of lyricSelectors) {
+                const element = doc.querySelector(selector);
+                if(element) {
+                    let lyrics = element.innerText || element.textContent;
+                    lyrics = lyrics.replace(/\s+/g, '\n').trim();
+                    if(lyrics.length > 50) {
+                        return lyrics;
+                    }
+                }
+            }
+        }
+    } catch(e) {
+        console.warn('Erro ao extrair do letras.mus.br:', e);
+    }
+    return null;
+}
+
+async function searchYouTubeLyrics(query) {
+    try {
+        const searchUrl = `https://vid.puffyan.us/api/v1/search?q=${encodeURIComponent(query + ' letra completa')}+site:letras.mus.br&type=video`;
+        const response = await fetch(searchUrl);
+        const data = await response.json();
+        
+        if(data && data.length > 0) {
+            const video = data[0];
+            const description = video.description || '';
+            
+            const letrasMatch = description.match(/(https?:\/\/www\.letras\.mus\.br\/[^\s]+)/);
+            if(letrasMatch) {
+                const lyrics = await extractLyricsFromLetras(letrasMatch[1]);
+                if(lyrics) {
+                    return {
+                        artist: video.author || 'Artista',
+                        song: video.title.replace(/letra|official|video/gi, '').trim(),
+                        lyrics: lyrics,
+                        source: 'YouTube + Letras.mus.br'
+                    };
+                }
+            }
+        }
+    } catch(e) {
+        console.warn('Erro na busca YouTube:', e);
+    }
+    return null;
+}
+
 async function searchMusicList() {
     const query = document.getElementById('search-query').value.trim();
     const resultsContainer = document.getElementById('search-results');
@@ -534,50 +602,77 @@ async function searchMusicList() {
         return; 
     }
     
-    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando em múltiplas fontes (Vagalume, Letras.mus.br, iTunes, YouTube)...</span>';
+    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando em todas as fontes...</span>';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
     
-    let allResults = [];
     let foundAnyValid = false;
     const seen = new Set();
     
-    // Detecta se é busca por trecho de letra (mais de 3 palavras)
-    const isLyricSnippet = query.split(/\s+/).length >= 3;
-    
     try {
-        // ===== FONTE 1: VAGALUME (API brasileira oficial - MELHOR PARA GOSPEL BR) =====
+        // FONTE 1: LETRAS.MUS.BR
         try {
-            msgBox.innerHTML = '<span style="color:var(--primary-color);">🎵 Consultando Vagalume (Brasil)...</span>';
+            msgBox.innerHTML = '<span style="color:var(--primary-color);">📝 Letras.mus.br...</span>';
             
-            if(isLyricSnippet) {
-                // Busca por trecho de letra no Vagalume
-                const vagLyricRes = await fetch(`https://api.vagalume.com.br/search.php?mus=${encodeURIComponent(query)}&apikey=a53a6c27f726a530cd8c5cfe161bccda`);
-                if(vagLyricRes.ok) {
-                    const vagData = await vagLyricRes.json();
-                    if(vagData.art && vagData.art.length > 0) {
-                        for(let artist of vagData.art.slice(0, 5)) {
-                            if(artist.mus) {
-                                for(let music of artist.mus.slice(0, 3)) {
-                                    const key = normalizeText(`${artist.name} ${music.desc || music.title}`);
-                                    if(!seen.has(key)) {
-                                        seen.add(key);
-                                        allResults.push({
-                                            id: `vagalume_${artist.id}_${music.id}`,
-                                            artist: artist.name,
-                                            song: music.desc || music.title,
-                                            url: music.url,
-                                            source: 'Vagalume',
-                                            type: 'letra'
-                                        });
-                                    }
+            const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=10`);
+            if(letrasRes.ok) {
+                const letrasData = await letrasRes.json();
+                if(letrasData && letrasData.length > 0) {
+                    for(let item of letrasData.slice(0, 8)) {
+                        const artist = item.artista || item.artist || '';
+                        const song = item.nome || item.name || item.title || '';
+                        const url = item.url || '';
+                        
+                        if(artist && song) {
+                            const key = normalizeText(`${artist} ${song}`);
+                            if(!seen.has(key)) {
+                                seen.add(key);
+                                
+                                let lyrics = '';
+                                if(url) {
+                                    lyrics = await extractLyricsFromLetras(url);
+                                }
+                                
+                                if(lyrics && lyrics.length > 50) {
+                                    foundAnyValid = true;
+                                    const uniqueId = `letras_${item.id || Math.random()}`;
+                                    cachedLyricsSearch[uniqueId] = { 
+                                        artist: artist, 
+                                        song: song, 
+                                        lyrics: lyrics,
+                                        source: 'Letras.mus.br'
+                                    };
+                                    
+                                    const div = document.createElement('div');
+                                    div.className = 'search-result-item';
+                                    div.innerHTML = `
+                                        <div style="flex:1; min-width:0;">
+                                            <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${song}</strong>
+                                            <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${artist}</small>
+                                            <small style="color:var(--success); font-size:0.7rem; display:flex; align-items:center; gap:3px; margin-top:3px;">
+                                                <span class="material-symbols-outlined" style="font-size:0.8rem;">check_circle</span>
+                                                Letra completa • Letras.mus.br
+                                            </small>
+                                        </div> 
+                                        <span class="material-symbols-outlined" style="color:var(--primary-color); flex-shrink:0;">download_done</span>
+                                    `;
+                                    div.onclick = () => importPreCheckedLyrics(uniqueId);
+                                    resultsContainer.appendChild(div);
                                 }
                             }
                         }
                     }
                 }
-            } else {
-                // Busca normal por artista/música
+            }
+        } catch(e) {
+            console.warn('Letras.mus.br falhou:', e);
+        }
+        
+        // FONTE 2: VAGALUME
+        if(!foundAnyValid || resultsContainer.children.length < 3) {
+            try {
+                msgBox.innerHTML = '<span style="color:var(--primary-color);">🎵 Vagalume...</span>';
+                
                 const vagRes = await fetch(`https://api.vagalume.com.br/search.php?exc=${encodeURIComponent(query)}&apikey=a53a6c27f726a530cd8c5cfe161bccda`);
                 if(vagRes.ok) {
                     const vagData = await vagRes.json();
@@ -588,138 +683,33 @@ async function searchMusicList() {
                                     const key = normalizeText(`${artist.name} ${music.desc || music.title}`);
                                     if(!seen.has(key)) {
                                         seen.add(key);
-                                        allResults.push({
-                                            id: `vagalume_${artist.id}_${music.id}`,
-                                            artist: artist.name,
-                                            song: music.desc || music.title,
-                                            url: music.url,
-                                            source: 'Vagalume',
-                                            type: 'normal'
-                                        });
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } catch(e) {
-            console.warn('Vagalume falhou:', e);
-        }
-        
-        // ===== FONTE 2: LETRAS.MUS.BR (via scraping) =====
-        try {
-            msgBox.innerHTML = '<span style="color:var(--primary-color);">🎵 Consultando Letras.mus.br...</span>';
-            
-            // Tenta endpoint de autocomplete
-            const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=15`);
-            if(letrasRes.ok) {
-                const letrasData = await letrasRes.json();
-                if(letrasData && letrasData.length > 0) {
-                    for(let item of letrasData.slice(0, 10)) {
-                        const artist = item.artista || item.artist || '';
-                        const song = item.nome || item.name || item.title || '';
-                        if(artist && song) {
-                            const key = normalizeText(`${artist} ${song}`);
-                            if(!seen.has(key)) {
-                                seen.add(key);
-                                allResults.push({
-                                    id: `letras_${item.id || Math.random()}`,
-                                    artist: artist,
-                                    song: song,
-                                    url: item.url,
-                                    source: 'Letras.mus.br',
-                                    type: 'normal'
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        } catch(e) {
-            console.warn('Letras.mus.br falhou:', e);
-        }
-        
-        // ===== FONTE 3: ITUNES BRASIL =====
-        try {
-            msgBox.innerHTML = '<span style="color:var(--primary-color);">🎵 Consultando iTunes Brasil...</span>';
-            const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=15&country=br`);
-            if(itunesRes.ok) {
-                const itunesData = await itunesRes.json();
-                if(itunesData.results && itunesData.results.length > 0) {
-                    for(let track of itunesData.results.slice(0, 10)) {
-                        const key = normalizeText(`${track.artistName} ${track.trackName}`);
-                        if(!seen.has(key)) {
-                            seen.add(key);
-                            allResults.push({
-                                id: `itunes_${track.trackId}`,
-                                artist: track.artistName,
-                                song: track.trackName,
-                                source: 'iTunes Brasil',
-                                type: 'normal'
-                            });
-                        }
-                    }
-                }
-            }
-        } catch(e) {
-            console.warn('iTunes falhou:', e);
-        }
-        
-        // ===== FONTE 4: DEEZER =====
-        try {
-            msgBox.innerHTML = '<span style="color:var(--primary-color);">🎵 Consultando Deezer...</span>';
-            const deezerRes = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=10`);
-            if(deezerRes.ok) {
-                const deezerData = await deezerRes.json();
-                if(deezerData && deezerData.data) {
-                    for(let track of deezerData.data.slice(0, 8)) {
-                        const key = normalizeText(`${track.artist.name} ${track.title}`);
-                        if(!seen.has(key)) {
-                            seen.add(key);
-                            allResults.push({
-                                id: `deezer_${track.id}`,
-                                artist: track.artist.name,
-                                song: track.title,
-                                source: 'Deezer',
-                                type: 'normal'
-                            });
-                        }
-                    }
-                }
-            }
-        } catch(e) {
-            console.warn('Deezer falhou:', e);
-        }
-        
-        // ===== FONTE 5: YOUTUBE (busca por letra) =====
-        if(isLyricSnippet || allResults.length === 0) {
-            try {
-                msgBox.innerHTML = '<span style="color:var(--primary-color);">🎵 Consultando YouTube...</span>';
-                // Usa endpoint público do YouTube (Invidious) para evitar API key
-                const ytRes = await fetch(`https://vid.puffyan.us/api/v1/search?q=${encodeURIComponent(query + ' letra gospel')}&type=video`);
-                if(ytRes.ok) {
-                    const ytData = await ytRes.json();
-                    if(ytData && ytData.length > 0) {
-                        for(let video of ytData.slice(0, 5)) {
-                            const title = video.title || '';
-                            // Extrai artista e música do título
-                            const match = title.match(/(.+?)\s*[-–]\s*(.+?)(?:\s*[\(\[]?letra[\)\]]?)?$/i);
-                            if(match) {
-                                const artist = match[1].trim().replace(/\(.*\)/g, '').trim();
-                                const song = match[2].trim().replace(/letra|official|video|clipe/gi, '').trim();
-                                if(artist && song) {
-                                    const key = normalizeText(`${artist} ${song}`);
-                                    if(!seen.has(key)) {
-                                        seen.add(key);
-                                        allResults.push({
-                                            id: `youtube_${video.videoId}`,
-                                            artist: artist,
-                                            song: song,
-                                            source: 'YouTube',
-                                            type: 'youtube',
-                                            videoId: video.videoId
-                                        });
+                                        
+                                        if(music.text) {
+                                            foundAnyValid = true;
+                                            const uniqueId = `vagalume_${artist.id}_${music.id}`;
+                                            cachedLyricsSearch[uniqueId] = { 
+                                                artist: artist.name, 
+                                                song: music.desc || music.title, 
+                                                lyrics: music.text,
+                                                source: 'Vagalume'
+                                            };
+                                            
+                                            const div = document.createElement('div');
+                                            div.className = 'search-result-item';
+                                            div.innerHTML = `
+                                                <div style="flex:1; min-width:0;">
+                                                    <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${music.desc || music.title}</strong>
+                                                    <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${artist.name}</small>
+                                                    <small style="color:var(--success); font-size:0.7rem; display:flex; align-items:center; gap:3px; margin-top:3px;">
+                                                        <span class="material-symbols-outlined" style="font-size:0.8rem;">check_circle</span>
+                                                        Letra completa • Vagalume
+                                                    </small>
+                                                </div> 
+                                                <span class="material-symbols-outlined" style="color:var(--primary-color); flex-shrink:0;">download_done</span>
+                                            `;
+                                            div.onclick = () => importPreCheckedLyrics(uniqueId);
+                                            resultsContainer.appendChild(div);
+                                        }
                                     }
                                 }
                             }
@@ -727,71 +717,30 @@ async function searchMusicList() {
                     }
                 }
             } catch(e) {
-                console.warn('YouTube falhou:', e);
+                console.warn('Vagalume falhou:', e);
             }
         }
         
-        if(allResults.length === 0) {
-            msgBox.innerHTML = '<span style="color:var(--danger);">❌ Nenhuma música encontrada. Tente outro termo.</span>';
-            return;
-        }
-        
-        // Agora busca as letras de cada resultado
-        msgBox.innerHTML = `<span style="color:var(--primary-color);">📝 Buscando letras de ${allResults.length} músicas encontradas...</span>`;
-        
-        for(let track of allResults) {
+        // FONTE 3: YOUTUBE
+        if(!foundAnyValid || resultsContainer.children.length < 2) {
             try {
-                let lyrics = '';
+                msgBox.innerHTML = '<span style="color:var(--primary-color);">🎬 YouTube...</span>';
                 
-                // Se veio do Vagalume com URL, tenta buscar letra direto
-                if(track.url && track.url.includes('vagalume')) {
-                    try {
-                        // Usa API do Vagalume para pegar letra
-                        const artistId = track.id.split('_')[1];
-                        const musicId = track.id.split('_')[2];
-                        const vagLyricRes = await fetch(`https://api.vagalume.com.br/search.php?art=${artistId}&mus=${musicId}&apikey=a53a6c27f726a530cd8c5cfe161bccda`);
-                        if(vagLyricRes.ok) {
-                            const vagLyricData = await vagLyricRes.json();
-                            if(vagLyricData.mus && vagLyricData.mus[0] && vagLyricData.mus[0].text) {
-                                lyrics = vagLyricData.mus[0].text;
-                            }
-                        }
-                    } catch(e) {}
-                }
-                
-                // Fallback: lyrics.ovh
-                if(!lyrics) {
-                    try {
-                        const lyrRes = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(track.artist)}/${encodeURIComponent(track.song)}`);
-                        if(lyrRes.ok) {
-                            const lyrData = await lyrRes.json();
-                            if(lyrData.lyrics && lyrData.lyrics.length > 30) {
-                                lyrics = lyrData.lyrics;
-                            }
-                        }
-                    } catch(e) {}
-                }
-                
-                // Se encontrou letra válida, adiciona
-                if(lyrics && lyrics.length > 30) {
+                const ytResult = await searchYouTubeLyrics(query);
+                if(ytResult && ytResult.lyrics) {
                     foundAnyValid = true;
-                    const uniqueId = track.id;
-                    cachedLyricsSearch[uniqueId] = { 
-                        artist: track.artist, 
-                        song: track.song, 
-                        lyrics: lyrics,
-                        source: track.source
-                    };
+                    const uniqueId = `youtube_${Date.now()}`;
+                    cachedLyricsSearch[uniqueId] = ytResult;
                     
                     const div = document.createElement('div');
                     div.className = 'search-result-item';
                     div.innerHTML = `
                         <div style="flex:1; min-width:0;">
-                            <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${track.song}</strong>
-                            <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${track.artist}</small>
+                            <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ytResult.song}</strong>
+                            <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ytResult.artist}</small>
                             <small style="color:var(--success); font-size:0.7rem; display:flex; align-items:center; gap:3px; margin-top:3px;">
                                 <span class="material-symbols-outlined" style="font-size:0.8rem;">check_circle</span>
-                                Letra completa • ${track.source}
+                                Letra extraída • YouTube
                             </small>
                         </div> 
                         <span class="material-symbols-outlined" style="color:var(--primary-color); flex-shrink:0;">download_done</span>
@@ -799,21 +748,21 @@ async function searchMusicList() {
                     div.onclick = () => importPreCheckedLyrics(uniqueId);
                     resultsContainer.appendChild(div);
                 }
-            } catch(err) {
-                console.warn('Erro ao buscar letra de:', track.song, err);
+            } catch(e) {
+                console.warn('YouTube falhou:', e);
             }
         }
 
-        if(!foundAnyValid) {
-            msgBox.innerHTML = '<span style="color:var(--danger);">⚠️ Músicas encontradas, mas sem letras completas. Tente outro termo.</span>';
+        if(!foundAnyValid || resultsContainer.children.length === 0) {
+            msgBox.innerHTML = '<span style="color:var(--danger);">❌ Nenhuma música encontrada. Tente buscar de outra forma.</span>';
         } else {
             const count = resultsContainer.children.length;
-            msgBox.innerHTML = `<span style="color:var(--success);">✅ ${count} música(s) com letras completas encontradas!</span>`;
+            msgBox.innerHTML = `<span style="color:var(--success);">✅ ${count} música(s) encontrada(s)!</span>`;
         }
 
     } catch(e) { 
         console.error('Erro na busca:', e);
-        msgBox.innerHTML = '<span style="color:var(--danger);">❌ Erro ao buscar músicas. Verifique sua internet.</span>'; 
+        msgBox.innerHTML = '<span style="color:var(--danger);">❌ Erro ao buscar.</span>'; 
     }
 }
 
@@ -821,7 +770,7 @@ function importPreCheckedLyrics(id) {
     const data = cachedLyricsSearch[id];
     document.getElementById('rep-lyrics').value = data.lyrics;
     document.getElementById('rep-title').value = `${data.song} - ${data.artist}`;
-    showCustomAlert(`✅ Letra de "${data.song}" importada com sucesso!`, "Letra Importada");
+    showCustomAlert(`✅ Letra de "${data.song}" importada!`, "Sucesso");
 }
 
 async function saveNewRepertoire() {
@@ -856,7 +805,7 @@ async function saveNewRepertoire() {
         closeModals(); 
         loadRepertoire();
     } catch(e) { 
-        showCustomAlert('Erro ao salvar no banco.'); 
+        showCustomAlert('Erro ao salvar.'); 
     }
 }
 
@@ -865,7 +814,7 @@ async function saveNewRepertoire() {
 // ==========================================
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
-    list.innerHTML = '<p class="loading-text">Buscando músicas...</p>';
+    list.innerHTML = '<p class="loading-text">Buscando...</p>';
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&order=title.asc`, { headers });
         allRepertoireCache = await res.json();
@@ -906,9 +855,75 @@ async function loadRepertoire() {
 // ==========================================
 // MEDLEY
 // ==========================================
+function openMedleyModal() {
+    document.getElementById('drawer-medley').classList.add('active');
+    document.getElementById('drawer-medley-overlay').classList.add('active');
+    resetMedleyFlow();
+    loadMedleySongsList();
+}
+
+function resetMedleyFlow() {
+    medleyDraft = [];
+    medleyCurrentSongId = null;
+    medleyCurrentSongVerses = [];
+    renderMedleyPreview();
+    document.getElementById('medley-title').value = '';
+    document.getElementById('medley-verses-selector').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música</p>';
+}
+
+async function loadMedleySongsList() {
+    const container = document.getElementById('medley-songs-list');
+    container.innerHTML = '<p class="loading-text">Carregando...</p>';
+    
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&is_medley=eq.false&order=title.asc`, { headers });
+        const songs = await res.json();
+        allRepertoireCache = songs;
+        
+        if (songs.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhuma música</p>';
+            return;
+        }
+        
+        let html = '';
+        songs.forEach(song => {
+            const keysStr = song.repertoire_keys.map(k => k.ton).join(', ');
+            const keyBadge = keysStr ? `<span class="badge tom" style="font-size:0.7rem;">${keysStr}</span>` : '';
+            const isSelected = medleyDraft.some(d => d.songId === song.id);
+            const vocalistBadge = song.vocalist ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;"><span class="material-symbols-outlined" style="font-size:0.8rem; vertical-align:middle;">mic</span> ${song.vocalist}</div>` : '';
+            html += `
+                <div class="medley-song-item ${isSelected ? 'active' : ''}" onclick="selectMedleySong('${song.id}')">
+                    <div class="medley-song-item-title">${song.title} ${keyBadge}</div>
+                    ${vocalistBadge}
+                    ${isSelected ? '<div style="font-size:0.75rem; color:var(--success); margin-top:4px;">✓ Adicionada</div>' : ''}
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    } catch (e) {
+        container.innerHTML = '<p style="color:var(--danger); text-align:center;">Erro</p>';
+    }
+}
+
+async function selectMedleySong(songId) {
+    medleyCurrentSongId = songId;
+    const song = allRepertoireCache.find(s => s.id === songId);
+    if (!song) return;
+    
+    const verses = parseLyricsIntoVerses(song.lyrics_text);
+    const existingDraft = medleyDraft.find(d => d.songId === songId);
+    
+    medleyCurrentSongVerses = verses.map((v, idx) => ({
+        ...v,
+        id: `${songId}_v${idx}`,
+        selected: existingDraft ? existingDraft.sections.some(s => s.label === v.label && s.content === v.content) : false
+    }));
+    
+    renderVersesSelector(song.title);
+}
+
 function parseLyricsIntoVerses(lyrics) {
     if (!lyrics) return [];
-    
     const lines = lyrics.split('\n');
     const verses = [];
     let currentLabel = 'Intro';
@@ -920,9 +935,7 @@ function parseLyricsIntoVerses(lyrics) {
         /^(pr[eé]-?refr[aã]o|pre-?chorus)\s*\d*$/i,
         /^(refr[aã]o|chorus)\s*\d*$/i,
         /^(ponte|bridge)\s*\d*$/i,
-        /^(final|outro|encerramento)\s*\d*$/i,
-        /^(interlúdio|interlude)\s*\d*$/i,
-        /^(solo)\s*\d*$/i
+        /^(final|outro)\s*\d*$/i
     ];
     
     function detectSection(line) {
@@ -930,19 +943,11 @@ function parseLyricsIntoVerses(lyrics) {
         for (let pattern of sectionPatterns) {
             if (pattern.test(cleanLine)) {
                 if (/^intro/i.test(cleanLine)) return 'Intro';
-                if (/^verso/i.test(cleanLine)) {
-                    const num = cleanLine.match(/\d+/);
-                    return num ? `Verso ${num[0]}` : 'Verso';
-                }
+                if (/^verso/i.test(cleanLine)) return 'Verso';
                 if (/^pr[eé]/i.test(cleanLine)) return 'Pré-Refrão';
-                if (/^refr/i.test(cleanLine)) {
-                    const num = cleanLine.match(/\d+/);
-                    return num ? `Refrão ${num[0]}` : 'Refrão';
-                }
+                if (/^refr/i.test(cleanLine)) return 'Refrão';
                 if (/^ponte|^bridge/i.test(cleanLine)) return 'Ponte';
                 if (/^final|^outro/i.test(cleanLine)) return 'Final';
-                if (/^inter/i.test(cleanLine)) return 'Interlúdio';
-                if (/^solo/i.test(cleanLine)) return 'Solo';
             }
         }
         return null;
@@ -967,96 +972,20 @@ function parseLyricsIntoVerses(lyrics) {
         verses.push({ label: currentLabel, content: currentLines.join('\n').trim() });
     }
     
-    if (verses.length <= 1 && lyrics.trim().split(/\n\s*\n/).length > 1) {
-        const blocks = lyrics.trim().split(/\n\s*\n/);
-        return blocks.map((block, idx) => ({
-            label: `Parte ${idx + 1}`,
-            content: block.trim()
-        }));
-    }
-    
     return verses;
-}
-
-function openMedleyModal() {
-    document.getElementById('drawer-medley').classList.add('active');
-    document.getElementById('drawer-medley-overlay').classList.add('active');
-    resetMedleyFlow();
-    loadMedleySongsList();
-}
-
-function resetMedleyFlow() {
-    medleyDraft = [];
-    medleyCurrentSongId = null;
-    medleyCurrentSongVerses = [];
-    renderMedleyPreview();
-    document.getElementById('medley-title').value = '';
-    document.getElementById('medley-verses-selector').innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Selecione uma música ao lado para escolher as partes</p>';
-}
-
-async function loadMedleySongsList() {
-    const container = document.getElementById('medley-songs-list');
-    container.innerHTML = '<p class="loading-text">Carregando...</p>';
-    
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&is_medley=eq.false&order=title.asc`, { headers });
-        const songs = await res.json();
-        allRepertoireCache = songs;
-        
-        if (songs.length === 0) {
-            container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Nenhuma música no repertório</p>';
-            return;
-        }
-        
-        let html = '';
-        songs.forEach(song => {
-            const keysStr = song.repertoire_keys.map(k => k.ton).join(', ');
-            const keyBadge = keysStr ? `<span class="badge tom" style="font-size:0.7rem;">${keysStr}</span>` : '';
-            const isSelected = medleyDraft.some(d => d.songId === song.id);
-            const vocalistBadge = song.vocalist ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;"><span class="material-symbols-outlined" style="font-size:0.8rem; vertical-align:middle;">mic</span> ${song.vocalist}</div>` : '';
-            html += `
-                <div class="medley-song-item ${isSelected ? 'active' : ''}" onclick="selectMedleySong('${song.id}')">
-                    <div class="medley-song-item-title">${song.title} ${keyBadge}</div>
-                    ${vocalistBadge}
-                    ${isSelected ? '<div style="font-size:0.75rem; color:var(--success); margin-top:4px;">✓ Já adicionada ao medley</div>' : ''}
-                </div>
-            `;
-        });
-        container.innerHTML = html;
-    } catch (e) {
-        container.innerHTML = '<p style="color:var(--danger); text-align:center;">Erro ao carregar músicas</p>';
-    }
-}
-
-async function selectMedleySong(songId) {
-    medleyCurrentSongId = songId;
-    const song = allRepertoireCache.find(s => s.id === songId);
-    if (!song) return;
-    
-    const verses = parseLyricsIntoVerses(song.lyrics_text);
-    const existingDraft = medleyDraft.find(d => d.songId === songId);
-    
-    medleyCurrentSongVerses = verses.map((v, idx) => ({
-        ...v,
-        id: `${songId}_v${idx}`,
-        selected: existingDraft ? existingDraft.sections.some(s => s.label === v.label && s.content === v.content) : false
-    }));
-    
-    renderVersesSelector(song.title);
 }
 
 function renderVersesSelector(songTitle) {
     const container = document.getElementById('medley-verses-selector');
     
     if (medleyCurrentSongVerses.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Não foi possível identificar as estrofes desta música</p>';
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">Não foi possível identificar estrofes</p>';
         return;
     }
     
     let html = `
         <div style="margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--border-color);">
             <strong style="color:var(--primary-color);">${songTitle}</strong>
-            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:4px;">Selecione as partes que deseja incluir no medley:</div>
         </div>
         <button class="btn-secondary" onclick="selectAllVerses()" style="width:100%; margin-bottom:10px; font-size:0.85rem;">✓ Selecionar Todas</button>
     `;
@@ -1067,10 +996,7 @@ function renderVersesSelector(songTitle) {
                 <div class="verse-checkbox-wrapper">
                     <input type="checkbox" class="verse-checkbox" id="verse-cb-${idx}" ${verse.selected ? 'checked' : ''} onchange="toggleVerse(${idx})">
                     <div class="verse-label" onclick="toggleVerse(${idx})">
-                        <div class="verse-section-title">
-                            <span class="material-symbols-outlined" style="font-size:1rem;">music_note</span>
-                            ${verse.label}
-                        </div>
+                        <div class="verse-section-title">${verse.label}</div>
                         <div class="verse-content">${verse.content}</div>
                     </div>
                 </div>
@@ -1078,7 +1004,7 @@ function renderVersesSelector(songTitle) {
         `;
     });
     
-    html += `<button class="btn-primary" onclick="addSelectedVersesToMedley()" style="margin-top:12px;">+ Adicionar Partes Selecionadas ao Medley</button>`;
+    html += `<button class="btn-primary" onclick="addSelectedVersesToMedley()" style="margin-top:12px;">+ Adicionar ao Medley</button>`;
     
     container.innerHTML = html;
 }
@@ -1115,7 +1041,7 @@ function selectAllVerses() {
 function addSelectedVersesToMedley() {
     const selectedVerses = medleyCurrentSongVerses.filter(v => v.selected);
     if (selectedVerses.length === 0) {
-        showCustomAlert('Selecione pelo menos uma parte para adicionar ao medley.');
+        showCustomAlert('Selecione pelo menos uma parte.');
         return;
     }
     
@@ -1132,7 +1058,7 @@ function addSelectedVersesToMedley() {
     renderMedleyPreview();
     loadMedleySongsList();
     
-    showCustomAlert(`${selectedVerses.length} parte(s) de "${song.title}" adicionada(s) ao medley!`, 'Partes Adicionadas');
+    showCustomAlert(`${selectedVerses.length} parte(s) adicionada(s)!`, 'Sucesso');
 }
 
 function removeMedleySong(songId) {
@@ -1145,7 +1071,7 @@ function renderMedleyPreview() {
     const container = document.getElementById('medley-preview');
     
     if (medleyDraft.length === 0) {
-        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">As partes selecionadas aparecerão aqui</p>';
+        container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:20px;">As partes aparecerão aqui</p>';
         return;
     }
     
@@ -1156,7 +1082,6 @@ function renderMedleyPreview() {
         html += `
             <div class="medley-preview-song">
                 <div class="medley-preview-song-title">
-                    <span class="material-symbols-outlined" style="font-size:1.1rem;">queue_music</span>
                     ${idx + 1}. ${item.songTitle}
                     <span class="material-symbols-outlined" style="color:var(--danger); cursor:pointer; font-size:1.1rem; margin-left:auto;" onclick="removeMedleySong('${item.songId}')">delete</span>
                 </div>
@@ -1175,12 +1100,7 @@ function renderMedleyPreview() {
         html += '</div>';
     });
     
-    html += `
-        </div>
-        <div style="margin-top:12px; padding:10px; background:#e3f2fd; border-radius:8px; font-size:0.85rem;">
-            <strong>Resumo:</strong> ${medleyDraft.length} música(s), ${totalParts} parte(s) selecionada(s)
-        </div>
-    `;
+    html += `</div><div style="margin-top:12px; padding:10px; background:#e3f2fd; border-radius:8px; font-size:0.85rem;"><strong>Resumo:</strong> ${medleyDraft.length} música(s), ${totalParts} parte(s)</div>`;
     
     container.innerHTML = html;
 }
@@ -1198,7 +1118,7 @@ async function saveNewMedley() {
     
     for (let item of medleyDraft) {
         if (item.sections.length === 0) {
-            showCustomAlert(`A música "${item.songTitle}" não tem partes selecionadas.`);
+            showCustomAlert(`"${item.songTitle}" não tem partes selecionadas.`);
             return;
         }
     }
@@ -1231,7 +1151,7 @@ async function saveNewMedley() {
             }
         }
         
-        showCustomAlert('Medley criado com sucesso!', 'Sucesso'); 
+        showCustomAlert('Medley criado!', 'Sucesso'); 
         closeModals(); 
         loadRepertoire();
     } catch(e) { 
@@ -1263,7 +1183,7 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley, encodedVoc
         <div class="vocalist-editor">
             <label><span class="material-symbols-outlined" style="font-size:1rem; vertical-align:middle;">mic</span> Voz / Cantor:</label>
             <div style="display:flex; gap:8px; margin-top:5px;">
-                <input type="text" id="edit-vocalist-input" value="${currentVocalist}" placeholder="Ex: Ana Silva, João Santos" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc;">
+                <input type="text" id="edit-vocalist-input" value="${currentVocalist}" placeholder="Ex: Ana Silva" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc;">
                 <button class="btn-secondary" onclick="saveVocalistToRepertoire('${id}')" style="padding:8px 12px;">💾 Salvar</button>
             </div>
         </div>
@@ -1277,32 +1197,24 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley, encodedVoc
     const partsDisplay = document.getElementById('medley-parts-display');
     if(isMedley) {
         partsDisplay.classList.remove('hidden'); 
-        partsDisplay.innerHTML = 'Carregando estrutura...';
+        partsDisplay.innerHTML = 'Carregando...';
         try {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts?medley_repertoire_id=eq.${id}&select=section,section_content,repertoire!song_repertoire_id(title)&order=created_at.asc`, { headers });
             const parts = await res.json();
             
-            if (parts.length > 0 && parts[0].section_content) {
-                let html = '<strong>Estrutura do Medley:</strong><br>';
+            if (parts.length > 0) {
+                let html = '<strong>Estrutura:</strong><br>';
                 parts.forEach((p, idx) => { 
                     html += `<div style="padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.08);">
-                        <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> 
-                        <span style="color:var(--primary-color); font-weight:600;">→ ${p.section}</span>
-                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px; white-space:pre-wrap; max-height:80px; overflow:hidden;">${p.section_content}</div>
+                        <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span>
                     </div>`; 
                 });
                 partsDisplay.innerHTML = html;
             } else {
-                let html = '<strong>Estrutura do Medley:</strong><br>';
-                parts.forEach((p, idx) => { 
-                    html += `<div style="padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
-                        • <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span>
-                    </div>`; 
-                });
-                partsDisplay.innerHTML = html;
+                partsDisplay.innerHTML = 'Sem estrutura definida.';
             }
         } catch(e) {
-            partsDisplay.innerHTML = 'Erro ao carregar estrutura.';
+            partsDisplay.innerHTML = 'Erro ao carregar.';
         }
     } else { 
         partsDisplay.classList.add('hidden'); 
@@ -1321,14 +1233,13 @@ async function saveVocalistToRepertoire(id) {
         });
         
         if(res.ok) {
-            showCustomAlert('✅ Voz/Cantor atualizado com sucesso!', 'Sucesso');
+            showCustomAlert('✅ Atualizado!', 'Sucesso');
             loadRepertoire();
         } else {
-            showCustomAlert('Erro ao atualizar voz/cantor.');
+            showCustomAlert('Erro ao atualizar.');
         }
     } catch(e) {
-        console.error(e);
-        showCustomAlert('Erro de conexão ao salvar.');
+        showCustomAlert('Erro de conexão.');
     }
 }
 
@@ -1374,71 +1285,6 @@ async function deleteKey(keyId) {
 }
 
 // ==========================================
-// MEMBROS
-// ==========================================
-async function loadMembers() {
-    const lineup = document.getElementById('members-lineup');
-    lineup.innerHTML = '<p class="loading-text" style="color:white;">Buscando equipe...</p>';
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
-        const members = await res.json();
-        if (members.length === 0) { 
-            lineup.innerHTML = '<p style="color:white; text-align:center;">Nenhum membro cadastrado.</p>'; 
-            return; 
-        }
-        
-        let team = { lider:[], vocal:[], banda:[], membro:[] };
-        members.forEach(m => {
-            let p = { id: m.id, name: m.full_name };
-            const roles = m.member_roles.map(r => r.role);
-            
-            if(m.is_leader) team.lider.push(p);
-            else if(roles.includes('vocal')) team.vocal.push(p);
-            else if(roles.length > 0) team.banda.push({...p, role: roles[0]});
-            else team.membro.push(p);
-        });
-        
-        let html = '';
-        
-        if(team.lider.length > 0) {
-            html += '<div class="lineup-row">';
-            team.lider.forEach(p => {
-                html += `<div class="lineup-player"><div class="player-avatar lider">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Líder</span></div>`;
-            });
-            html += '</div>';
-        }
-        
-        if(team.vocal.length > 0) {
-            html += '<div class="lineup-row">';
-            team.vocal.forEach(p => {
-                html += `<div class="lineup-player"><div class="player-avatar">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Vocal</span></div>`;
-            });
-            html += '</div>';
-        }
-        
-        if(team.banda.length > 0) {
-            html += '<div class="lineup-row">';
-            team.banda.forEach(p => {
-                html += `<div class="lineup-player"><div class="player-avatar">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">${p.role || 'Membro'}</span></div>`;
-            });
-            html += '</div>';
-        }
-        
-        if(team.membro.length > 0) {
-            html += '<div class="lineup-row">';
-            team.membro.forEach(p => {
-                html += `<div class="lineup-player"><div class="player-avatar">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Membro</span></div>`;
-            });
-            html += '</div>';
-        }
-        
-        lineup.innerHTML = html || '<p style="color:white; text-align:center;">Nenhum membro encontrado.</p>';
-    } catch (e) { 
-        lineup.innerHTML = '<p style="color:white; text-align:center;">Erro ao carregar equipe.</p>'; 
-    }
-}
-
-// ==========================================
 // ESCALAS
 // ==========================================
 function switchScaleTab(tab) {
@@ -1475,19 +1321,17 @@ async function loadScales() {
 }
 
 function renderScaleCards(scaleArray, isFuture) {
-    if(scaleArray.length === 0) return isFuture ? '<p>Nenhuma escala programada.</p>' : '<p>O histórico está vazio.</p>';
+    if(scaleArray.length === 0) return isFuture ? '<p>Nenhuma escala.</p>' : '<p>Histórico vazio.</p>';
     
     let html = '';
     scaleArray.forEach(s => {
         const dateObj = new Date(s.event_date);
         const dateStr = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
         
-        // Agrupa equipe por função
         const leaders = s.scale_items.filter(i => i.role === 'lider');
         const vocals = s.scale_items.filter(i => i.role === 'vocal');
         const band = s.scale_items.filter(i => !['lider', 'vocal'].includes(i.role));
         
-        // Renderiza equipe em formato de lista elegante
         let teamHtml = '<div class="scale-team-section">';
         teamHtml += '<div class="scale-team-title"><span class="material-symbols-outlined">group</span> Equipe</div>';
         teamHtml += '<div class="scale-team-list">';
@@ -1518,14 +1362,13 @@ function renderScaleCards(scaleArray, isFuture) {
                 <div class="scale-team-member role-band">
                     <span class="material-symbols-outlined scale-team-icon">${iconName}</span>
                     <span class="scale-team-name">${i.members.full_name}</span>
-                    <span class="scale-team-role">${capitalizeRole(i.role)}</span>
+                    <span class="scale-team-role">${getRoleName(i.role)}</span>
                 </div>
             `;
         });
         
         teamHtml += '</div></div>';
         
-        // Renderiza repertório
         let songsHtml = '<div class="scale-songs-section">';
         songsHtml += '<div class="scale-songs-title"><span class="material-symbols-outlined">library_music</span> Repertório</div>';
         songsHtml += '<div class="scale-songs-list">';
@@ -1545,15 +1388,15 @@ function renderScaleCards(scaleArray, isFuture) {
                 `; 
             });
         } else {
-            songsHtml += '<div class="scale-empty">Nenhuma música definida.</div>';
+            songsHtml += '<div class="scale-empty">Nenhuma música.</div>';
         }
         
         songsHtml += '</div></div>';
 
         const actionsHtml = currentUserData.is_leader ? `
             <div class="scale-folder-actions">
-                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar"><span class="material-symbols-outlined">edit</span></button>
-                <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir"><span class="material-symbols-outlined">delete</span></button>
+                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')"><span class="material-symbols-outlined">edit</span></button>
+                <button class="btn-icon danger" onclick="deleteScale('${s.id}')"><span class="material-symbols-outlined">delete</span></button>
             </div>
         ` : '';
 
@@ -1580,19 +1423,19 @@ function renderScaleCards(scaleArray, isFuture) {
 }
 
 async function deleteScale(scaleId) {
-    showCustomConfirm('Deseja realmente excluir esta escala?', async () => {
+    showCustomConfirm('Deseja excluir esta escala?', async () => {
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}`, { method: 'DELETE', headers });
             
-            if(!res.ok) throw new Error('Falha ao excluir');
+            if(!res.ok) throw new Error('Falha');
             
-            showCustomAlert('Escala excluída com sucesso!', 'Sucesso');
+            showCustomAlert('Escala excluída!', 'Sucesso');
             loadScales();
             if(document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
         } catch (e) { 
-            showCustomAlert('Erro ao excluir escala.'); 
+            showCustomAlert('Erro ao excluir.'); 
         }
     }, 'Excluir Escala');
 }
@@ -1647,7 +1490,7 @@ async function openEditScaleModal(scaleId) {
         });
         
     } catch (e) { 
-        showCustomAlert('Erro ao carregar escala para edição.'); 
+        showCustomAlert('Erro ao carregar.'); 
     }
 }
 
@@ -1699,7 +1542,7 @@ async function openScaleModalRefreshSongs() {
             songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}> ${song.title}${vocalistInfo}</label>`;
         });
     } catch(e) {
-        console.warn('Erro ao atualizar músicas no modal:', e);
+        console.warn('Erro ao atualizar:', e);
     }
 }
 
@@ -1749,11 +1592,11 @@ async function saveNewScale() {
     const editingId = document.getElementById('editing-scale-id').value;
     
     if(!date) { 
-        showCustomAlert('A data do culto é obrigatória.'); 
+        showCustomAlert('Data obrigatória.'); 
         return; 
     }
     if(scaleDraftTeam.length === 0) { 
-        showCustomAlert('Escalone pelo menos 1 membro na equipe.'); 
+        showCustomAlert('Adicione pelo menos 1 membro.'); 
         return; 
     }
 
@@ -1794,13 +1637,12 @@ async function saveNewScale() {
             });
         }
 
-        const successMsg = editingId ? 'Escala atualizada com sucesso!' : 'Escala criada com sucesso!';
-        showCustomAlert(successMsg, 'Sucesso'); 
+        showCustomAlert(editingId ? 'Escala atualizada!' : 'Escala criada!', 'Sucesso'); 
         closeModals(); 
         loadScales();
         if(document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
     } catch(e) { 
-        showCustomAlert('Erro ao salvar escala.'); 
+        showCustomAlert('Erro ao salvar.'); 
     }
 }
 
@@ -1822,7 +1664,7 @@ async function createNewMember() {
             body: JSON.stringify({ username, full_name: fullname, is_leader: isLeader }) 
         });
         if (!res.ok) throw new Error('Usuário já existe.');
-        showCustomAlert('Membro cadastrado com sucesso!', 'Sucesso'); 
+        showCustomAlert('Membro cadastrado!', 'Sucesso'); 
         document.getElementById('new-username').value = ''; 
         document.getElementById('new-fullname').value = ''; 
         document.getElementById('new-is-leader').checked = false; 
@@ -1849,7 +1691,7 @@ async function loadAdminMembers() {
         });
         list.innerHTML = html;
     } catch (e) { 
-        list.innerHTML = '<p>Erro ao carregar lista.</p>'; 
+        list.innerHTML = '<p>Erro.</p>'; 
     }
 }
 
@@ -1873,12 +1715,12 @@ async function updateRole(memberId, role, isAdding) {
             });
         }
     } catch (e) { 
-        showCustomAlert('Erro ao atualizar banco.'); 
+        showCustomAlert('Erro ao atualizar.'); 
     }
 }
 
 async function deleteMember(id) {
-    showCustomConfirm('Deseja remover este membro do sistema?', async () => {
+    showCustomConfirm('Deseja remover este membro?', async () => {
         try { 
             await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, { method: 'DELETE', headers }); 
             loadAdminMembers(); 
@@ -1893,7 +1735,6 @@ async function deleteMember(id) {
 // ==========================================
 window.onload = () => {
     initSupabase();
-    
     const storedUser = localStorage.getItem('sessionUser');
     if (storedUser) { 
         currentUserData = JSON.parse(storedUser); 
