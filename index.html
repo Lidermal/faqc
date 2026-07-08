@@ -1,393 +1,494 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ministério de Louvor - Amor que Cura</title>
-    <link rel="icon" type="image/png" href="logo.png">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Ministério de Louvor - Amor que Cura</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-
-    <main id="login-screen" class="screen active">
-        <div class="login-bg-overlay"></div>
-        <div class="login-container">
-            <img src="logo.png" alt="Família Amor que Cura Church" class="logo">
-            <h2>Portal do Ministério</h2>
-            <div class="input-group">
-                <label for="username">Usuário de Acesso</label>
-                <input type="text" id="username" placeholder="ex: nome.sobrenome" autocomplete="off">
-                <span id="login-error" class="error-message"></span>
-            </div>
-            <button onclick="handleLogin()" class="btn-primary" id="btn-login">Entrar</button>
-        </div>
-    </main>
-
-    <main id="system-screen" class="screen hidden">
-        
-        <div class="main-content">
-            <header class="app-header">
-                <div class="header-brand">
-                    <img src="logo.png" alt="Logo" class="header-logo">
-                    <div class="header-text">
-                        <span class="header-title">Família Amor que Cura</span>
-                        <p class="header-subtitle">Ministério de Louvor</p>
-                    </div>
-                </div>
-                <div class="header-right">
-                    <div class="user-info"><span id="user-display-name"></span></div>
-                    <button class="btn-logout-header" onclick="handleLogout()" title="Sair">
-                        <span class="material-symbols-outlined">logout</span>
-                    </button>
-                </div>
-            </header>
-
-            <div class="content-area">
-                
-                <section id="page-home" class="subpage active">
-                    <div class="dashboard-grid">
-                        <div class="card daily-message-card">
-                            <div class="card-header">
-                                <span class="material-symbols-outlined">menu_book</span>
-                                <h3>Mensagem do Dia</h3>
-                            </div>
-                            <div class="card-body" id="daily-message-content">
-                                <p class="loading-text">Carregando mensagem...</p>
-                            </div>
-                        </div>
-
-                        <div class="card countdown-card">
-                            <div class="card-header">
-                                <span class="material-symbols-outlined">timer</span>
-                                <h3>Próximo Culto</h3>
-                            </div>
-                            <div class="card-body text-center">
-                                <h4 class="countdown-subtitle">Domingo às 18:30</h4>
-                                <div class="countdown" id="countdown-timer">00d 00h 00m 00s</div>
-                                <hr class="divider">
-                                <h4 class="countdown-subtitle">Equipe Escalada</h4>
-                                
-                                <div class="team-carousel-wrapper">
-                                    <button class="carousel-btn prev" onclick="scrollCarousel(-1)">
-                                        <span class="material-symbols-outlined">chevron_left</span>
-                                    </button>
-                                    <div class="team-carousel" id="next-scale-team">
-                                        <p class="loading-text">Buscando escala...</p>
-                                    </div>
-                                    <button class="carousel-btn next" onclick="scrollCarousel(1)">
-                                        <span class="material-symbols-outlined">chevron_right</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section id="page-membros" class="subpage">
-                    <div class="page-header">
-                        <h2>Nossa Equipe</h2>
-                        <p class="page-subtitle">Conheça os membros do ministério</p>
-                    </div>
-                    
-                    <div class="members-showcase" id="members-lineup">
-                        <p class="loading-text">Carregando equipe...</p>
-                    </div>
-                </section>
-
-                <section id="page-escalas" class="subpage">
-                    <div class="page-header" style="display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <h2>Escalas de Culto</h2>
-                        </div>
-                        <button class="btn-primary hidden" id="btn-add-scale" onclick="openScaleModal()" style="width:auto; padding:8px 15px;">
-                            <span class="material-symbols-outlined">add</span> Nova
-                        </button>
-                    </div>
-                    
-                    <div class="scale-tabs">
-                        <button class="tab-btn active" onclick="switchScaleTab('future')" id="tab-future">
-                            <span class="material-symbols-outlined">event</span> Próximos
-                        </button>
-                        <button class="tab-btn" onclick="switchScaleTab('past')" id="tab-past">
-                            <span class="material-symbols-outlined">folder</span> Histórico
-                        </button>
-                    </div>
-
-                    <div id="scales-list-future" class="scales-grid"><p class="loading-text">Carregando...</p></div>
-                    <div id="scales-list-past" class="scales-grid hidden"><p class="loading-text">Carregando...</p></div>
-                </section>
-
-                <section id="page-repertorio" class="subpage">
-                    <div class="page-header">
-                        <h2>Repertório</h2>
-                        <div class="header-actions" id="repertoire-actions">
-                            <button class="btn-secondary" onclick="openMedleyModal()">+ Medley</button>
-                            <button class="btn-primary" onclick="openRepertoireModal()">+ Música</button>
-                        </div>
-                    </div>
-                    <div id="folders-list"></div>
-                    <div class="repertoire-playlist" id="repertoire-list"><p class="loading-text">Carregando músicas...</p></div>
-                </section>
-
-                <section id="page-admin" class="subpage">
-                    <div class="page-header">
-                        <h2>Administração</h2>
-                        <p class="page-subtitle">Gerencie o sistema e os membros</p>
-                    </div>
-                    
-                    <div class="admin-dashboard">
-                        <div class="admin-card" onclick="showAdminSection('new-member')">
-                            <div class="admin-card-icon">
-                                <span class="material-symbols-outlined">person_add</span>
-                            </div>
-                            <h3>Cadastrar Membro</h3>
-                            <p>Adicionar novo membro à equipe</p>
-                        </div>
-                        
-                        <div class="admin-card" onclick="showAdminSection('manage-members')">
-                            <div class="admin-card-icon" style="background: linear-gradient(135deg, #2d3436, #636e72);">
-                                <span class="material-symbols-outlined">manage_accounts</span>
-                            </div>
-                            <h3>Gerenciar Membros</h3>
-                            <p>Editar e remover membros</p>
-                        </div>
-                    </div>
-                    
-                    <div id="admin-new-member" class="admin-section hidden">
-                        <div class="admin-form-card">
-                            <h3><span class="material-symbols-outlined">person_add</span> Novo Membro</h3>
-                            <div class="form-grid">
-                                <div class="input-group">
-                                    <label>Usuário de Acesso *</label>
-                                    <input type="text" id="new-username" placeholder="joao.silva">
-                                </div>
-                                <div class="input-group">
-                                    <label>Nome Completo *</label>
-                                    <input type="text" id="new-fullname" placeholder="João da Silva">
-                                </div>
-                                <div class="input-group">
-                                    <label>Email</label>
-                                    <input type="email" id="new-email" placeholder="joao@email.com">
-                                </div>
-                                <div class="input-group">
-                                    <label>Telefone</label>
-                                    <input type="tel" id="new-phone" placeholder="(00) 00000-0000">
-                                </div>
-                                <div class="input-group full-width">
-                                    <label>Função Principal</label>
-                                    <select id="new-role">
-                                        <option value="vocal">Vocal</option>
-                                        <option value="violao">Violão</option>
-                                        <option value="baixo">Baixo</option>
-                                        <option value="baterista">Baterista</option>
-                                        <option value="teclado">Teclado</option>
-                                        <option value="midia">Mídia</option>
-                                    </select>
-                                </div>
-                                <div class="checkbox-group full-width">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" id="new-is-leader">
-                                        É Líder do Ministério?
-                                    </label>
-                                </div>
-                            </div>
-                            <button class="btn-primary" onclick="createNewMember()">
-                                <span class="material-symbols-outlined">save</span> Cadastrar Membro
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <div id="admin-manage-members" class="admin-section hidden">
-                        <div class="search-box">
-                            <span class="material-symbols-outlined">search</span>
-                            <input type="text" id="admin-search" placeholder="Buscar membro..." onkeyup="filterAdminMembers()">
-                        </div>
-                        <div id="admin-members-list" class="admin-members-grid"></div>
-                    </div>
-                </section>
-
-                <section id="page-perfil" class="subpage">
-                    <div class="page-header">
-                        <h2>Meu Perfil</h2>
-                    </div>
-                    <div id="profile-container"></div>
-                </section>
-
-            </div>
-        </div>
-
-        <nav class="bottom-nav" id="bottom-nav">
-            <button onclick="navigate('home')" class="bottom-nav-item active" id="nav-home">
-                <span class="material-symbols-outlined">space_dashboard</span>
-                <span>Início</span>
-            </button>
-            <button onclick="navigate('membros')" class="bottom-nav-item" id="nav-membros">
-                <span class="material-symbols-outlined">group</span>
-                <span>Membros</span>
-            </button>
-            <button onclick="navigate('escalas')" class="bottom-nav-item" id="nav-escalas">
-                <span class="material-symbols-outlined">calendar_month</span>
-                <span>Escalas</span>
-            </button>
-            <button onclick="navigate('repertorio')" class="bottom-nav-item" id="nav-repertorio">
-                <span class="material-symbols-outlined">library_music</span>
-                <span>Repertório</span>
-            </button>
-            <button onclick="navigate('perfil')" class="bottom-nav-item" id="nav-perfil">
-                <span class="material-symbols-outlined">person</span>
-                <span>Perfil</span>
-            </button>
-            <button onclick="navigate('admin')" class="bottom-nav-item hidden" id="nav-admin">
-                <span class="material-symbols-outlined">admin_panel_settings</span>
-                <span>Admin</span>
-            </button>
-        </nav>
-    </main>
-
-    <div id="modal-alert" class="modal custom-alert-modal">
-        <div class="modal-content alert-content">
-            <h3 id="alert-title">Aviso</h3>
-            <p id="alert-msg"></p>
-            <button class="btn-primary" onclick="closeCustomAlert()">Entendi</button>
-        </div>
-    </div>
-
-    <div id="modal-confirm" class="modal custom-alert-modal">
-        <div class="modal-content alert-content">
-            <h3 id="confirm-title">Atenção</h3>
-            <p id="confirm-msg"></p>
-            <div style="display:flex; gap:10px; width:100%;">
-                <button class="btn-secondary" onclick="closeCustomConfirm()" style="flex:1;">Cancelar</button>
-                <button class="btn-primary" id="btn-confirm-yes" style="flex:1; background:var(--danger);">Sim</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-add-repertoire" class="modal bottom-sheet">
-        <div class="modal-content">
-            <div class="modal-header"><h3>Adicionar Música</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
-            <div class="modal-body">
-                <div class="search-music-box">
-                    <h4>🔍 Buscador Gospel</h4>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Busque por artista, música ou trecho</p>
-                    <div class="search-inputs">
-                        <input type="text" id="search-query" placeholder="Ex: 'Ressuscita-me', 'Aline Barros'...">
-                        <button class="btn-secondary" onclick="searchMusicList()">🔍</button>
-                    </div>
-                    <div id="search-results" class="search-results-list"></div>
-                    <span id="search-msg" class="admin-message"></span>
-                </div>
-                <hr class="divider">
-                <div class="input-group"><label>Título *</label><input type="text" id="rep-title" placeholder="Ex: Ressuscita-me - Aline Barros"></div>
-                <div class="input-group">
-                    <label>Voz / Cantor</label>
-                    <div class="searchable-select">
-                        <input type="text" class="search-input" placeholder="Buscar cantor..." onkeyup="searchVocalists(this)">
-                        <div class="search-dropdown" id="vocalist-dropdown"></div>
-                        <input type="hidden" id="rep-vocalist">
-                        <div class="selected-items" id="selected-vocalists"></div>
-                    </div>
-                </div>
-                <div class="input-group"><label>Tom Principal</label><input type="text" id="rep-key" placeholder="Ex: G, Am"></div>
-                <div class="input-group"><label>Letra *</label><textarea id="rep-lyrics" rows="5" placeholder="Letra importada aparecerá aqui..."></textarea></div>
-                <button class="btn-primary" onclick="saveNewRepertoire()">Salvar Música</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="drawer-medley-overlay" class="drawer-overlay" onclick="closeModals()"></div>
-    <div id="drawer-medley" class="drawer-right">
-        <div class="drawer-header">
-            <div><h3>Criar Medley</h3><p>Selecione músicas e partes</p></div>
-            <button class="close-btn" onclick="closeModals()">✕</button>
-        </div>
-        <div class="drawer-body">
-            <div class="input-group"><label>Nome do Medley *</label><input type="text" id="medley-title" placeholder="Ex: Medley Adoração"></div>
-            <div class="medley-creator-container">
-                <div class="medley-column">
-                    <h4>Músicas</h4>
-                    <div id="medley-songs-list"></div>
-                </div>
-                <div class="medley-column">
-                    <h4>Partes</h4>
-                    <div id="medley-verses-selector"></div>
-                </div>
-                <div class="medley-column">
-                    <h4>Medley</h4>
-                    <div id="medley-preview"></div>
-                </div>
-            </div>
-        </div>
-        <div class="drawer-footer">
-            <button class="btn-secondary" onclick="closeModals()" style="margin-right: 10px;">Cancelar</button>
-            <button class="btn-primary" onclick="saveNewMedley()">Salvar Medley</button>
-        </div>
-    </div>
-
-    <div id="modal-view-repertoire" class="modal fullscreen-mobile">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="view-rep-title">Título</h3>
-                <button class="close-btn" onclick="closeModals()">✕</button>
-            </div>
-            <div class="modal-body">
-                <div class="vocalist-display" id="view-rep-vocalist"></div>
-                <div class="keys-manager">
-                    <div id="view-rep-keys" class="keys-list"></div>
-                    <div class="add-key-box hidden" id="box-add-key">
-                        <input type="text" id="new-key-input" placeholder="Novo Tom" style="width: 100px; padding: 6px; border-radius: 6px; border: 1px solid #ccc;">
-                        <button class="btn-secondary" onclick="addKeyToRepertoire()">+ Tom</button>
-                    </div>
-                </div>
-                <div id="medley-parts-display" class="hidden"></div>
-                <div class="lyrics-display"><pre id="view-rep-lyrics"></pre></div>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-add-scale" class="modal fullscreen-mobile">
-        <div class="modal-content">
-            <div class="modal-header"><h3 id="scale-modal-title">Nova Escala</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
-            <div class="modal-body">
-                <input type="hidden" id="editing-scale-id">
-                <div class="input-group"><label>Data *</label><input type="date" id="scale-date"></div>
-                <div class="input-group"><label>Observações</label><input type="text" id="scale-notes" placeholder="Ex: Culto de Santa Ceia"></div>
-                
-                <hr class="divider">
-                <h4>1. Escalar Equipe</h4>
-                <div class="scale-builder-box">
-                    <div class="searchable-select-member">
-                        <input type="text" class="search-input" placeholder="Buscar membro..." onkeyup="searchMembersForScale(this)">
-                        <div class="search-dropdown" id="member-scale-dropdown"></div>
-                        <select id="scale-draft-role" style="margin-top:10px; width:100%; padding:10px; border-radius:8px;">
-                            <option value="lider">Líder</option>
-                            <option value="vocal">Vocal</option>
-                            <option value="baterista">Baterista</option>
-                            <option value="teclado">Teclado</option>
-                            <option value="violao">Violão</option>
-                            <option value="baixo">Baixo</option>
-                        </select>
-                        <button class="btn-primary" onclick="addMemberToScaleDraft()" style="margin-top:10px;">Adicionar à Equipe</button>
-                    </div>
-                    <div id="scale-draft-team-list" class="team-list"></div>
-                </div>
-
-                <hr class="divider">
-                <h4>2. Repertório <small style="font-weight:400; font-size:0.85rem;">(Selecione as músicas)</small></h4>
-                <div class="search-box" style="margin-bottom:10px;">
-                    <span class="material-symbols-outlined">search</span>
-                    <input type="text" placeholder="Buscar música..." onkeyup="searchScaleSongs(this)">
-                </div>
-                <div id="scale-songs-selectors" class="scale-songs-box"></div>
-
-                <button class="btn-primary" onclick="saveNewScale()" style="margin-top:20px; width:100%;">Salvar Escala Completa</button>
-            </div>
-        </div>
-    </div>
-
-    <script src="app.js"></script>
+<main id="login-screen" class="screen active">
+<div class="login-bg-overlay"></div>
+<div class="login-container">
+<img src="logo.png" alt="Família Amor que Cura Church" class="logo">
+<h2>Portal do Ministério</h2>
+<div class="input-group">
+<label for="username">Usuário de Acesso</label>
+<input type="text" id="username" placeholder="ex: nome.sobrenome" autocomplete="off">
+<span id="login-error" class="error-message"></span>
+</div>
+<button onclick="handleLogin()" class="btn-primary" id="btn-login">Entrar</button>
+</div>
+</main>
+<main id="system-screen" class="screen hidden">
+<div class="main-content">
+<header class="app-header">
+<div class="header-brand">
+<img src="logo.png" alt="Logo" class="header-logo" onclick="navigate('perfil')" style="cursor:pointer;">
+<div class="header-text">
+<span class="header-title">Família Amor que Cura</span>
+<p>Ministério de Louvor</p>
+</div>
+</div>
+<div class="header-right">
+<div class="user-info" onclick="navigate('perfil')" style="cursor:pointer;">
+<img id="header-user-photo" class="header-user-photo" src="" alt="" style="display:none;">
+<span id="user-display-name"></span>
+</div>
+<button class="btn-logout-header" onclick="handleLogout()" title="Sair">
+<span class="material-symbols-outlined">logout</span>
+</button>
+</div>
+</header>
+<div class="content-area">
+<section id="page-home" class="subpage active">
+<div class="dashboard-grid">
+<div class="card daily-message-card">
+<div class="card-header">
+<span class="material-symbols-outlined">menu_book</span>
+<h3>Mensagem do Dia</h3>
+</div>
+<div class="card-body" id="daily-message-content">
+<p class="loading-text">Carregando mensagem...</p>
+</div>
+</div>
+<div class="card countdown-card">
+<div class="card-header">
+<span class="material-symbols-outlined">timer</span>
+<h3>Próximo Culto</h3>
+</div>
+<div class="card-body text-center">
+<h4 class="countdown-subtitle">Domingo às 18:30</h4>
+<div class="countdown" id="countdown-timer">00d 00h 00m 00s</div>
+<hr class="divider">
+<h4 class="countdown-subtitle">Equipe Escalada</h4>
+<div class="team-carousel-wrapper">
+<button class="carousel-btn prev" onclick="scrollCarousel(-1)">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<div class="team-carousel" id="next-scale-team">
+<p class="loading-text">Buscando escala...</p>
+</div>
+<button class="carousel-btn next" onclick="scrollCarousel(1)">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="page-perfil" class="subpage">
+<div id="profile-container"></div>
+</section>
+<section id="page-membros" class="subpage">
+<div class="page-header">
+<h2>Nossa Equipe</h2>
+<p class="page-subtitle">Conheça os membros do ministério</p>
+</div>
+<div class="members-showcase" id="members-lineup">
+<p class="loading-text">Carregando equipe...</p>
+</div>
+</section>
+<section id="page-escalas" class="subpage">
+<div class="page-header">
+<h2>Escalas de Culto</h2>
+<button class="btn-primary hidden" id="btn-add-scale" onclick="openScaleModal()" style="width:auto; padding:10px 20px;">
+<span class="material-symbols-outlined">add</span> Nova Escala
+</button>
+</div>
+<div class="scale-tabs">
+<button class="tab-btn active" onclick="switchScaleTab('future')" id="tab-future">
+<span class="material-symbols-outlined">event</span>
+Próximos Cultos
+</button>
+<button class="tab-btn" onclick="switchScaleTab('past')" id="tab-past">
+<span class="material-symbols-outlined">folder</span>
+Histórico
+</button>
+</div>
+<div id="scales-list-future" class="scales-grid"><p class="loading-text">Carregando...</p></div>
+<div id="scales-list-past" class="scales-grid hidden"><p class="loading-text">Carregando...</p></div>
+</section>
+<section id="page-repertorio" class="subpage">
+<div class="page-header">
+<h2>Repertório</h2>
+<div class="header-actions" id="repertoire-actions">
+<button class="btn-secondary" onclick="openMedleyModal()">+ Medley</button>
+<button class="btn-primary" onclick="openRepertoireModal()" style="width:auto; padding:10px 20px;">+ Música</button>
+</div>
+</div>
+<div id="folders-list"></div>
+<div class="repertoire-playlist" id="repertoire-list"><p class="loading-text">Carregando músicas...</p></div>
+</section>
+<section id="page-admin" class="subpage">
+<div class="page-header">
+<h2>Administração</h2>
+<p class="page-subtitle">Gerencie o ministério</p>
+</div>
+<div class="admin-dashboard">
+<div class="admin-card" onclick="showAdminSection('new-member')">
+<div class="admin-card-icon">
+<span class="material-symbols-outlined">person_add</span>
+</div>
+<div class="admin-card-content">
+<h3>Cadastrar Membro</h3>
+<p>Adicionar novo membro à equipe</p>
+</div>
+<span class="material-symbols-outlined admin-card-arrow">arrow_forward</span>
+</div>
+<div class="admin-card" onclick="showAdminSection('manage-members')">
+<div class="admin-card-icon" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
+<span class="material-symbols-outlined">manage_accounts</span>
+</div>
+<div class="admin-card-content">
+<h3>Gerenciar Membros</h3>
+<p>Editar e remover membros</p>
+</div>
+<span class="material-symbols-outlined admin-card-arrow">arrow_forward</span>
+</div>
+<div class="admin-card" onclick="showAdminSection('roles')">
+<div class="admin-card-icon" style="background: linear-gradient(135deg, #00b894, #55efc4);">
+<span class="material-symbols-outlined">badge</span>
+</div>
+<div class="admin-card-content">
+<h3>Funções</h3>
+<p>Gerenciar permissões</p>
+</div>
+<span class="material-symbols-outlined admin-card-arrow">arrow_forward</span>
+</div>
+<div class="admin-card" onclick="showAdminSection('stats')">
+<div class="admin-card-icon" style="background: linear-gradient(135deg, #fdcb6e, #e17055);">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<div class="admin-card-content">
+<h3>Estatísticas</h3>
+<p>Visão geral do ministério</p>
+</div>
+<span class="material-symbols-outlined admin-card-arrow">arrow_forward</span>
+</div>
+</div>
+<div id="admin-new-member" class="admin-section hidden">
+<div class="admin-form-card">
+<div class="admin-section-header">
+<span class="material-symbols-outlined">person_add</span>
+<div>
+<h3>Novo Membro</h3>
+<p>Preencha os dados para cadastrar</p>
+</div>
+</div>
+<div class="form-grid">
+<div class="input-group">
+<label>Usuário de Acesso *</label>
+<input type="text" id="new-username" placeholder="joao.silva">
+</div>
+<div class="input-group">
+<label>Nome Completo *</label>
+<input type="text" id="new-fullname" placeholder="João da Silva">
+</div>
+<div class="input-group">
+<label>Email</label>
+<input type="email" id="new-email" placeholder="joao@email.com">
+</div>
+<div class="input-group">
+<label>Telefone</label>
+<input type="tel" id="new-phone" placeholder="(00) 00000-0000">
+</div>
+<div class="input-group full-width">
+<label>Função Principal</label>
+<select id="new-role">
+<option value="vocal">Vocal</option>
+<option value="violao">Violão</option>
+<option value="baixo">Baixo</option>
+<option value="baterista">Baterista</option>
+<option value="teclado">Teclado</option>
+<option value="lider">Líder</option>
+<option value="midia">Mídia</option>
+</select>
+</div>
+<div class="checkbox-group full-width">
+<label class="checkbox-label">
+<input type="checkbox" id="new-is-leader">
+<span class="checkmark"></span>
+É Líder do Ministério
+</label>
+</div>
+</div>
+<button class="btn-primary" onclick="createNewMember()">
+<span class="material-symbols-outlined">save</span> Cadastrar
+</button>
+</div>
+</div>
+<div id="admin-manage-members" class="admin-section hidden">
+<div class="admin-section-header">
+<span class="material-symbols-outlined">manage_accounts</span>
+<div>
+<h3>Gerenciar Membros</h3>
+<p>Edite ou remova membros da equipe</p>
+</div>
+</div>
+<div class="search-box">
+<span class="material-symbols-outlined">search</span>
+<input type="text" id="admin-search" placeholder="Buscar membro..." onkeyup="filterAdminMembers()">
+</div>
+<div id="admin-members-list" class="admin-members-grid"></div>
+</div>
+<div id="admin-roles" class="admin-section hidden">
+<div class="admin-section-header">
+<span class="material-symbols-outlined">badge</span>
+<div>
+<h3>Funções do Ministério</h3>
+<p>Permissões de acesso ao sistema</p>
+</div>
+</div>
+<div class="roles-grid">
+<div class="role-info-card">
+<div class="role-info-icon" style="background: linear-gradient(135deg, #d4a574, #b8935f);">
+<span class="material-symbols-outlined">star</span>
+</div>
+<div class="role-info-content">
+<h4>Líder</h4>
+<p>Acesso total: gerenciar membros, escalas, repertório e pastas.</p>
+</div>
+</div>
+<div class="role-info-card">
+<div class="role-info-icon" style="background: linear-gradient(135deg, #f05a28, #d94d1f);">
+<span class="material-symbols-outlined">group</span>
+</div>
+<div class="role-info-content">
+<h4>Membro</h4>
+<p>Visualiza escalas, repertório e membros. Gerencia apenas sua pasta pessoal.</p>
+</div>
+</div>
+<div class="role-info-card">
+<div class="role-info-icon" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">
+<span class="material-symbols-outlined">videocam</span>
+</div>
+<div class="role-info-content">
+<h4>Mídia</h4>
+<p>Acesso a Início, Membros e Repertório. Sem acesso a escalas ou admin.</p>
+</div>
+</div>
+</div>
+</div>
+<div id="admin-stats" class="admin-section hidden">
+<div class="admin-section-header">
+<span class="material-symbols-outlined">analytics</span>
+<div>
+<h3>Estatísticas</h3>
+<p>Visão geral do ministério</p>
+</div>
+</div>
+<div id="admin-stats-content" class="stats-grid"></div>
+</div>
+</section>
+</div>
+</div>
+<nav class="bottom-nav" id="bottom-nav">
+<button onclick="navigate('home')" class="bottom-nav-item active" id="nav-home">
+<span class="material-symbols-outlined">space_dashboard</span>
+<span>Início</span>
+</button>
+<button onclick="navigate('membros')" class="bottom-nav-item" id="nav-membros">
+<span class="material-symbols-outlined">group</span>
+<span>Membros</span>
+</button>
+<button onclick="navigate('escalas')" class="bottom-nav-item" id="nav-escalas">
+<span class="material-symbols-outlined">calendar_month</span>
+<span>Escalas</span>
+</button>
+<button onclick="navigate('repertorio')" class="bottom-nav-item" id="nav-repertorio">
+<span class="material-symbols-outlined">library_music</span>
+<span>Repertório</span>
+</button>
+<button onclick="navigate('perfil')" class="bottom-nav-item" id="nav-perfil">
+<span class="material-symbols-outlined">person</span>
+<span>Perfil</span>
+</button>
+<button onclick="navigate('admin')" class="bottom-nav-item hidden" id="nav-admin">
+<span class="material-symbols-outlined">admin_panel_settings</span>
+<span>Admin</span>
+</button>
+</nav>
+</main>
+<!-- MODAIS -->
+<div id="modal-alert" class="modal custom-alert-modal">
+<div class="modal-content alert-content">
+<h3 id="alert-title">Aviso</h3>
+<p id="alert-msg"></p>
+<button class="btn-primary" onclick="closeCustomAlert()">Entendi</button>
+</div>
+</div>
+<div id="modal-confirm" class="modal custom-alert-modal">
+<div class="modal-content alert-content">
+<h3 id="confirm-title">Atenção</h3>
+<p id="confirm-msg"></p>
+<div style="display:flex; gap:10px; width:100%;">
+<button class="btn-secondary" onclick="closeCustomConfirm()" style="flex:1;">Cancelar</button>
+<button class="btn-primary" id="btn-confirm-yes" style="flex:1; background:var(--danger);">Sim</button>
+</div>
+</div>
+</div>
+<div id="modal-add-repertoire" class="modal bottom-sheet">
+<div class="modal-content">
+<div class="modal-header"><h3>Adicionar Música</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
+<div class="modal-body">
+<div class="search-music-box">
+<h4>🔍 Buscador Gospel</h4>
+<p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Busque por artista, música ou trecho da letra</p>
+<div class="search-inputs">
+<input type="text" id="search-query" placeholder="Ex: 'Ressuscita-me', 'Aline Barros'...">
+<button class="btn-secondary" onclick="searchMusicList()">🔍</button>
+</div>
+<div id="search-results" class="search-results-list"></div>
+<span id="search-msg" class="admin-message"></span>
+</div>
+<hr class="divider">
+<div class="input-group"><label>Título *</label><input type="text" id="rep-title" placeholder="Ex: Ressuscita-me - Aline Barros"></div>
+<div class="input-group">
+<label>Voz / Cantor</label>
+<div class="searchable-select">
+<input type="text" class="search-input" placeholder="Buscar cantor..." onkeyup="searchVocalists(this)">
+<div class="search-dropdown" id="vocalist-dropdown"></div>
+<input type="hidden" id="rep-vocalist">
+<div class="selected-items" id="selected-vocalists"></div>
+</div>
+</div>
+<div class="input-group"><label>Tom Principal</label><input type="text" id="rep-key" placeholder="Ex: G, Am"></div>
+<div class="input-group"><label>Letra *</label><textarea id="rep-lyrics" rows="5" placeholder="Letra importada aparecerá aqui..."></textarea></div>
+<button class="btn-primary" onclick="saveNewRepertoire()">Salvar</button>
+</div>
+</div>
+</div>
+<div id="drawer-medley-overlay" class="drawer-overlay" onclick="closeModals()"></div>
+<div id="drawer-medley" class="drawer-right">
+<div class="drawer-header">
+<div><h3>Criar Medley</h3><p>Selecione músicas e partes</p></div>
+<button class="close-btn" onclick="closeModals()">✕</button>
+</div>
+<div class="drawer-body">
+<div class="input-group"><label>Nome do Medley *</label><input type="text" id="medley-title" placeholder="Ex: Medley Adoração"></div>
+<div class="medley-creator-container">
+<div class="medley-column">
+<h4>Músicas</h4>
+<div id="medley-songs-list"></div>
+</div>
+<div class="medley-column">
+<h4>Partes</h4>
+<div id="medley-verses-selector"></div>
+</div>
+<div class="medley-column">
+<h4>Medley</h4>
+<div id="medley-preview"></div>
+</div>
+</div>
+</div>
+<div class="drawer-footer">
+<button class="btn-secondary" onclick="closeModals()">Cancelar</button>
+<button class="btn-primary" onclick="saveNewMedley()">Salvar</button>
+</div>
+</div>
+<div id="modal-view-repertoire" class="modal fullscreen-mobile">
+<div class="modal-content">
+<div class="modal-header">
+<h3 id="view-rep-title">Título</h3>
+<button class="close-btn" onclick="closeModals()">✕</button>
+</div>
+<div class="modal-body">
+<div class="vocalist-display" id="view-rep-vocalist"></div>
+<div class="keys-manager">
+<div id="view-rep-keys" class="keys-list"></div>
+<div class="add-key-box hidden" id="box-add-key">
+<input type="text" id="new-key-input" placeholder="Novo Tom">
+<button class="btn-secondary" onclick="addKeyToRepertoire()">+ Tom</button>
+</div>
+</div>
+<div id="medley-parts-display" class="hidden"></div>
+<div class="lyrics-display"><pre id="view-rep-lyrics"></pre></div>
+</div>
+</div>
+</div>
+<div id="modal-add-scale" class="modal fullscreen-mobile">
+<div class="modal-content">
+<div class="modal-header"><h3 id="scale-modal-title">Nova Escala</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
+<div class="modal-body">
+<input type="hidden" id="editing-scale-id">
+<div class="input-group"><label>Data *</label><input type="date" id="scale-date"></div>
+<div class="input-group"><label>Observações</label><input type="text" id="scale-notes" placeholder="Ex: Culto de Santa Ceia"></div>
+<hr class="divider">
+<h4>1. Escalar Equipe</h4>
+<div class="scale-builder-box">
+<div class="searchable-select-member">
+<input type="text" class="search-input" placeholder="Buscar membro..." onkeyup="searchMembersForScale(this)">
+<div class="search-dropdown" id="member-scale-dropdown"></div>
+<select id="scale-draft-role" style="margin-top:10px; width:100%; padding:10px; border-radius:8px;">
+<option value="lider">Líder</option>
+<option value="vocal">Vocal</option>
+<option value="baterista">Baterista</option>
+<option value="teclado">Teclado</option>
+<option value="violao">Violão</option>
+<option value="baixo">Baixo</option>
+</select>
+<button class="btn-primary" onclick="addMemberToScaleDraft()" style="margin-top:10px;">Adicionar</button>
+</div>
+<div id="scale-draft-team-list" class="team-list"></div>
+</div>
+<hr class="divider">
+<h4>2. Repertório <small style="font-weight:400; font-size:0.85rem;">(Selecione as músicas)</small></h4>
+<div class="search-box" style="margin-bottom:10px;">
+<span class="material-symbols-outlined">search</span>
+<input type="text" placeholder="Buscar música..." onkeyup="searchScaleSongs(this)">
+</div>
+<div id="scale-songs-selectors" class="scale-songs-box"></div>
+<button class="btn-primary" onclick="saveNewScale()" style="margin-top:20px; width:100%;">Salvar Escala</button>
+</div>
+</div>
+</div>
+<div id="modal-edit-member" class="modal">
+<div class="modal-content">
+<div class="modal-header"><h3>Editar Membro</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
+<div class="modal-body">
+<input type="hidden" id="edit-member-id">
+<div class="form-grid">
+<div class="input-group">
+<label>Nome Completo</label>
+<input type="text" id="edit-fullname">
+</div>
+<div class="input-group">
+<label>Email</label>
+<input type="email" id="edit-email">
+</div>
+<div class="input-group">
+<label>Telefone</label>
+<input type="tel" id="edit-phone">
+</div>
+<div class="input-group">
+<label>Função Principal</label>
+<select id="edit-role">
+<option value="vocal">Vocal</option>
+<option value="violao">Violão</option>
+<option value="baixo">Baixo</option>
+<option value="baterista">Baterista</option>
+<option value="teclado">Teclado</option>
+<option value="lider">Líder</option>
+<option value="midia">Mídia</option>
+</select>
+</div>
+<div class="checkbox-group full-width">
+<label class="checkbox-label">
+<input type="checkbox" id="edit-is-leader">
+<span class="checkmark"></span>
+É Líder do Ministério
+</label>
+</div>
+</div>
+<button class="btn-primary" onclick="saveEditMember()">Salvar Alterações</button>
+</div>
+</div>
+</div>
+<script src="app.js"></script>
 </body>
 </html>
