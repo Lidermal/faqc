@@ -28,29 +28,16 @@
 
     <main id="system-screen" class="screen hidden">
         
-        <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <img src="logo.png" alt="Logo" class="logo-small">
-                <span>Família Amor que Cura</span>
-                <button class="btn-close-sidebar" onclick="toggleSidebar()"><span class="material-symbols-outlined">close</span></button>
-            </div>
-            <nav class="sidebar-nav">
-                <button onclick="navigate('home')" class="nav-item active" id="nav-home"><span class="material-symbols-outlined">space_dashboard</span> <span>Início</span></button>
-                <button onclick="navigate('membros')" class="nav-item" id="nav-membros"><span class="material-symbols-outlined">group</span> <span>Membros</span></button>
-                <button onclick="navigate('escalas')" class="nav-item" id="nav-escalas"><span class="material-symbols-outlined">calendar_month</span> <span>Escalas</span></button>
-                <button onclick="navigate('repertorio')" class="nav-item" id="nav-repertorio"><span class="material-symbols-outlined">library_music</span> <span>Repertório</span></button>
-                <button onclick="navigate('admin')" class="nav-item hidden" id="nav-admin"><span class="material-symbols-outlined">admin_panel_settings</span> <span>Admin</span></button>
-            </nav>
-            <div class="sidebar-footer">
-                <button onclick="handleLogout()" class="btn-logout"><span class="material-symbols-outlined">logout</span> <span>Sair</span></button>
-            </div>
-        </aside>
-
         <div class="main-content">
             <header class="app-header">
-                <button class="btn-menu" id="desktop-menu-btn" onclick="toggleSidebar()"><span class="material-symbols-outlined">menu</span></button>
-                <div class="user-info"><span id="user-display-name"></span></div>
-                <button class="btn-logout-mobile" onclick="handleLogout()" title="Sair"><span class="material-symbols-outlined">logout</span></button>
+                <div class="header-brand">
+                    <img src="logo.png" alt="Logo" class="header-logo">
+                    <span>Amor que Cura</span>
+                </div>
+                <div class="header-right">
+                    <div class="user-info"><span id="user-display-name"></span></div>
+                    <button class="btn-logout-header" onclick="handleLogout()" title="Sair"><span class="material-symbols-outlined">logout</span></button>
+                </div>
             </header>
 
             <div class="content-area">
@@ -58,17 +45,25 @@
                 <section id="page-home" class="subpage active">
                     <div class="dashboard-grid">
                         <div class="card daily-message-card">
-                            <div class="card-header"><span class="material-symbols-outlined">menu_book</span><h3>Mensagem do Dia</h3></div>
-                            <div class="card-body" id="daily-message-content"><p class="loading-text">Carregando mensagem...</p></div>
+                            <div class="card-header">
+                                <span class="material-symbols-outlined">menu_book</span>
+                                <h3>Mensagem do Dia</h3>
+                            </div>
+                            <div class="card-body" id="daily-message-content">
+                                <p class="loading-text">Carregando mensagem...</p>
+                            </div>
                         </div>
 
                         <div class="card countdown-card">
-                            <div class="card-header"><span class="material-symbols-outlined">timer</span><h3>Próximo Culto</h3></div>
+                            <div class="card-header">
+                                <span class="material-symbols-outlined">timer</span>
+                                <h3>Próximo Culto</h3>
+                            </div>
                             <div class="card-body text-center">
-                                <h4 style="color:var(--text-muted); margin-bottom:10px;">Domingo às 18:30</h4>
+                                <h4 class="countdown-subtitle">Domingo às 18:30</h4>
                                 <div class="countdown" id="countdown-timer">00d 00h 00m 00s</div>
                                 <hr class="divider">
-                                <h4 style="margin-bottom:15px;">Equipe Escalada</h4>
+                                <h4 class="countdown-subtitle">Equipe Escalada</h4>
                                 <div id="next-scale-team"><p class="loading-text">Buscando escala...</p></div>
                             </div>
                         </div>
@@ -87,12 +82,12 @@
                 <section id="page-escalas" class="subpage">
                     <div class="page-header">
                         <h2>Escalas de Culto</h2>
-                        <button class="btn-primary hidden" id="btn-add-scale" onclick="openScaleModal()">+ Nova Escala</button>
+                        <button class="btn-primary hidden" id="btn-add-scale" onclick="openScaleModal()" style="width:auto; padding:10px 20px;">+ Nova Escala</button>
                     </div>
                     
                     <div class="scale-tabs">
                         <button class="tab-btn active" onclick="switchScaleTab('future')" id="tab-future">Próximos Cultos</button>
-                        <button class="tab-btn" onclick="switchScaleTab('past')" id="tab-past">Histórico (Arquivados)</button>
+                        <button class="tab-btn" onclick="switchScaleTab('past')" id="tab-past">Histórico</button>
                     </div>
 
                     <div id="scales-list-future" class="scales-grid"><p class="loading-text">Carregando...</p></div>
@@ -104,7 +99,7 @@
                         <h2>Repertório</h2>
                         <div class="header-actions" id="repertoire-actions">
                             <button class="btn-secondary" onclick="openMedleyModal()">+ Medley</button>
-                            <button class="btn-primary" onclick="openRepertoireModal()">+ Música</button>
+                            <button class="btn-primary" onclick="openRepertoireModal()" style="width:auto; padding:10px 20px;">+ Música</button>
                         </div>
                     </div>
                     <div class="repertoire-playlist" id="repertoire-list"><p class="loading-text">Carregando músicas...</p></div>
@@ -131,7 +126,30 @@
 
             </div>
         </div>
-        <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+        <!-- BOTTOM NAVIGATION - ESTILO INSTAGRAM -->
+        <nav class="bottom-nav" id="bottom-nav">
+            <button onclick="navigate('home')" class="bottom-nav-item active" id="nav-home">
+                <span class="material-symbols-outlined">space_dashboard</span>
+                <span>Início</span>
+            </button>
+            <button onclick="navigate('membros')" class="bottom-nav-item" id="nav-membros">
+                <span class="material-symbols-outlined">group</span>
+                <span>Membros</span>
+            </button>
+            <button onclick="navigate('escalas')" class="bottom-nav-item" id="nav-escalas">
+                <span class="material-symbols-outlined">calendar_month</span>
+                <span>Escalas</span>
+            </button>
+            <button onclick="navigate('repertorio')" class="bottom-nav-item" id="nav-repertorio">
+                <span class="material-symbols-outlined">library_music</span>
+                <span>Repertório</span>
+            </button>
+            <button onclick="navigate('admin')" class="bottom-nav-item hidden" id="nav-admin">
+                <span class="material-symbols-outlined">admin_panel_settings</span>
+                <span>Admin</span>
+            </button>
+        </nav>
     </main>
 
     <!-- ================= MODAIS ================= -->
@@ -160,18 +178,18 @@
             <div class="modal-header"><h3>Adicionar Música</h3><button class="close-btn" onclick="closeModals()">✕</button></div>
             <div class="modal-body">
                 <div class="search-music-box">
-                    <h4>🔍 Buscador Gospel Brasil</h4>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Busca músicas gospel brasileiras com letras completas.</p>
+                    <h4>🔍 Buscador Gospel Completo</h4>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Busque por artista, música, trecho da letra ou qualquer palavra. Funciona com YouTube, Vagalume, Letras.mus.br e mais.</p>
                     <div class="search-inputs">
-                        <input type="text" id="search-query" placeholder="Nome da música, cantor ou trecho da letra...">
-                        <button class="btn-secondary" onclick="searchMusicList()" id="btn-search-music">Buscar</button>
+                        <input type="text" id="search-query" placeholder="Ex: 'Ressuscita-me', 'Aline Barros', 'tudo posso naquele'...">
+                        <button class="btn-secondary" onclick="searchMusicList()" id="btn-search-music">🔍 Buscar</button>
                     </div>
                     <div id="search-results" class="search-results-list"></div>
                     <span id="search-msg" class="admin-message"></span>
                 </div>
                 <hr class="divider">
                 <div class="input-group"><label>Título Final no Sistema *</label><input type="text" id="rep-title" placeholder="Ex: Ressuscita-me - Aline Barros"></div>
-                <div class="input-group"><label>Voz / Cantor Principal</label><input type="text" id="rep-vocalist" placeholder="Ex: Ana Silva, João Santos (separe por vírgula se houver mais de um)"></div>
+                <div class="input-group"><label>Voz / Cantor Principal</label><input type="text" id="rep-vocalist" placeholder="Ex: Ana Silva, João Santos"></div>
                 <div class="input-group"><label>Tom Principal (opcional)</label><input type="text" id="rep-key" placeholder="Ex: G, Am"></div>
                 <div class="input-group"><label>Letra da Música *</label><textarea id="rep-lyrics" rows="5" placeholder="Letra importada aparecerá aqui..."></textarea></div>
                 <button class="btn-primary" onclick="saveNewRepertoire()">Salvar no Repertório</button>
@@ -231,7 +249,7 @@
             <button class="btn-secondary" onclick="closeModals()" style="flex:1;">Cancelar</button>
             <button class="btn-primary" onclick="saveNewMedley()" style="flex:2; margin-left:10px;">
                 <span class="material-symbols-outlined" style="vertical-align:middle; margin-right:6px; font-size:1.1rem;">save</span>
-                Salvar Medley no Repertório
+                Salvar Medley
             </button>
         </div>
     </div>
