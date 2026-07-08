@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Ministério de Louvor - Amor que Cura</title>
     <link rel="icon" type="image/png" href="logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -29,14 +29,22 @@
     <main id="system-screen" class="screen hidden">
         
         <div class="main-content">
+            <!-- HEADER MELHORADO PARA MOBILE E DESKTOP -->
             <header class="app-header">
                 <div class="header-brand">
                     <img src="logo.png" alt="Logo" class="header-logo">
-                    <span>Amor que Cura</span>
+                    <div class="header-text">
+                        <span class="header-title">Família Amor que Cura</span>
+                        <span class="header-subtitle">Ministério de Louvor</span>
+                    </div>
                 </div>
                 <div class="header-right">
-                    <div class="user-info"><span id="user-display-name"></span></div>
-                    <button class="btn-logout-header" onclick="handleLogout()" title="Sair"><span class="material-symbols-outlined">logout</span></button>
+                    <div class="user-info">
+                        <span id="user-display-name"></span>
+                    </div>
+                    <button class="btn-logout-header" onclick="handleLogout()" title="Sair">
+                        <span class="material-symbols-outlined">logout</span>
+                    </button>
                 </div>
             </header>
 
@@ -44,6 +52,7 @@
                 
                 <section id="page-home" class="subpage active">
                     <div class="dashboard-grid">
+                        <!-- Mensagem do Dia -->
                         <div class="card daily-message-card">
                             <div class="card-header">
                                 <span class="material-symbols-outlined">menu_book</span>
@@ -54,6 +63,7 @@
                             </div>
                         </div>
 
+                        <!-- Próximo Culto -->
                         <div class="card countdown-card">
                             <div class="card-header">
                                 <span class="material-symbols-outlined">timer</span>
@@ -64,18 +74,27 @@
                                 <div class="countdown" id="countdown-timer">00d 00h 00m 00s</div>
                                 <hr class="divider">
                                 <h4 class="countdown-subtitle">Equipe Escalada</h4>
-                                <div id="next-scale-team"><p class="loading-text">Buscando escala...</p></div>
+                                
+                                <!-- CAROUSEL DA EQUIPE -->
+                                <div class="team-carousel-container">
+                                    <div class="team-carousel" id="next-scale-team">
+                                        <p class="loading-text">Buscando escala...</p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </section>
 
                 <section id="page-membros" class="subpage">
-                    <div class="page-header"><h2>Equipe do Ministério</h2></div>
-                    <div class="team-lineup-card">
-                        <div class="lineup-field" id="members-lineup">
-                            <p class="loading-text" style="color:white;">Carregando equipe...</p>
-                        </div>
+                    <div class="page-header">
+                        <h2>Nossa Equipe</h2>
+                        <p class="page-subtitle">Conheça os membros do ministério</p>
+                    </div>
+                    
+                    <!-- GRID DE MEMBROS MODERNO -->
+                    <div class="members-grid-modern" id="members-lineup">
+                        <p class="loading-text">Carregando equipe...</p>
                     </div>
                 </section>
 
@@ -86,8 +105,14 @@
                     </div>
                     
                     <div class="scale-tabs">
-                        <button class="tab-btn active" onclick="switchScaleTab('future')" id="tab-future">Próximos Cultos</button>
-                        <button class="tab-btn" onclick="switchScaleTab('past')" id="tab-past">Histórico</button>
+                        <button class="tab-btn active" onclick="switchScaleTab('future')" id="tab-future">
+                            <span class="material-symbols-outlined">event</span>
+                            Próximos Cultos
+                        </button>
+                        <button class="tab-btn" onclick="switchScaleTab('past')" id="tab-past">
+                            <span class="material-symbols-outlined">folder</span>
+                            Histórico
+                        </button>
                     </div>
 
                     <div id="scales-list-future" class="scales-grid"><p class="loading-text">Carregando...</p></div>
@@ -127,7 +152,7 @@
             </div>
         </div>
 
-        <!-- BOTTOM NAVIGATION - ESTILO INSTAGRAM -->
+        <!-- BOTTOM NAVIGATION -->
         <nav class="bottom-nav" id="bottom-nav">
             <button onclick="navigate('home')" class="bottom-nav-item active" id="nav-home">
                 <span class="material-symbols-outlined">space_dashboard</span>
@@ -179,7 +204,7 @@
             <div class="modal-body">
                 <div class="search-music-box">
                     <h4>🔍 Buscador Gospel Completo</h4>
-                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Busque por artista, música, trecho da letra ou qualquer palavra. Funciona com YouTube, Vagalume, Letras.mus.br e mais.</p>
+                    <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:10px;">Busque por artista, música, trecho da letra. Busca em letras.mus.br, Vagalume, YouTube e mais.</p>
                     <div class="search-inputs">
                         <input type="text" id="search-query" placeholder="Ex: 'Ressuscita-me', 'Aline Barros', 'tudo posso naquele'...">
                         <button class="btn-secondary" onclick="searchMusicList()" id="btn-search-music">🔍 Buscar</button>
