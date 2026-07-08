@@ -128,12 +128,14 @@
                             <button class="btn-primary" onclick="openRepertoireModal()">+ Música</button>
                         </div>
                     </div>
+                    <div id="folders-list"></div>
                     <div class="repertoire-playlist" id="repertoire-list"><p class="loading-text">Carregando músicas...</p></div>
                 </section>
 
                 <section id="page-admin" class="subpage">
                     <div class="page-header">
                         <h2>Administração</h2>
+                        <p class="page-subtitle">Gerencie o ministério</p>
                     </div>
                     
                     <div class="admin-dashboard">
@@ -152,14 +154,6 @@
                             <h3>Gerenciar Membros</h3>
                             <p>Editar e remover membros</p>
                         </div>
-                        
-                        <div class="admin-card" onclick="showAdminSection('roles')">
-                            <div class="admin-card-icon">
-                                <span class="material-symbols-outlined">badge</span>
-                            </div>
-                            <h3>Funções</h3>
-                            <p>Gerenciar permissões</p>
-                        </div>
                     </div>
                     
                     <div id="admin-new-member" class="admin-section hidden">
@@ -168,7 +162,7 @@
                             <div class="form-grid">
                                 <div class="input-group">
                                     <label>Usuário de Acesso *</label>
-                                    <input type="text" id="new-username" placeholder="joao.silva">
+                                    <input type="text" id="new-username" placeholder="ex: joao.silva">
                                 </div>
                                 <div class="input-group">
                                     <label>Nome Completo *</label>
@@ -183,21 +177,21 @@
                                     <input type="tel" id="new-phone" placeholder="(00) 00000-0000">
                                 </div>
                                 <div class="input-group full-width">
-                                    <label>Função Principal</label>
+                                    <label>Função Principal (Instrumento/Vocal)</label>
                                     <select id="new-role">
                                         <option value="vocal">Vocal</option>
                                         <option value="violao">Violão</option>
                                         <option value="baixo">Baixo</option>
                                         <option value="baterista">Baterista</option>
                                         <option value="teclado">Teclado</option>
-                                        <option value="lider">Líder</option>
+                                        <option value="midia">Mídia</option>
                                     </select>
                                 </div>
                                 <div class="checkbox-group full-width">
                                     <label class="checkbox-label">
                                         <input type="checkbox" id="new-is-leader">
                                         <span class="checkmark"></span>
-                                        É Líder do Ministério
+                                        Dar cargo de Líder do Ministério
                                     </label>
                                 </div>
                             </div>
@@ -243,7 +237,6 @@
         </nav>
     </main>
 
-    <!-- MODAIS -->
     <div id="modal-alert" class="modal custom-alert-modal">
         <div class="modal-content alert-content">
             <h3 id="alert-title">Aviso</h3>
@@ -360,12 +353,12 @@
                         <input type="text" class="search-input" placeholder="Buscar membro..." onkeyup="searchMembersForScale(this)">
                         <div class="search-dropdown" id="member-scale-dropdown"></div>
                         <select id="scale-draft-role" style="margin-top:10px; width:100%; padding:10px; border-radius:8px;">
-                            <option value="lider">Líder</option>
                             <option value="vocal">Vocal</option>
                             <option value="baterista">Baterista</option>
                             <option value="teclado">Teclado</option>
                             <option value="violao">Violão</option>
                             <option value="baixo">Baixo</option>
+                            <option value="midia">Mídia</option>
                         </select>
                         <button class="btn-primary" onclick="addMemberToScaleDraft()" style="margin-top:10px;">Adicionar</button>
                     </div>
