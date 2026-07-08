@@ -20,7 +20,9 @@ body { background-color: var(--bg-color); color: var(--text-main); -webkit-tap-h
 .screen.active { display: flex; }
 .hidden { display: none !important; }
 
-/* LOGIN */
+/* ========================================== */
+/* LOGIN                                       */
+/* ========================================== */
 #login-screen { 
     background: linear-gradient(135deg, #f05a28 0%, #d94d1f 50%, #b8411a 100%);
     justify-content: center; 
@@ -50,7 +52,9 @@ body { background-color: var(--bg-color); color: var(--text-main); -webkit-tap-h
 .logo { width: 120px; margin-bottom: 1.5rem; }
 h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text-main); }
 
-/* INPUTS & BUTTONS */
+/* ========================================== */
+/* INPUTS & BUTTONS                            */
+/* ========================================== */
 .input-group { display: flex; flex-direction: column; text-align: left; margin-bottom: 1rem; }
 .input-group label { margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 600;}
 .input-group input, .input-group textarea, .input-group select { 
@@ -104,7 +108,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     border-color: var(--primary-color);
 }
 
-/* LAYOUT PRINCIPAL */
+/* ========================================== */
+/* LAYOUT PRINCIPAL                            */
+/* ========================================== */
 #system-screen { 
     flex-direction: column; 
     min-height: 100vh;
@@ -201,7 +207,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     background: rgba(214, 48, 49, 0.08);
 }
 
-/* BOTTOM NAVIGATION */
+/* ========================================== */
+/* BOTTOM NAVIGATION                           */
+/* ========================================== */
 .bottom-nav {
     position: fixed;
     bottom: 0;
@@ -261,7 +269,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     border-radius: 0 0 3px 3px;
 }
 
-/* CONTENT AREA */
+/* ========================================== */
+/* CONTENT AREA                                */
+/* ========================================== */
 .content-area { 
     flex: 1; 
     padding: 1.2rem; 
@@ -348,7 +358,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     font-style: italic;
 }
 
-/* CAROUSEL DA EQUIPE */
+/* ========================================== */
+/* CAROUSEL DA EQUIPE                          */
+/* ========================================== */
 .team-carousel-wrapper {
     position: relative;
     margin: 10px -10px -10px -10px;
@@ -507,7 +519,130 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     box-shadow: 0 2px 6px rgba(212, 165, 116, 0.4);
 }
 
-/* MEMBROS - SHOWCASE MODERNO */
+/* ========================================== */
+/* PERFIL DO USUÁRIO                           */
+/* ========================================== */
+.profile-card {
+    background: var(--surface-color);
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+
+.profile-header {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    padding: 2rem;
+    text-align: center;
+    color: white;
+}
+
+.profile-photo-wrapper {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1rem auto;
+}
+
+.profile-photo {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 4px solid white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.photo-placeholder-large {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    font-weight: 700;
+    border: 4px solid white;
+}
+
+.photo-upload-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 36px;
+    height: 36px;
+    background: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    transition: all 0.2s;
+}
+
+.photo-upload-btn:hover {
+    transform: scale(1.1);
+    background: var(--gold);
+}
+
+.photo-upload-btn .material-symbols-outlined {
+    color: var(--primary-color);
+    font-size: 1.2rem;
+}
+
+.profile-header h2 {
+    color: white;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.profile-username {
+    color: rgba(255,255,255,0.8);
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+}
+
+.profile-badges {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.badge-role {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.badge-role.leader {
+    background: linear-gradient(135deg, var(--gold), #b8935f);
+}
+
+.profile-body {
+    padding: 1.5rem;
+}
+
+.profile-section {
+    margin-bottom: 1.5rem;
+}
+
+.profile-section h3 {
+    font-size: 1.1rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+/* ========================================== */
+/* MEMBROS - SHOWCASE MODERNO                  */
+/* ========================================== */
 .members-showcase {
     padding: 10px 0;
 }
@@ -673,7 +808,112 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     font-size: 1rem;
 }
 
-/* ESCALAS */
+/* ========================================== */
+/* PASTAS DO REPERTÓRIO                        */
+/* ========================================== */
+#folders-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 1.5rem;
+    background: var(--surface-color);
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+}
+
+.folder-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: #faf7f2;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    width: 100%;
+}
+
+.folder-item:hover {
+    background: #fff9f3;
+    border-color: var(--primary-color);
+}
+
+.folder-item.active {
+    background: var(--primary-light);
+    border-color: var(--primary-color);
+}
+
+.folder-item .material-symbols-outlined {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+}
+
+.folder-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.folder-info span {
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.folder-info small {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.folder-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.folder-wrapper .folder-item {
+    flex: 1;
+}
+
+.btn-folder-delete {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.btn-folder-delete:hover {
+    background: rgba(214, 48, 49, 0.1);
+}
+
+.btn-create-folder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-create-folder:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(240, 90, 40, 0.3);
+}
+
+/* ========================================== */
+/* ESCALAS                                     */
+/* ========================================== */
 .scale-tabs { 
     display: flex; 
     gap: 10px; 
@@ -846,6 +1086,7 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     font-size: 1.1rem;
     color: white;
     flex-shrink: 0;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
 }
 
 .scale-team-member.role-lider .scale-team-icon {
@@ -854,10 +1095,6 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 
 .scale-team-member.role-vocal .scale-team-icon {
     background: linear-gradient(135deg, var(--secondary-color), #1e272e);
-}
-
-.scale-team-member.role-band .scale-team-icon {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
 }
 
 .scale-team-name {
@@ -934,7 +1171,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     font-style: italic;
 }
 
-/* REPERTÓRIO */
+/* ========================================== */
+/* REPERTÓRIO                                  */
+/* ========================================== */
 .repertoire-playlist { 
     background-color: var(--surface-color); 
     border-radius: 16px; 
@@ -1030,7 +1269,23 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     font-size: 0.9rem;
 }
 
-/* BUSCA DE MÚSICAS */
+.btn-edit-rep {
+    background: none;
+    border: none;
+    color: var(--danger);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.btn-edit-rep:hover {
+    background: rgba(214, 48, 49, 0.1);
+}
+
+/* ========================================== */
+/* BUSCA DE MÚSICAS                            */
+/* ========================================== */
 .search-music-box { 
     background: linear-gradient(135deg, #fff9f3, #faf7f2);
     padding: 1.2rem; 
@@ -1077,7 +1332,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     font-weight: 600;
 }
 
-/* SEARCHABLE SELECT */
+/* ========================================== */
+/* SEARCHABLE SELECT                           */
+/* ========================================== */
 .searchable-select {
     position: relative;
 }
@@ -1234,7 +1491,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     border-radius: 8px;
 }
 
-/* ADMIN */
+/* ========================================== */
+/* ADMIN                                       */
+/* ========================================== */
 .admin-dashboard {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -1425,7 +1684,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     background: #fff5f5;
 }
 
-/* MODAIS */
+/* ========================================== */
+/* MODAIS                                      */
+/* ========================================== */
 .modal { 
     display: none; 
     position: fixed; 
@@ -1700,7 +1961,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     to { transform: rotate(360deg); }
 }
 
-/* RESPONSIVO */
+/* ========================================== */
+/* RESPONSIVO                                  */
+/* ========================================== */
 @media (max-width: 1024px) {
     .drawer-right { width: 95%; }
     .medley-creator-container { grid-template-columns: 1fr; min-height: auto; }
@@ -1732,6 +1995,15 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
     
     .admin-dashboard {
         grid-template-columns: 1fr;
+    }
+    
+    .profile-header {
+        padding: 1.5rem;
+    }
+    
+    .profile-photo-wrapper {
+        width: 100px;
+        height: 100px;
     }
 }
 
