@@ -2,11 +2,7 @@
 const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos';
 
-const headers = { 
-    'apikey': SUPABASE_KEY, 
-    'Authorization': `Bearer ${SUPABASE_KEY}`, 
-    'Content-Type': 'application/json' 
-};
+const headers = { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' };
 
 // Variáveis globais
 let currentUserData = null;
@@ -165,15 +161,11 @@ function navigate(pageId) {
         page.classList.remove('hidden'); 
     });
     const targetPage = document.getElementById('page-' + pageId);
-    if(targetPage) {
-        targetPage.classList.add('active');
-    }
+    if(targetPage) targetPage.classList.add('active');
 
     document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
     const targetNav = document.getElementById('nav-' + pageId);
-    if(targetNav) {
-        targetNav.classList.add('active');
-    }
+    if(targetNav) targetNav.classList.add('active');
     
     if (pageId === 'home') loadDashboard();
     if (pageId === 'membros') loadMembers();
@@ -184,37 +176,23 @@ function navigate(pageId) {
 
 function closeModals() { 
     document.querySelectorAll('.modal').forEach(m => {
-        if(!m.classList.contains('custom-alert-modal')) {
-            m.classList.remove('active'); 
-        }
+        if(!m.classList.contains('custom-alert-modal')) m.classList.remove('active'); 
     });
-    
     // Fechar drawer
     document.getElementById('drawer-medley').classList.remove('active');
     document.getElementById('drawer-medley-overlay').classList.remove('active');
     
     const editingField = document.getElementById('editing-scale-id');
-    if(editingField) {
-        editingField.value = '';
-    }
+    if(editingField) editingField.value = '';
     const modalTitle = document.getElementById('scale-modal-title');
-    if(modalTitle) {
-        modalTitle.textContent = 'Nova Escala';
-    }
+    if(modalTitle) modalTitle.textContent = 'Nova Escala';
     resetMedleyFlow();
 }
 
-function toggleSidebar() {
-    const sidebar = document.getElementById('sidebar');
-    const overlay = document.getElementById('sidebar-overlay');
-    
-    if (window.innerWidth <= 768) {
-        // Lógica de toggle não afeta o sidebar de rodapé em dispositivos móveis
-    }
-} 
+function toggleSidebar() {} 
 
 // ==========================================
-// SUPABASE REALTIME
+// SUPABASE REALTIME - 100% AO VIVO
 // ==========================================
 function setupRealtimeSubscriptions() {
     if (!supabaseClient) {
@@ -227,12 +205,26 @@ function setupRealtimeSubscriptions() {
         const repChannel = supabaseClient
             .channel('repertoire-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire' }, (payload) => {
-                console.log('Mudança no repertório:', payload);
+                console.log('🔄 Mudança no repertório:', payload);
                 if(document.getElementById('page-repertorio').classList.contains('active')) {
                     loadRepertoire();
                 }
                 if(document.getElementById('drawer-medley').classList.contains('active')) {
                     loadMedleySongsList();
+                }
+                // Atualiza visualização aberta em tempo real
+                if(currentViewingRepertoireId && payload.new && payload.new.id == currentViewingRepertoireId) {
+                    openViewRepertoire(
+                        payload.new.id,
+                        payload.new.title,
+                        encodeURIComponent(payload.new.lyrics_text || ''),
+                        payload.new.is_medley,
+                        payload.new.vocalist
+                    );
+                }
+                // Atualiza lista de músicas nas escalas se modal aberto
+                if(document.getElementById('modal-add-scale').classList.contains('active')) {
+                    openScaleModalRefreshSongs();
                 }
             })
             .subscribe();
@@ -242,7 +234,7 @@ function setupRealtimeSubscriptions() {
         const scaleChannel = supabaseClient
             .channel('scale-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'scales' }, (payload) => {
-                console.log('Mudança nas escalas:', payload);
+                console.log('🔄 Mudança nas escalas:', payload);
                 if(document.getElementById('page-escalas').classList.contains('active')) {
                     loadScales();
                 }
@@ -253,11 +245,65 @@ function setupRealtimeSubscriptions() {
             .subscribe();
         realtimeChannels.push(scaleChannel);
 
+        // Canal para mudanças nos itens de escala
+        const scaleItemsChannel = supabaseClient
+            .channel('scale-items-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'scale_items' }, (payload) => {
+                console.log('🔄 Mudança em scale_items:', payload);
+                if(document.getElementById('page-escalas').classList.contains('active')) {
+                    loadScales();
+                }
+                if(document.getElementById('page-home').classList.contains('active')) {
+                    fetchNextScaleHome();
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(scaleItemsChannel);
+
+        // Canal para mudanças nas músicas das escalas
+        const scaleSongsChannel = supabaseClient
+            .channel('scale-songs-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'scale_songs' }, (payload) => {
+                console.log('🔄 Mudança em scale_songs:', payload);
+                if(document.getElementById('page-escalas').classList.contains('active')) {
+                    loadScales();
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(scaleSongsChannel);
+
         // Canal para mudanças nos membros
         const memberChannel = supabaseClient
             .channel('member-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
-                console.log('Mudança nos membros:', payload);
+                console.log('🔄 Mudança nos membros:', payload);
+                if(document.getElementById('page-membros').classList.contains('active')) {
+                    loadMembers();
+                }
+                if(document.getElementById('page-admin').classList.contains('active')) {
+                    loadAdminMembers();
+                }
+                if(document.getElementById('page-escalas').classList.contains('active')) {
+                    loadScales();
+                }
+                if(document.getElementById('page-home').classList.contains('active')) {
+                    fetchNextScaleHome();
+                }
+                // Atualiza nome do usuário logado se alterado
+                if(currentUserData && payload.new && payload.new.id == currentUserData.id) {
+                    currentUserData = payload.new;
+                    document.getElementById('user-display-name').textContent = currentUserData.full_name;
+                    localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(memberChannel);
+
+        // Canal para mudanças nos papéis dos membros
+        const memberRolesChannel = supabaseClient
+            .channel('member-roles-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'member_roles' }, (payload) => {
+                console.log('🔄 Mudança em member_roles:', payload);
                 if(document.getElementById('page-membros').classList.contains('active')) {
                     loadMembers();
                 }
@@ -266,16 +312,70 @@ function setupRealtimeSubscriptions() {
                 }
             })
             .subscribe();
-        realtimeChannels.push(memberChannel);
+        realtimeChannels.push(memberRolesChannel);
         
-        console.log('✅ Realtime subscriptions configuradas');
+        // Canal para mudanças nas chaves de tom
+        const keyChannel = supabaseClient
+            .channel('key-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire_keys' }, (payload) => {
+                console.log('🔄 Mudança nas chaves:', payload);
+                if(document.getElementById('modal-view-repertoire').classList.contains('active') && 
+                   payload.new && payload.new.repertoire_id == currentViewingRepertoireId) {
+                    loadKeysForRepertoire(currentViewingRepertoireId);
+                }
+                if(document.getElementById('page-repertorio').classList.contains('active')) {
+                    loadRepertoire();
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(keyChannel);
+        
+        // Canal para mudanças nas partes de medley
+        const medleyPartChannel = supabaseClient
+            .channel('medley-part-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire_medley_parts' }, (payload) => {
+                console.log('🔄 Mudança nas partes de medley:', payload);
+                if(document.getElementById('modal-view-repertoire').classList.contains('active')) {
+                    // Recarrega estrutura do medley
+                    const partsDisplay = document.getElementById('medley-parts-display');
+                    if(!partsDisplay.classList.contains('hidden')) {
+                        partsDisplay.innerHTML = 'Atualizando estrutura...';
+                        setTimeout(() => {
+                            const title = document.getElementById('view-rep-title').textContent;
+                            const lyrics = document.getElementById('view-rep-lyrics').textContent;
+                            openViewRepertoire(
+                                currentViewingRepertoireId,
+                                title,
+                                encodeURIComponent(lyrics),
+                                true
+                            );
+                        }, 500);
+                    }
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(medleyPartChannel);
+        
+        // Canal para mudanças nas mensagens diárias
+        const dailyMsgChannel = supabaseClient
+            .channel('daily-message-changes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'daily_message' }, (payload) => {
+                console.log('🔄 Mudança na mensagem do dia:', payload);
+                if(document.getElementById('page-home').classList.contains('active')) {
+                    fetchDailyMessage();
+                }
+            })
+            .subscribe();
+        realtimeChannels.push(dailyMsgChannel);
+        
+        console.log('✅ Realtime subscriptions configuradas (100% ao vivo)');
     } catch (e) {
         console.error('❌ Erro ao configurar realtime:', e);
     }
 }
 
 // ==========================================
-// INÍCIO (Relógio para 18:30)
+// INÍCIO (Dashboard)
 // ==========================================
 function loadDashboard() { 
     startCountdown(); 
@@ -285,7 +385,6 @@ function loadDashboard() {
 
 function startCountdown() {
     clearInterval(countdownInterval);
-    
     function updateTimer() {
         const now = new Date(); 
         const target = new Date();
@@ -303,171 +402,386 @@ function startCountdown() {
         const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)); 
         const s = Math.floor((diff % (1000 * 60)) / 1000);
-        
         document.getElementById('countdown-timer').textContent = `${String(d).padStart(2, '0')}d ${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
     }
-    
     updateTimer(); 
     countdownInterval = setInterval(updateTimer, 1000);
 }
 
-// Lista de 31 versículos (um para cada dia do mês) para não repetir
-const worshipVerses = [
-    { text: "Cantem ao Senhor um novo cântico; cantem ao Senhor, toda a terra!", ref: "Salmos 96:1" },
-    { text: "Adorem o Senhor na beleza da sua santidade; tremam diante dele, todos os habitantes da terra.", ref: "Salmos 96:9" },
-    { text: "Tudo o que tem vida louve o Senhor! Aleluia!", ref: "Salmos 150:6" },
-    { text: "Os verdadeiros adoradores adorarão o Pai em espírito e em verdade.", ref: "João 4:23" },
-    { text: "Rendam graças ao Senhor, pois ele é bom; o seu amor dura para sempre.", ref: "1 Crônicas 16:34" },
-    { text: "Bendirei o Senhor o tempo todo! Os meus lábios sempre o louvarão.", ref: "Salmos 34:1" },
-    { text: "Cantarei ao Senhor toda a minha vida; louvarei ao meu Deus enquanto eu viver.", ref: "Salmos 104:33" },
-    { text: "Porque dele e por ele, e para ele, são todas as coisas; glória, pois, a ele eternamente. Amém.", ref: "Romanos 11:36" },
-    { text: "Habite ricamente em vocês a palavra de Cristo... cantando salmos, hinos e cânticos espirituais com gratidão a Deus.", ref: "Colossenses 3:16" },
-    { text: "Louvai ao Senhor. Louvai a Deus no seu santuário; louvai-o no firmamento do seu poder.", ref: "Salmos 150:1" },
-    { text: "Alegrem-se no Senhor, justos, e louvem o seu santo nome.", ref: "Salmos 97:12" },
-    { text: "Deem ao Senhor a glória devida ao seu nome; adorem o Senhor no esplendor da sua santidade.", ref: "Salmos 29:2" },
-    { text: "Tu és digno, Senhor e Deus nosso, de receber a glória, a honra e o poder...", ref: "Apocalipse 4:11" },
-    { text: "Por meio de Jesus, portanto, ofereçamos continuamente a Deus um sacrifício de louvor.", ref: "Hebreus 13:15" },
-    { text: "Bom é render graças ao Senhor e cantar louvores ao teu nome, ó Altíssimo.", ref: "Salmos 92:1" },
-    { text: "Exaltem o Senhor, o nosso Deus, prostre-se diante do estrado de seus pés. Ele é santo!", ref: "Salmos 99:5" },
-    { text: "Entrem por suas portas com ações de graças, e em seus átrios, com louvor.", ref: "Salmos 100:4" },
-    { text: "Cantem para Deus, louvem o seu nome, exaltem aquele que cavalga sobre as nuvens...", ref: "Salmos 68:4" },
-    { text: "A minha boca falará o louvor do Senhor, e toda a carne louvará o seu santo nome.", ref: "Salmos 145:21" },
-    { text: "Cantai-lhe um cântico novo; tocai bem e com júbilo.", ref: "Salmos 33:3" },
-    { text: "Engrandecei ao Senhor comigo; e juntos exaltemos o seu nome.", ref: "Salmos 34:3" },
-    { text: "Elevo os meus olhos para os montes: de onde me virá o socorro? O meu socorro vem do Senhor.", ref: "Salmos 121:1-2" },
-    { text: "Que a paz de Cristo seja o juiz em seus corações... E sejam agradecidos.", ref: "Colossenses 3:15" },
-    { text: "Falando entre vós em salmos, e hinos, e cânticos espirituais; cantando e salmodiando ao Senhor...", ref: "Efésios 5:19" },
-    { text: "A ti, ó Deus dos meus pais, eu rendo graças e te louvo...", ref: "Daniel 2:23" },
-    { text: "Proclamem a sua glória entre as nações, seus maravilhosos feitos entre todos os povos.", ref: "Salmos 96:3" },
-    { text: "Cantem ao Senhor, bendigam o seu nome; cada dia proclamem a sua salvação!", ref: "Salmos 96:2" },
-    { text: "Louvem o nome do Senhor, pois só o seu nome é exaltado; a sua majestade está acima da terra e dos céus.", ref: "Salmos 148:13" },
-    { text: "Ele pôs em minha boca um cântico novo, um hino de louvor ao nosso Deus.", ref: "Salmos 40:3" },
-    { text: "O Senhor é a minha força e o meu escudo; nele o meu coração confia...", ref: "Salmos 28:7" },
-    { text: "Todo o meu ser louve o Senhor; louvarei o seu santo nome de todo o meu coração.", ref: "Salmos 103:1" }
+// ==========================================
+// MENSAGEM DO DIA - VERSÍCULOS BÍBLICOS DIÁRIOS
+// ==========================================
+const bibleVersesPool = [
+    { text: "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.", ref: "João 3:16" },
+    { text: "O Senhor é o meu pastor; nada me faltará.", ref: "Salmos 23:1" },
+    { text: "Porque eu bem sei os pensamentos que penso de vós, diz o Senhor; pensamentos de paz, e não de mal, para vos dar o fim que esperais.", ref: "Jeremias 29:11" },
+    { text: "Tudo posso naquele que me fortalece.", ref: "Filipenses 4:13" },
+    { text: "Lançai sobre ele toda a vossa ansiedade, porque ele tem cuidado de vós.", ref: "1 Pedro 5:7" },
+    { text: "Mas os que esperam no Senhor renovarão as suas forças; subirão com asas como águias; correrão, e não se cansarão; caminharão, e não se fatigarão.", ref: "Isaías 40:31" },
+    { text: "Confia no Senhor de todo o teu coração, e não te estribes no teu próprio entendimento.", ref: "Provérbios 3:5" },
+    { text: "Deleita-te também no Senhor, e te concederá os desejos do teu coração.", ref: "Salmos 37:4" },
+    { text: "Não temas, porque eu sou contigo; não te assombres, porque eu sou teu Deus; eu te esforço, e te ajudo, e te sustento com a destra da minha justiça.", ref: "Isaías 41:10" },
+    { text: "Bem-aventurado o homem que acha sabedoria, e o homem que adquire conhecimento.", ref: "Provérbios 3:13" },
+    { text: "O Senhor é a minha luz e a minha salvação; a quem temerei? O Senhor é a força da minha vida; de quem me recearei?", ref: "Salmos 27:1" },
+    { text: "Em paz também me deitarei e dormirei, porque só tu, Senhor, me fazes habitar em segurança.", ref: "Salmos 4:8" },
+    { text: "Eu sou o caminho, e a verdade e a vida; ninguém vem ao Pai, senão por mim.", ref: "João 14:6" },
+    { text: "Vinde a mim, todos os que estais cansados e oprimidos, e eu vos aliviarei.", ref: "Mateus 11:28" },
+    { text: "Porque onde estiverem dois ou três reunidos em meu nome, aí estou eu no meio deles.", ref: "Mateus 18:20" },
+    { text: "E conhecereis a verdade, e a verdade vos libertará.", ref: "João 8:32" },
+    { text: "Porque o salário do pecado é a morte, mas o dom gratuito de Deus é a vida eterna, por Cristo Jesus nosso Senhor.", ref: "Romanos 6:23" },
+    { text: "Mas Deus prova o seu amor para conosco, em que Cristo morreu por nós, sendo nós ainda pecadores.", ref: "Romanos 5:8" },
+    { text: "Se confessarmos os nossos pecados, ele é fiel e justo para nos perdoar os pecados, e nos purificar de toda a injustiça.", ref: "1 João 1:9" },
+    { text: "Tudo tem o seu tempo determinado, e há tempo para todo o propósito debaixo do céu.", ref: "Eclesiastes 3:1" },
+    { text: "Alegrai-vos sempre no Senhor; outra vez digo, alegrai-vos.", ref: "Filipenses 4:4" },
+    { text: "Não se aparte da tua boca a palavra desta lei; antes medita nela dia e noite, para que tenhas cuidado de fazer conforme a tudo quanto nela está escrito.", ref: "Josué 1:8" },
+    { text: "Sede fortes e corajosos; não temais, nem vos espanteis diante deles, porque o Senhor vosso Deus é quem vai convosco.", ref: "Deuteronômio 31:6" },
+    { text: "O nome do Senhor é torre forte; o justo corre para ela, e está seguro.", ref: "Provérbios 18:10" },
+    { text: "Entrega o teu caminho ao Senhor; confia nele, e ele tudo fará.", ref: "Salmos 37:5" },
+    { text: "Clama a mim, e responder-te-ei, e anunciar-te-ei coisas grandes e firmes, que não sabes.", ref: "Jeremias 33:3" },
+    { text: "Porque os meus pensamentos não são os vossos pensamentos, nem os vossos caminhos os meus caminhos, diz o Senhor.", ref: "Isaías 55:8" },
+    { text: "Bem-aventurados os puros de coração, porque eles verão a Deus.", ref: "Mateus 5:8" },
+    { text: "Vós sois a luz do mundo; não se pode esconder uma cidade edificada sobre um monte.", ref: "Mateus 5:14" },
+    { text: "Buscai primeiro o reino de Deus, e a sua justiça, e todas estas coisas vos serão acrescentadas.", ref: "Mateus 6:33" },
+    { text: "E tudo quanto fizerdes, fazei-o de todo o coração, como ao Senhor, e não aos homens.", ref: "Colossenses 3:23" },
+    { text: "Porque pela graça sois salvos, por meio da fé; e isto não vem de vós, é dom de Deus.", ref: "Efésios 2:8" },
+    { text: "Posso todas as coisas naquele que me fortalece.", ref: "Filipenses 4:13" },
+    { text: "Mas buscai primeiro o seu reino e a sua justiça, e todas estas coisas vos serão acrescentadas.", ref: "Mateus 6:33" },
+    { text: "Ora, a fé é o firme fundamento das coisas que se esperam, e a prova das coisas que se não vêem.", ref: "Hebreus 11:1" },
+    { text: "Porque Deus não nos deu o espírito de temor, mas de fortaleza, e de amor, e de moderação.", ref: "2 Timóteo 1:7" },
+    { text: "Amai-vos cordialmente uns aos outros com amor fraternal, preferindo-vos em honra uns aos outros.", ref: "Romanos 12:10" },
+    { text: "Porque onde está o teu tesouro, aí estará também o teu coração.", ref: "Mateus 6:21" },
+    { text: "E não vos conformeis com este mundo, mas transformai-vos pela renovação do vosso entendimento.", ref: "Romanos 12:2" },
+    { text: "A tua palavra é lâmpada para os meus pés e luz para o meu caminho.", ref: "Salmos 119:105" },
+    { text: "Esforcei-me, e avancei, e combati o bom combate, e acabei a carreira, e guardei a fé.", ref: "2 Timóteo 4:7" },
+    { text: "Mas o fruto do Espírito é: amor, gozo, paz, longanimidade, benignidade, bondade, fé, mansidão, temperança.", ref: "Gálatas 5:22" },
+    { text: "Porque onde estiver o vosso tesouro, aí estará também o vosso coração.", ref: "Lucas 12:34" },
+    { text: "Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.", ref: "Salmos 46:1" },
+    { text: "Os céus declaram a glória de Deus e o firmamento anuncia a obra das suas mãos.", ref: "Salmos 19:1" },
+    { text: "Bem-aventurados os que têm fome e sede de justiça, porque eles serão fartos.", ref: "Mateus 5:6" },
+    { text: "E eis que eu estou convosco todos os dias, até a consumação dos séculos.", ref: "Mateus 28:20" },
+    { text: "Porque eu, o Senhor teu Deus, te tomo pela tua mão direita, e te digo: Não temas, eu te ajudo.", ref: "Isaías 41:13" },
+    { text: "Alegrem-se sempre os que buscam a tua proteção; exultem para sempre aqueles que amam a tua salvação.", ref: "Salmos 70:4" },
+    { text: "O Senhor está perto dos que têm o coração quebrantado e salva os de espírito abatido.", ref: "Salmos 34:18" },
+    { text: "Não to mandei eu? Esforça-te, e tem bom ânimo; não temas, nem te espantes.", ref: "Josué 1:9" },
+    { text: "Porque nada temos trazido para este mundo, e manifesto é que nada podemos levar dele.", ref: "1 Timóteo 6:7" },
+    { text: "O coração alegre é bom remédio, mas o espírito abatido faz secar os ossos.", ref: "Provérbios 17:22" },
+    { text: "Ensina-nos a contar os nossos dias, de tal maneira que alcancemos coração sábio.", ref: "Salmos 90:12" },
+    { text: "Deus é amor; e quem está em amor está em Deus, e Deus nele.", ref: "1 João 4:16" },
+    { text: "Se Deus é por nós, quem será contra nós?", ref: "Romanos 8:31" },
+    { text: "Porque a palavra de Deus é viva e eficaz, e mais penetrante do que espada alguma de dois gumes.", ref: "Hebreus 4:12" },
+    { text: "Graças ao Senhor, porque é bom; porque a sua benignidade dura para sempre.", ref: "Salmos 107:1" },
+    { text: "O Senhor pelejará por vós, e vos calareis.", ref: "Êxodo 14:14" },
+    { text: "Porque o Senhor dá a sabedoria; da sua boca vem o conhecimento e o entendimento.", ref: "Provérbios 2:6" },
+    { text: "O céu e a terra passarão, mas as minhas palavras não hão de passar.", ref: "Mateus 24:35" },
+    { text: "Bem-aventurados os misericordiosos, porque eles alcançarão misericórdia.", ref: "Mateus 5:7" },
+    { text: "Porque eu sou o Senhor, teu Deus, que te segura pela tua mão direita e te diz: Não temas, eu te ajudo.", ref: "Isaías 41:13" },
+    { text: "A misericórdia do Senhor é de eternidade a eternidade sobre os que o temem.", ref: "Salmos 103:17" },
+    { text: "O temor do Senhor é o princípio da sabedoria, e o conhecimento do Santo o entendimento.", ref: "Provérbios 9:10" },
+    { text: "Bem-aventurados os pacificadores, porque eles serão chamados filhos de Deus.", ref: "Mateus 5:9" },
+    { text: "Porque o Senhor conhece o caminho dos justos; porém o caminho dos ímpios perecerá.", ref: "Salmos 1:6" },
+    { text: "A minha graça te basta, porque o meu poder se aperfeiçoa na fraqueza.", ref: "2 Coríntios 12:9" },
+    { text: "E a paz de Deus, que excede todo o entendimento, guardará os vossos corações e os vossos sentimentos em Cristo Jesus.", ref: "Filipenses 4:7" },
+    { text: "Não se turbe o vosso coração; credes em Deus, crede também em mim.", ref: "João 14:1" },
+    { text: "E tudo o que fizerdes, fazei-o de todo o coração, como ao Senhor, e não aos homens.", ref: "Colossenses 3:23" },
+    { text: "Mas em todas estas coisas somos mais do que vencedores, por aquele que nos amou.", ref: "Romanos 8:37" },
+    { text: "O Senhor te abençoe e te guarde; o Senhor faça resplandecer o seu rosto sobre ti, e tenha misericórdia de ti.", ref: "Números 6:24-25" },
+    { text: "Os que semeiam em lágrimas segarão com alegria.", ref: "Salmos 126:5" },
+    { text: "Porque o Senhor corrige a quem ama, assim como o pai ao filho a quem quer bem.", ref: "Provérbios 3:12" },
+    { text: "Dá-me entendimento, e guardarei a tua lei e observá-la-ei de todo o coração.", ref: "Salmos 119:34" },
+    { text: "A tua palavra escondi no meu coração, para eu não pecar contra ti.", ref: "Salmos 119:11" },
+    { text: "Bem-aventurados os que choram, porque eles serão consolados.", ref: "Mateus 5:4" },
+    { text: "Não vos sobreveio tentação, senão humana; mas fiel é Deus, que não vos deixará tentar acima do que podeis.", ref: "1 Coríntios 10:13" },
+    { text: "Mas Deus, que é riquíssimo em misericórdia, pelo seu muito amor com que nos amou.", ref: "Efésios 2:4" },
+    { text: "Alegrai-vos na esperança, sede pacientes na tribulação, perseverai na oração.", ref: "Romanos 12:12" },
+    { text: "Porque o Senhor é quem dá a sabedoria; da sua boca vem o conhecimento e o entendimento.", ref: "Provérbios 2:6" },
+    { text: "Eu te louvarei, porque de um modo assombrosamente tão maravilhoso fui feito.", ref: "Salmos 139:14" },
+    { text: "Bendize, ó minha alma, ao Senhor, e tudo o que há em mim bendiga o seu santo nome.", ref: "Salmos 103:1" },
+    { text: "O Senhor é bom, ele serve de fortaleza no dia da angústia, e conhece os que confiam nele.", ref: "Naum 1:7" },
+    { text: "Porque eu, o Senhor teu Deus, te tomo pela tua mão direita e te digo: Não temas, eu te ajudo.", ref: "Isaías 41:13" },
+    { text: "Bem-aventurados os perseguidos por causa da justiça, porque deles é o reino dos céus.", ref: "Mateus 5:10" },
+    { text: "Mas o fruto do Espírito é amor, alegria, paz, paciência, amabilidade, bondade, fidelidade, mansidão e domínio próprio.", ref: "Gálatas 5:22-23" },
+    { text: "Porque Deus não é Deus de confusão, senão de paz.", ref: "1 Coríntios 14:33" },
+    { text: "O Senhor é grande e muito digno de louvor na cidade do nosso Deus.", ref: "Salmos 48:1" },
+    { text: "Perto está o Senhor dos que têm o coração quebrantado, e salva os contritos de espírito.", ref: "Salmos 34:18" },
+    { text: "Porque eu sou o Senhor teu Deus, que te toma pela mão direita e te diz: Não temas, eu te ajudo.", ref: "Isaías 41:13" },
+    { text: "Alegrai-vos sempre no Senhor; outra vez digo, alegrai-vos.", ref: "Filipenses 4:4" },
+    { text: "O Senhor te abençoará e te guardará.", ref: "Números 6:24" },
+    { text: "Porque eu bem sei os pensamentos que tenho a vosso respeito, pensamentos de paz, e não de mal, para vos dar o fim que esperais.", ref: "Jeremias 29:11" },
+    { text: "Bem-aventurado o homem que sofre a tentação; porque, quando for provado, receberá a coroa da vida.", ref: "Tiago 1:12" },
+    { text: "Porque não me envergonho do evangelho de Cristo, pois é o poder de Deus para salvação de todo aquele que crê.", ref: "Romanos 1:16" },
+    { text: "A tua palavra é muito pura; portanto, o teu servo a ama.", ref: "Salmos 119:140" },
+    { text: "O Senhor é o meu rochedo, e o meu lugar forte, e o meu libertador.", ref: "Salmos 18:2" },
+    { text: "Porque nada trouxemos para este mundo, e manifesto é que nada podemos levar dele.", ref: "1 Timóteo 6:7" },
+    { text: "O Senhor é bom para todos, e as suas misericórdias são sobre todas as suas obras.", ref: "Salmos 145:9" },
+    { text: "Bem-aventurados os limpos de coração, porque eles verão a Deus.", ref: "Mateus 5:8" },
+    { text: "O Senhor te abençoará e te guardará; o Senhor fará resplandecer o seu rosto sobre ti.", ref: "Números 6:24-25" },
+    { text: "Porque o Senhor é justo, e ama a justiça; os seus olhos amam os retos.", ref: "Salmos 11:7" },
+    { text: "E a paz de Deus, que excede todo o entendimento, guardará os vossos corações.", ref: "Filipenses 4:7" },
+    { text: "O Senhor te abençoará e te guardará.", ref: "Números 6:24" },
+    { text: "Porque eu estou bem certo de que nem a morte, nem a vida, nem anjos, nem principados, nem potestades, nem o presente, nem o porvir, nem a altura, nem a profundidade, nem alguma outra criatura nos poderá separar do amor de Deus, que está em Cristo Jesus nosso Senhor.", ref: "Romanos 8:38-39" },
+    { text: "Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.", ref: "Salmos 46:1" },
+    { text: "Porque eu te hei de fortalecer, e te ajudarei, e te sustentarei com a destra da minha justiça.", ref: "Isaías 41:10" },
+    { text: "Mas os que esperam no Senhor renovarão as suas forças.", ref: "Isaías 40:31" },
+    { text: "Alegrai-vos sempre no Senhor; outra vez digo, alegrai-vos.", ref: "Filipenses 4:4" },
+    { text: "O Senhor é a minha rocha, e o meu lugar forte, e o meu libertador; o meu Deus, a minha fortaleza.", ref: "Salmos 18:2" },
+    { text: "Bem-aventurado o homem que encontra sabedoria, e o homem que adquire conhecimento.", ref: "Provérbios 3:13" },
+    { text: "Porque o Senhor dá a sabedoria, da sua boca vem o conhecimento e o entendimento.", ref: "Provérbios 2:6" },
+    { text: "Deleita-te também no Senhor, e te concederá os desejos do teu coração.", ref: "Salmos 37:4" },
+    { text: "Confia no Senhor de todo o teu coração, e não te estribes no teu próprio entendimento.", ref: "Provérbios 3:5" },
+    { text: "Não to mandei eu? Esforça-te e tem bom ânimo; não temas, nem te espantes.", ref: "Josué 1:9" },
+    { text: "Porque eu, o Senhor teu Deus, te tomo pela tua mão direita e te digo: Não temas, eu te ajudo.", ref: "Isaías 41:13" },
+    { text: "Porque Deus não nos deu o espírito de temor, mas de fortaleza, e de amor, e de moderação.", ref: "2 Timóteo 1:7" },
+    { text: "Tudo posso naquele que me fortalece.", ref: "Filipenses 4:13" },
+    { text: "O Senhor pelejará por vós, e vos calareis.", ref: "Êxodo 14:14" },
+    { text: "Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.", ref: "Salmos 46:1" },
+    { text: "Porque eu bem sei os pensamentos que tenho a vosso respeito, diz o Senhor; pensamentos de paz, e não de mal, para vos dar o fim que esperais.", ref: "Jeremias 29:11" },
+    { text: "O Senhor é a minha luz e a minha salvação; a quem temerei?", ref: "Salmos 27:1" },
+    { text: "Alegrai-vos sempre no Senhor; outra vez digo, alegrai-vos.", ref: "Filipenses 4:4" },
+    { text: "Porque pela graça sois salvos, por meio da fé; e isto não vem de vós, é dom de Deus.", ref: "Efésios 2:8" },
+    { text: "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito.", ref: "João 3:16" },
+    { text: "O Senhor é o meu pastor; nada me faltará.", ref: "Salmos 23:1" },
+    { text: "Entrega o teu caminho ao Senhor; confia nele, e ele tudo fará.", ref: "Salmos 37:5" },
+    { text: "Não se turbe o vosso coração; credes em Deus, crede também em mim.", ref: "João 14:1" },
+    { text: "Vinde a mim, todos os que estais cansados e oprimidos, e eu vos aliviarei.", ref: "Mateus 11:28" },
+    { text: "Porque onde estiverem dois ou três reunidos em meu nome, aí estou eu no meio deles.", ref: "Mateus 18:20" },
+    { text: "E eis que eu estou convosco todos os dias, até a consumação dos séculos.", ref: "Mateus 28:20" },
+    { text: "Porque o salário do pecado é a morte, mas o dom gratuito de Deus é a vida eterna, por Cristo Jesus nosso Senhor.", ref: "Romanos 6:23" },
+    { text: "Mas Deus prova o seu amor para conosco, em que Cristo morreu por nós, sendo nós ainda pecadores.", ref: "Romanos 5:8" },
+    { text: "Se confessarmos os nossos pecados, ele é fiel e justo para nos perdoar os pecados.", ref: "1 João 1:9" },
+    { text: "Sede fortes e corajosos; não temais.", ref: "Deuteronômio 31:6" },
+    { text: "O nome do Senhor é torre forte; o justo corre para ela, e está seguro.", ref: "Provérbios 18:10" },
+    { text: "Clama a mim, e responder-te-ei.", ref: "Jeremias 33:3" },
+    { text: "A tua palavra é lâmpada para os meus pés e luz para o meu caminho.", ref: "Salmos 119:105" },
+    { text: "Bem-aventurados os que têm fome e sede de justiça, porque eles serão fartos.", ref: "Mateus 5:6" },
+    { text: "Buscai primeiro o reino de Deus, e a sua justiça, e todas estas coisas vos serão acrescentadas.", ref: "Mateus 6:33" },
+    { text: "E tudo quanto fizerdes, fazei-o de todo o coração, como ao Senhor, e não aos homens.", ref: "Colossenses 3:23" },
+    { text: "Ora, a fé é o firme fundamento das coisas que se esperam, e a prova das coisas que se não vêem.", ref: "Hebreus 11:1" },
+    { text: "Porque Deus não nos deu o espírito de temor, mas de fortaleza, e de amor, e de moderação.", ref: "2 Timóteo 1:7" },
+    { text: "Amai-vos cordialmente uns aos outros com amor fraternal.", ref: "Romanos 12:10" },
+    { text: "E não vos conformeis com este mundo, mas transformai-vos pela renovação do vosso entendimento.", ref: "Romanos 12:2" },
+    { text: "A minha graça te basta, porque o meu poder se aperfeiçoa na fraqueza.", ref: "2 Coríntios 12:9" },
+    { text: "E a paz de Deus, que excede todo o entendimento, guardará os vossos corações.", ref: "Filipenses 4:7" },
+    { text: "Mas em todas estas coisas somos mais do que vencedores, por aquele que nos amou.", ref: "Romanos 8:37" },
+    { text: "Os que semeiam em lágrimas segarão com alegria.", ref: "Salmos 126:5" },
+    { text: "Alegrai-vos sempre no Senhor; outra vez digo, alegrai-vos.", ref: "Filipenses 4:4" },
+    { text: "Porque eu estou bem certo de que nem a morte, nem a vida nos poderá separar do amor de Deus.", ref: "Romanos 8:38-39" },
+    { text: "Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.", ref: "Salmos 46:1" },
+    { text: "O Senhor te abençoará e te guardará.", ref: "Números 6:24" },
+    { text: "Bem-aventurado o homem que acha sabedoria.", ref: "Provérbios 3:13" },
+    { text: "O céu e a terra passarão, mas as minhas palavras não hão de passar.", ref: "Mateus 24:35" },
+    { text: "Bem-aventurados os misericordiosos, porque eles alcançarão misericórdia.", ref: "Mateus 5:7" },
+    { text: "Graças ao Senhor, porque é bom; porque a sua benignidade dura para sempre.", ref: "Salmos 107:1" },
+    { text: "Porque o Senhor dá a sabedoria; da sua boca vem o conhecimento e o entendimento.", ref: "Provérbios 2:6" },
+    { text: "O Senhor é bom para todos, e as suas misericórdias são sobre todas as suas obras.", ref: "Salmos 145:9" },
+    { text: "Bem-aventurados os limpos de coração, porque eles verão a Deus.", ref: "Mateus 5:8" },
+    { text: "Porque eu te hei de fortalecer, e te ajudarei.", ref: "Isaías 41:10" },
+    { text: "Mas os que esperam no Senhor renovarão as suas forças.", ref: "Isaías 40:31" },
+    { text: "Alegrai-vos sempre no Senhor.", ref: "Filipenses 4:4" },
+    { text: "O Senhor é a minha rocha, e o meu lugar forte.", ref: "Salmos 18:2" },
+    { text: "Deleita-te também no Senhor, e te concederá os desejos do teu coração.", ref: "Salmos 37:4" },
+    { text: "Confia no Senhor de todo o teu coração.", ref: "Provérbios 3:5" },
+    { text: "Esforça-te e tem bom ânimo; não temas.", ref: "Josué 1:9" },
+    { text: "Não temas, eu te ajudo.", ref: "Isaías 41:13" },
+    { text: "Porque Deus não nos deu o espírito de temor.", ref: "2 Timóteo 1:7" },
+    { text: "Tudo posso naquele que me fortalece.", ref: "Filipenses 4:13" },
+    { text: "O Senhor pelejará por vós.", ref: "Êxodo 14:14" },
+    { text: "Deus é o nosso refúgio e fortaleza.", ref: "Salmos 46:1" },
+    { text: "Porque eu bem sei os pensamentos que tenho a vosso respeito.", ref: "Jeremias 29:11" },
+    { text: "O Senhor é a minha luz e a minha salvação.", ref: "Salmos 27:1" },
+    { text: "Alegrai-vos sempre no Senhor.", ref: "Filipenses 4:4" },
+    { text: "Porque pela graça sois salvos, por meio da fé.", ref: "Efésios 2:8" },
+    { text: "Porque Deus amou o mundo de tal maneira.", ref: "João 3:16" },
+    { text: "O Senhor é o meu pastor; nada me faltará.", ref: "Salmos 23:1" },
+    { text: "Entrega o teu caminho ao Senhor.", ref: "Salmos 37:5" },
+    { text: "Não se turbe o vosso coração.", ref: "João 14:1" },
+    { text: "Vinde a mim, todos os que estais cansados.", ref: "Mateus 11:28" },
+    { text: "Porque onde estiverem dois ou três reunidos em meu nome, aí estou eu.", ref: "Mateus 18:20" },
+    { text: "E eis que eu estou convosco todos os dias.", ref: "Mateus 28:20" }
 ];
 
 async function fetchDailyMessage() {
     const container = document.getElementById('daily-message-content');
+    const today = new Date();
+    const dateString = today.toISOString().split('T')[0];
     
-    // Obtém o dia atual (1 a 31)
-    const today = new Date().getDate();
-    
-    // Seleciona o versículo com base no dia do mês
-    const verse = worshipVerses[(today - 1) % worshipVerses.length];
-    
-    container.innerHTML = `
-        <div style="padding: 10px; text-align: center;">
-            <p style="font-size: 1.1rem; font-style: italic; color: var(--text-main); margin-bottom:10px;">"${verse.text}"</p>
-            <span class="verse-ref" style="font-weight: 700; color: var(--primary-color);">- ${verse.ref}</span>
-        </div>
-    `;
-}
-
-// Icones por cargo para o dashboard e escalas
-const roleIcons = {
-    'lider': 'star',
-    'vocal': 'mic',
-    'violao': 'gite',
-    'guitarra': 'electric_guitar', // fallback adicionado
-    'baixo': 'graphic_eq',
-    'teclado': 'piano',
-    'baterista': 'album' 
-};
-
-function getRoleIcon(role) {
-    const r = role.toLowerCase();
-    if(r.includes('lider')) return 'star';
-    if(r.includes('vocal')) return 'mic';
-    if(r.includes('teclado') || r.includes('piano')) return 'piano';
-    if(r.includes('baixo')) return 'graphic_eq';
-    if(r.includes('bateria') || r.includes('baterista')) return 'album';
-    return 'music_note'; // fallback geral
+    try {
+        // Tenta buscar mensagem personalizada do banco primeiro
+        const customRes = await fetch(`${SUPABASE_URL}/rest/v1/daily_message?date=eq.${dateString}&select=*`, { headers });
+        const customData = await customRes.json();
+        if (customData.length > 0) {
+            container.innerHTML = `<p>"${customData[0].verse_text}"</p><span class="verse-ref">- ${customData[0].verse_ref}</span>`;
+            return;
+        }
+        
+        // Tenta API bíblica externa (A Bíblia Digital - gratuita e em português)
+        try {
+            const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+            const bibleRes = await fetch(`https://www.abibliadigital.com.br/api/verses/nvi/random`);
+            if(bibleRes.ok) {
+                const verseData = await bibleRes.json();
+                if(verseData && verseData.text) {
+                    const ref = `${verseData.book.name} ${verseData.chapter}:${verseData.number}`;
+                    container.innerHTML = `<p>"${verseData.text}"</p><span class="verse-ref">- ${ref}</span>`;
+                    return;
+                }
+            }
+        } catch(apiErr) {
+            console.warn('API bíblica indisponível, usando pool local');
+        }
+        
+        // Fallback: usa pool local rotacionando pelo dia do ano (garante versículo diferente todo dia)
+        const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+        const verseIndex = dayOfYear % bibleVersesPool.length;
+        const verse = bibleVersesPool[verseIndex];
+        container.innerHTML = `<p>"${verse.text}"</p><span class="verse-ref">- ${verse.ref}</span>`;
+        
+    } catch (e) { 
+        console.error('Erro ao buscar versículo:', e);
+        const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+        const verseIndex = dayOfYear % bibleVersesPool.length;
+        const verse = bibleVersesPool[verseIndex];
+        container.innerHTML = `<p>"${verse.text}"</p><span class="verse-ref">- ${verse.ref}</span>`;
+    }
 }
 
 async function fetchNextScaleHome() {
     const container = document.getElementById('next-scale-team');
     const today = new Date().toISOString().split('T')[0];
-    
     try {
         const scaleRes = await fetch(`${SUPABASE_URL}/rest/v1/scales?event_date=gte.${today}&order=event_date.asc&limit=1`, { headers });
         const scaleData = await scaleRes.json();
-        
         if (scaleData.length > 0) {
             const scaleId = scaleData[0].id;
             const itemsRes = await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name)&order=role.asc`, { headers });
             const itemsData = await itemsRes.json();
-            
             if (itemsData.length > 0) {
+                let html = '<div class="team-scale-container">';
+                
                 const leaders = itemsData.filter(i => i.role === 'lider');
                 const vocals = itemsData.filter(i => i.role === 'vocal');
                 const band = itemsData.filter(i => !['lider', 'vocal'].includes(i.role));
                 
-                let html = '<div class="stage-container">';
+                leaders.forEach(i => {
+                    const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
+                    html += `
+                        <div class="team-scale-row ${isCurrent}">
+                            <div class="team-scale-avatar lider ${isCurrent}">${i.members.full_name.charAt(0)}</div>
+                            <div class="team-scale-info">
+                                <div class="team-scale-name">${i.members.full_name}</div>
+                                <div class="team-scale-role">Líder</div>
+                            </div>
+                        </div>
+                    `;
+                });
                 
-                // Trás (Banda)
-                if (band.length > 0) {
-                    html += '<div class="stage-row back">';
-                    band.forEach(i => {
-                        const icon = getRoleIcon(i.role);
-                        html += `
-                            <div class="stage-player">
-                                <div class="stage-avatar banda"><span class="material-symbols-outlined">${icon}</span></div>
-                                <span class="stage-name">${i.members.full_name.split(' ')[0]}</span>
-                                <span class="stage-role">${i.role}</span>
+                vocals.forEach(i => {
+                    const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
+                    html += `
+                        <div class="team-scale-row ${isCurrent}">
+                            <div class="team-scale-avatar vocal ${isCurrent}">${i.members.full_name.charAt(0)}</div>
+                            <div class="team-scale-info">
+                                <div class="team-scale-name">${i.members.full_name}</div>
+                                <div class="team-scale-role">Vocal</div>
                             </div>
-                        `;
-                    });
-                    html += '</div>';
-                }
+                        </div>
+                    `;
+                });
                 
-                // Frente (Vocais e Líder)
-                if (leaders.length > 0 || vocals.length > 0) {
-                    html += '<div class="stage-row front">';
-                    leaders.forEach(i => {
-                        html += `
-                            <div class="stage-player">
-                                <div class="stage-avatar lider"><span class="material-symbols-outlined">star</span></div>
-                                <span class="stage-name" style="font-weight:700; color:var(--primary-color);">${i.members.full_name.split(' ')[0]}</span>
-                                <span class="stage-role">Líder</span>
+                band.forEach(i => {
+                    const isCurrent = i.members.id === currentUserData.id ? 'current-user' : '';
+                    const roleName = i.role.charAt(0).toUpperCase() + i.role.slice(1);
+                    html += `
+                        <div class="team-scale-row ${isCurrent}">
+                            <div class="team-scale-avatar instrumento ${isCurrent}">${i.members.full_name.charAt(0)}</div>
+                            <div class="team-scale-info">
+                                <div class="team-scale-name">${i.members.full_name}</div>
+                                <div class="team-scale-role">${roleName}</div>
                             </div>
-                        `;
-                    });
-                    vocals.forEach(i => {
-                        html += `
-                            <div class="stage-player">
-                                <div class="stage-avatar vocal"><span class="material-symbols-outlined">mic</span></div>
-                                <span class="stage-name">${i.members.full_name.split(' ')[0]}</span>
-                                <span class="stage-role">Vocal</span>
-                            </div>
-                        `;
-                    });
-                    html += '</div>';
-                }
+                        </div>
+                    `;
+                });
                 
                 html += '</div>';
                 container.innerHTML = html;
             } else {
-                container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">A equipe ainda não foi definida para este culto.</p>`;
+                container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Escala vazia.</p>`;
             }
         } else {
-            container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Nenhum culto programado para os próximos dias.</p>`;
+            container.innerHTML = `<p style="color:var(--text-muted); text-align:center; padding:10px 0;">Nenhuma escala programada.</p>`;
         }
     } catch (e) { 
-        container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:10px 0;">Erro ao carregar escala.</p>`; 
+        container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:10px 0;">Erro ao carregar.</p>`; 
     }
 }
 
 // ==========================================
-// BUSCADOR OTIMIZADO PARA BRASIL/GOSPEL
+// BUSCADOR GOSPEL BRASIL - AMPLA E EFICAZ
 // ==========================================
 function openRepertoireModal() { 
     document.getElementById('modal-add-repertoire').classList.add('active'); 
     document.getElementById('search-results').innerHTML = '';
     document.getElementById('search-msg').textContent = '';
     document.getElementById('search-query').value = '';
+    document.getElementById('rep-title').value = '';
+    document.getElementById('rep-vocalist').value = '';
+    document.getElementById('rep-key').value = '';
+    document.getElementById('rep-lyrics').value = '';
 }
 
 let cachedLyricsSearch = {};
+
+// Função auxiliar para normalizar texto (remover acentos)
+function normalizeText(text) {
+    return text.toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Função auxiliar para verificar se é música gospel/brasileira
+function isGospelOrBrazilian(artist, title) {
+    const gospelKeywords = ['jesus', 'cristo', 'deus', 'senhor', 'adoracao', 'adorar', 'louvor', 'louvar', 
+                           'espirito santo', 'biblia', 'evangelho', 'graca', 'fe', 'igreja', 'pai', 'celestial',
+                           'salvador', 'redentor', 'messias', 'altar', 'santo', 'santidade', 'ungido', 'reino',
+                           'oracao', 'clamar', 'clamor', 'exaltar', 'gloria', 'glorificar'];
+    
+    const brazilianArtists = ['aline barros', 'fernandinho', 'gabriel guedes', 'morada', 'isaac saad',
+                             'helena tannara', 'alessandro vilas boas', 'bruna karla', 'davi saffer',
+                             'davi sacer', 'eyshila', 'kleber lucas', 'mara lima', 'regis danese',
+                             'cassiane', 'damares', 'andre valadao', 'pregador luo', 'thalles roberto',
+                             'roberta santana', 'nivea soares', 'marcelo marques', 'roger resnik',
+                             'ministry Zoe', 'delino marcal', 'daniel mastral', 'marcelo aguiar',
+                             'livres para adorar', 'morada', 'casa worship', 'betania lima',
+                             'gabriela rocha', 'rodrigo silva', 'marcelo markes', 'kemuel',
+                             'isaias saad', 'voz da verdade', 'som e louvor', 'diante do trono',
+                             'apostolo petronio', 'jozyanne', 'bruna karla', 'stella del rey',
+                             'davi ferreira', 'mariana sa', 'priscilla alcantara', 'midian lima',
+                             'raquel mello', 'nathália Braga', 'marcelo aguiar', 'ton carfi',
+                             'alexandre apolinario', 'corinhos', 'hino', 'hinario', 'harpa cristã'];
+    
+    const text = normalizeText(`${artist} ${title}`);
+    
+    // Verifica se é artista brasileiro gospel conhecido
+    for(let brazilian of brazilianArtists) {
+        if(text.includes(normalizeText(brazilian))) return true;
+    }
+    
+    // Verifica palavras-chave gospel
+    for(let keyword of gospelKeywords) {
+        if(text.includes(normalizeText(keyword))) return true;
+    }
+    
+    // Se contém palavras em português (comum em música brasileira)
+    const portugueseWords = ['amor', 'deus', 'jesus', 'senhor', 'vida', 'coracao', 'alma', 'paz', 'fe', 'luz',
+                            'esperanca', 'graca', 'salvacao', 'adorar', 'louvar', 'exaltar', 'gloria'];
+    for(let word of portugueseWords) {
+        if(text.includes(word)) return true;
+    }
+    
+    return false;
+}
 
 async function searchMusicList() {
     const query = document.getElementById('search-query').value.trim();
@@ -475,110 +789,201 @@ async function searchMusicList() {
     const msgBox = document.getElementById('search-msg');
     
     if(!query) { 
-        showCustomAlert('Digite o nome da música ou cantor.'); 
+        showCustomAlert('Digite o nome da música, cantor ou trecho da letra.'); 
         return; 
     }
     
-    msgBox.style.color = 'var(--text-main)';
-    msgBox.textContent = 'Buscando melhor letra correspondente...';
+    msgBox.textContent = '🔍 Buscando músicas gospel brasileiras...';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
     
+    let allResults = [];
+    let foundAnyValid = false;
+    
     try {
-        // Lyrist API: API excelente que varre letras, inclusive músicas baseadas no YouTube
-        const lyristRes = await fetch(`https://lyrist.vercel.app/api/${encodeURIComponent(query)}`);
-        
-        if(lyristRes.ok) {
-            const lyristData = await lyristRes.json();
-            
-            if(lyristData && lyristData.lyrics) {
-                const uniqueId = Date.now().toString();
-                cachedLyricsSearch[uniqueId] = { 
-                    artist: lyristData.artist, 
-                    song: lyristData.title, 
-                    lyrics: lyristData.lyrics 
-                };
-                
-                const div = document.createElement('div');
-                div.className = 'search-result-item';
-                div.innerHTML = `
-                    <div>
-                        <strong>${lyristData.title}</strong><br>
-                        <small>${lyristData.artist}</small>
-                    </div> 
-                    <span class="material-symbols-outlined" style="color:var(--success);">download_done</span>
-                `;
-                div.onclick = () => importPreCheckedLyrics(uniqueId);
-                resultsContainer.appendChild(div);
-                
-                msgBox.style.color = 'var(--success)';
-                msgBox.textContent = 'Música encontrada com sucesso!';
-                
-                return; // Achou na API principal, sai da função
-            }
-        }
-    } catch(e) {
-        console.log('Lyrist API falhou, tentando fallback...');
-    }
-
-    // Fallback: Busca via iTunes filtrando para o Brasil e adicionando "gospel" se necessário
-    try {
-        const searchTerm = encodeURIComponent(query + " gospel");
-        const res = await fetch(`https://itunes.apple.com/search?term=${searchTerm}&entity=song&country=BR&limit=6`);
-        const data = await res.json();
-        
-        if(data.results.length === 0) { 
-            msgBox.style.color = 'var(--danger)';
-            msgBox.textContent = 'Nada encontrado. Tente buscar pelo título exato.'; 
-            return; 
-        }
-        
-        msgBox.textContent = 'Encontramos artistas, testando as letras...';
-        let foundAnyValid = false;
-
-        for(let track of data.results) {
-            try {
-                const lyrRes = await fetch(`https://api.lyrics.ovh/v1/${track.artistName}/${track.trackName}`);
-                if(lyrRes.ok) {
-                    const lyrData = await lyrRes.json();
-                    if(lyrData.lyrics && lyrData.lyrics.length > 20) {
-                        foundAnyValid = true;
-                        const uniqueId = track.trackId;
-                        cachedLyricsSearch[uniqueId] = { 
-                            artist: track.artistName, 
-                            song: track.trackName, 
-                            lyrics: lyrData.lyrics 
-                        };
-                        
-                        const div = document.createElement('div');
-                        div.className = 'search-result-item';
-                        div.innerHTML = `
-                            <div>
-                                <strong>${track.trackName}</strong><br>
-                                <small>${track.artistName}</small>
-                            </div> 
-                            <span class="material-symbols-outlined" style="color:var(--success);">download_done</span>
-                        `;
-                        div.onclick = () => importPreCheckedLyrics(uniqueId);
-                        resultsContainer.appendChild(div);
+        // ===== FONTE 1: iTunes Search API (rápida e confiável) =====
+        try {
+            const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=15&country=br`);
+            if(itunesRes.ok) {
+                const itunesData = await itunesRes.json();
+                if(itunesData.results && itunesData.results.length > 0) {
+                    // Filtra apenas músicas gospel/brasileiras
+                    const filtered = itunesData.results.filter(track => {
+                        return isGospelOrBrazilian(track.artistName, track.trackName);
+                    });
+                    
+                    // Se não filtrou nada, pega os primeiros 5 do Brasil (prioriza BR)
+                    const toUse = filtered.length > 0 ? filtered : itunesData.results.slice(0, 5);
+                    
+                    for(let track of toUse.slice(0, 8)) {
+                        allResults.push({
+                            id: `itunes_${track.trackId}`,
+                            artist: track.artistName,
+                            song: track.trackName,
+                            source: 'iTunes Brasil'
+                        });
                     }
                 }
+            }
+        } catch(e) {
+            console.warn('iTunes falhou:', e);
+        }
+        
+        // ===== FONTE 2: API Letras.mus.br (via proxy CORS) =====
+        try {
+            const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=10`);
+            if(letrasRes.ok) {
+                const letrasData = await letrasRes.json();
+                if(letrasData && letrasData.length > 0) {
+                    for(let item of letrasData.slice(0, 5)) {
+                        allResults.push({
+                            id: `letras_${item.id || Math.random()}`,
+                            artist: item.artista || item.artist || 'Artista',
+                            song: item.nome || item.name || item.title || 'Música',
+                            url: item.url,
+                            source: 'Letras.mus.br'
+                        });
+                    }
+                }
+            }
+        } catch(e) {
+            console.warn('Letras.mus.br falhou:', e);
+        }
+        
+        // ===== FONTE 3: Vagalume (API brasileira oficial) =====
+        try {
+            const vagalumeRes = await fetch(`https://api.vagalume.com.br/search.php?exc=${encodeURIComponent(query)}&apikey=a53a6c27f726a530cd8c5cfe161bccda`);
+            if(vagalumeRes.ok) {
+                const vagalumeData = await vagalumeRes.json();
+                if(vagalumeData && vagalumeData.art && vagalumeData.art.length > 0) {
+                    for(let artist of vagalumeData.art.slice(0, 3)) {
+                        if(artist.mus && artist.mus.length > 0) {
+                            for(let music of artist.mus.slice(0, 3)) {
+                                allResults.push({
+                                    id: `vagalume_${artist.id}_${music.id}`,
+                                    artist: artist.name,
+                                    song: music.desc || music.title,
+                                    url: music.url,
+                                    source: 'Vagalume'
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        } catch(e) {
+            console.warn('Vagalume falhou:', e);
+        }
+        
+        // ===== FONTE 4: Deezer API (tem muitas músicas brasileiras) =====
+        try {
+            const deezerRes = await fetch(`https://api.deezer.com/search?q=${encodeURIComponent(query)}&limit=10`);
+            if(deezerRes.ok) {
+                const deezerData = await deezerRes.json();
+                if(deezerData && deezerData.data && deezerData.data.length > 0) {
+                    for(let track of deezerData.data.slice(0, 5)) {
+                        if(isGospelOrBrazilian(track.artist.name, track.title)) {
+                            allResults.push({
+                                id: `deezer_${track.id}`,
+                                artist: track.artist.name,
+                                song: track.title,
+                                source: 'Deezer'
+                            });
+                        }
+                    }
+                }
+            }
+        } catch(e) {
+            console.warn('Deezer falhou:', e);
+        }
+        
+        // Remove duplicatas
+        const uniqueResults = [];
+        const seen = new Set();
+        for(let result of allResults) {
+            const key = normalizeText(`${result.artist} ${result.song}`);
+            if(!seen.has(key)) {
+                seen.add(key);
+                uniqueResults.push(result);
+            }
+        }
+        
+        if(uniqueResults.length === 0) {
+            msgBox.textContent = '❌ Nenhuma música encontrada. Tente outro termo.';
+            return;
+        }
+        
+        // Agora busca as letras de cada resultado
+        msgBox.textContent = `🎵 ${uniqueResults.length} músicas encontradas. Buscando letras...`;
+        
+        for(let track of uniqueResults) {
+            try {
+                let lyrics = '';
+                
+                // Tenta obter letra via lyrics.ovh (API gratuita)
+                try {
+                    const lyrRes = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(track.artist)}/${encodeURIComponent(track.song)}`);
+                    if(lyrRes.ok) {
+                        const lyrData = await lyrRes.json();
+                        if(lyrData.lyrics && lyrData.lyrics.length > 30) {
+                            lyrics = lyrData.lyrics;
+                        }
+                    }
+                } catch(e) {}
+                
+                // Se não encontrou letra, tenta Vagalume específico
+                if(!lyrics && track.url && track.url.includes('vagalume')) {
+                    try {
+                        const vagRes = await fetch(track.url);
+                        if(vagRes.ok) {
+                            const html = await vagRes.text();
+                            const match = html.match(/<div[^>]*class="[^"]*lyrics[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+                            if(match) {
+                                lyrics = match[1].replace(/<[^>]+>/g, '').trim();
+                            }
+                        }
+                    } catch(e) {}
+                }
+                
+                // Se encontrou letra válida, adiciona aos resultados
+                if(lyrics && lyrics.length > 30) {
+                    foundAnyValid = true;
+                    const uniqueId = track.id;
+                    cachedLyricsSearch[uniqueId] = { 
+                        artist: track.artist, 
+                        song: track.song, 
+                        lyrics: lyrics,
+                        source: track.source
+                    };
+                    
+                    const div = document.createElement('div');
+                    div.className = 'search-result-item';
+                    div.innerHTML = `
+                        <div style="flex:1;">
+                            <strong>${track.song}</strong>
+                            <br><small style="color:var(--text-muted);">${track.artist}</small>
+                            <br><small style="color:var(--success); font-size:0.7rem;">✓ Letra completa • ${track.source}</small>
+                        </div> 
+                        <span class="material-symbols-outlined" style="color:var(--primary-color);">download_done</span>
+                    `;
+                    div.onclick = () => importPreCheckedLyrics(uniqueId);
+                    resultsContainer.appendChild(div);
+                }
             } catch(err) {
-                // Continua testando a próxima
+                console.warn('Erro ao buscar letra de:', track.song, err);
             }
         }
 
         if(!foundAnyValid) {
-            msgBox.style.color = 'var(--danger)';
-            msgBox.textContent = 'Músicas encontradas, mas sem letras públicas registradas nos bancos.';
+            msgBox.textContent = '⚠️ Músicas encontradas, mas sem letras completas. Tente outro termo.';
         } else {
-            msgBox.style.color = 'var(--success)';
-            msgBox.textContent = 'Opções com letras confirmadas encontradas!';
+            const count = resultsContainer.children.length;
+            msgBox.textContent = `✅ ${count} música(s) com letras completas encontradas!`;
         }
 
     } catch(e) { 
-        msgBox.style.color = 'var(--danger)';
-        msgBox.textContent = 'Erro de conexão com o buscador secundário.'; 
+        console.error('Erro na busca:', e);
+        msgBox.textContent = '❌ Erro ao buscar músicas. Verifique sua internet.'; 
     }
 }
 
@@ -586,32 +991,31 @@ function importPreCheckedLyrics(id) {
     const data = cachedLyricsSearch[id];
     document.getElementById('rep-lyrics').value = data.lyrics;
     document.getElementById('rep-title').value = `${data.song} - ${data.artist}`;
-    showCustomAlert(`A letra de "${data.song}" foi importada!`, "Letra Importada");
+    showCustomAlert(`✅ Letra de "${data.song}" importada com sucesso!`, "Letra Importada");
 }
 
 async function saveNewRepertoire() {
     const title = document.getElementById('rep-title').value.trim();
     const lyrics = document.getElementById('rep-lyrics').value.trim();
     const initialKey = document.getElementById('rep-key').value.trim();
+    const vocalist = document.getElementById('rep-vocalist').value.trim();
     
     if(!title || !lyrics) { 
         showCustomAlert('Título e Letra são obrigatórios!'); 
         return; 
     }
-    
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, { 
             method: 'POST', 
             headers: { ...headers, 'Prefer': 'return=representation' }, 
             body: JSON.stringify({ 
-                title: title, 
+                title, 
                 lyrics_text: lyrics, 
-                created_by: currentUserData.id 
+                created_by: currentUserData.id,
+                vocalist: vocalist || null
             }) 
         });
-        
         const savedData = await res.json();
-        
         if(initialKey && savedData.length > 0) {
             await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { 
                 method: 'POST', 
@@ -619,7 +1023,6 @@ async function saveNewRepertoire() {
                 body: JSON.stringify({ repertoire_id: savedData[0].id, ton: initialKey }) 
             });
         }
-        
         showCustomAlert('Música salva com sucesso!', "Sucesso"); 
         closeModals(); 
         loadRepertoire();
@@ -634,16 +1037,13 @@ async function saveNewRepertoire() {
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
     list.innerHTML = '<p class="loading-text">Buscando músicas...</p>';
-    
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton)&order=title.asc`, { headers });
         allRepertoireCache = await res.json();
-        
         if (allRepertoireCache.length === 0) { 
             list.innerHTML = '<p>Nenhuma música.</p>'; 
             return; 
         }
-        
         let html = '';
         allRepertoireCache.forEach(song => {
             let keysHtml = ''; 
@@ -651,128 +1051,28 @@ async function loadRepertoire() {
                 keysHtml += `<span class="badge tom">${k.ton}</span>`; 
             });
             
+            // Badge de voz/cantor
+            let vocalistHtml = '';
+            if(song.vocalist) {
+                vocalistHtml = `<div class="vocalist-badge"><span class="material-symbols-outlined" style="font-size:0.9rem;">mic</span> ${song.vocalist}</div>`;
+            }
+            
             html += `
-                <div class="playlist-item" onclick="openViewRepertoire('${song.id}', \`${song.title.replace(/`/g, "'")}\`, \`${encodeURIComponent(song.lyrics_text || '')}\`, ${song.is_medley})">
+                <div class="playlist-item" onclick="openViewRepertoire('${song.id}', \`${song.title.replace(/`/g, "'")}\`, \`${encodeURIComponent(song.lyrics_text || '')}\`, ${song.is_medley}, \`${encodeURIComponent(song.vocalist || '')}\`)">
                     <div class="play-info">
                         <div class="play-icon"><span class="material-symbols-outlined">${song.is_medley ? 'queue_music' : 'music_note'}</span></div>
                         <div class="play-title">
                             <h4>${song.title}</h4>
-                            <p>${song.is_medley ? 'Medley' : 'Louvor'}</p>
+                            <p>${song.is_medley ? 'Medley' : 'Louvor'} ${vocalistHtml}</p>
                         </div>
                     </div>
                     <div class="play-keys">${keysHtml}</div>
-                </div>
-            `;
+                </div>`;
         });
-        
         list.innerHTML = html;
     } catch (e) { 
         list.innerHTML = '<p>Erro.</p>'; 
     }
-}
-
-async function openViewRepertoire(id, title, encodedLyrics, isMedley) {
-    currentViewingRepertoireId = id;
-    document.getElementById('view-rep-title').textContent = title;
-    document.getElementById('view-rep-lyrics').textContent = encodedLyrics ? decodeURIComponent(encodedLyrics) : '';
-    document.getElementById('modal-view-repertoire').classList.add('active');
-    
-    // Todos os usuários agora podem visualizar e adicionar tons (Restrição de líder removida visualmente)
-    const addBox = document.getElementById('box-add-key');
-    addBox.classList.remove('hidden'); 
-    
-    loadKeysForRepertoire(id);
-
-    const partsDisplay = document.getElementById('medley-parts-display');
-    if(isMedley) {
-        partsDisplay.classList.remove('hidden'); 
-        partsDisplay.innerHTML = 'Carregando estrutura...';
-        
-        try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts?medley_repertoire_id=eq.${id}&select=section,section_content,repertoire!song_repertoire_id(title)&order=created_at.asc`, { headers });
-            const parts = await res.json();
-            
-            if (parts.length > 0 && parts[0].section_content) {
-                let html = '<strong>Estrutura do Medley:</strong><br>';
-                parts.forEach((p, idx) => { 
-                    html += `
-                        <div style="padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.08);">
-                            <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> 
-                            <span style="color:var(--primary-color); font-weight:600;">→ ${p.section}</span>
-                            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px; white-space:pre-wrap; max-height:80px; overflow:hidden;">${p.section_content}</div>
-                        </div>
-                    `; 
-                });
-                partsDisplay.innerHTML = html;
-            } else {
-                let html = '<strong>Estrutura do Medley:</strong><br>';
-                parts.forEach((p, idx) => { 
-                    html += `
-                        <div style="padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
-                            • <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span>
-                        </div>
-                    `; 
-                });
-                partsDisplay.innerHTML = html;
-            }
-        } catch(e) {
-            partsDisplay.innerHTML = 'Erro ao carregar estrutura.';
-        }
-    } else { 
-        partsDisplay.classList.add('hidden'); 
-    }
-}
-
-async function loadKeysForRepertoire(id) {
-    const container = document.getElementById('view-rep-keys'); 
-    container.innerHTML = '';
-    
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?repertoire_id=eq.${id}`, { headers });
-        const keys = await res.json();
-        
-        let html = '';
-        keys.forEach(k => {
-            // Apenas líderes podem DELETAR o tom por segurança
-            let deleteBtn = currentUserData.is_leader ? `<span style="cursor:pointer; color:#ff7675; margin-left:8px;" onclick="deleteKey('${k.id}')">✕</span>` : '';
-            html += `<span class="badge tom" style="font-size:1rem; padding:6px 12px; border-radius:20px;">${k.ton} ${deleteBtn}</span>`;
-        });
-        
-        container.innerHTML = html;
-    } catch(e) {
-        console.error('Erro ao carregar tons:', e);
-    }
-}
-
-async function addKeyToRepertoire() {
-    const newKey = document.getElementById('new-key-input').value.trim();
-    if(!newKey || !currentViewingRepertoireId) return;
-    
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { 
-            method: 'POST', 
-            headers, 
-            body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey }) 
-        });
-        
-        document.getElementById('new-key-input').value = ''; 
-        loadKeysForRepertoire(currentViewingRepertoireId); 
-        loadRepertoire();
-    } catch(e) { 
-        showCustomAlert('Erro ao adicionar tom.'); 
-    }
-}
-
-async function deleteKey(keyId) {
-    showCustomConfirm('Deseja remover este tom?', async () => {
-        try { 
-            await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); 
-            loadKeysForRepertoire(currentViewingRepertoireId); 
-            loadRepertoire(); 
-        } catch(e) {
-            console.error('Erro ao deletar tom:', e);
-        }
-    });
 }
 
 // ==========================================
@@ -885,15 +1185,15 @@ async function loadMedleySongsList() {
             const keysStr = song.repertoire_keys.map(k => k.ton).join(', ');
             const keyBadge = keysStr ? `<span class="badge tom" style="font-size:0.7rem;">${keysStr}</span>` : '';
             const isSelected = medleyDraft.some(d => d.songId === song.id);
-            
+            const vocalistBadge = song.vocalist ? `<div style="font-size:0.7rem; color:var(--text-muted); margin-top:3px;"><span class="material-symbols-outlined" style="font-size:0.8rem; vertical-align:middle;">mic</span> ${song.vocalist}</div>` : '';
             html += `
                 <div class="medley-song-item ${isSelected ? 'active' : ''}" onclick="selectMedleySong('${song.id}')">
                     <div class="medley-song-item-title">${song.title} ${keyBadge}</div>
+                    ${vocalistBadge}
                     ${isSelected ? '<div style="font-size:0.75rem; color:var(--success); margin-top:4px;">✓ Já adicionada ao medley</div>' : ''}
                 </div>
             `;
         });
-        
         container.innerHTML = html;
     } catch (e) {
         container.innerHTML = '<p style="color:var(--danger); text-align:center;">Erro ao carregar músicas</p>';
@@ -903,7 +1203,6 @@ async function loadMedleySongsList() {
 async function selectMedleySong(songId) {
     medleyCurrentSongId = songId;
     const song = allRepertoireCache.find(s => s.id === songId);
-    
     if (!song) return;
     
     const verses = parseLyricsIntoVerses(song.lyrics_text);
@@ -960,7 +1259,6 @@ function toggleVerse(idx) {
     medleyCurrentSongVerses[idx].selected = !medleyCurrentSongVerses[idx].selected;
     const item = document.getElementById(`verse-item-${idx}`);
     const cb = document.getElementById(`verse-cb-${idx}`);
-    
     if (medleyCurrentSongVerses[idx].selected) {
         item.classList.add('selected');
         cb.checked = true;
@@ -972,12 +1270,10 @@ function toggleVerse(idx) {
 
 function selectAllVerses() {
     const allSelected = medleyCurrentSongVerses.every(v => v.selected);
-    
     medleyCurrentSongVerses.forEach((v, idx) => {
         v.selected = !allSelected;
         const item = document.getElementById(`verse-item-${idx}`);
         const cb = document.getElementById(`verse-cb-${idx}`);
-        
         if (v.selected) {
             item.classList.add('selected');
             cb.checked = true;
@@ -990,7 +1286,6 @@ function selectAllVerses() {
 
 function addSelectedVersesToMedley() {
     const selectedVerses = medleyCurrentSongVerses.filter(v => v.selected);
-    
     if (selectedVerses.length === 0) {
         showCustomAlert('Selecione pelo menos uma parte para adicionar ao medley.');
         return;
@@ -1064,7 +1359,6 @@ function renderMedleyPreview() {
 
 async function saveNewMedley() {
     const title = document.getElementById('medley-title').value.trim();
-    
     if(!title) { 
         showCustomAlert('Dê um nome ao Medley.'); 
         return; 
@@ -1092,7 +1386,6 @@ async function saveNewMedley() {
                 lyrics_text: generateMedleyLyrics()
             }) 
         });
-        
         const savedMedley = await res.json();
         const medleyId = savedMedley[0].id;
 
@@ -1131,84 +1424,192 @@ function generateMedleyLyrics() {
     return lyrics.trim();
 }
 
+async function openViewRepertoire(id, title, encodedLyrics, isMedley, encodedVocalist = '') {
+    currentViewingRepertoireId = id;
+    document.getElementById('view-rep-title').textContent = title;
+    document.getElementById('view-rep-lyrics').textContent = encodedLyrics ? decodeURIComponent(encodedLyrics) : '';
+    document.getElementById('modal-view-repertoire').classList.add('active');
+    
+    // Exibe voz/cantor - TODOS OS MEMBROS PODEM EDITAR
+    const vocalistDisplay = document.getElementById('view-rep-vocalist');
+    const currentVocalist = encodedVocalist ? decodeURIComponent(encodedVocalist) : '';
+    vocalistDisplay.innerHTML = `
+        <div class="vocalist-editor">
+            <label><span class="material-symbols-outlined" style="font-size:1rem; vertical-align:middle;">mic</span> Voz / Cantor:</label>
+            <div style="display:flex; gap:8px; margin-top:5px;">
+                <input type="text" id="edit-vocalist-input" value="${currentVocalist}" placeholder="Ex: Ana Silva, João Santos" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc;">
+                <button class="btn-secondary" onclick="saveVocalistToRepertoire('${id}')" style="padding:8px 12px;">💾 Salvar</button>
+            </div>
+        </div>
+    `;
+    
+    // MOSTRA O CAMPO DE ADIÇÃO DE TOM PARA TODOS OS USUÁRIOS
+    const addBox = document.getElementById('box-add-key');
+    addBox.classList.remove('hidden');
+    
+    loadKeysForRepertoire(id);
+
+    const partsDisplay = document.getElementById('medley-parts-display');
+    if(isMedley) {
+        partsDisplay.classList.remove('hidden'); 
+        partsDisplay.innerHTML = 'Carregando estrutura...';
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts?medley_repertoire_id=eq.${id}&select=section,section_content,repertoire!song_repertoire_id(title)&order=created_at.asc`, { headers });
+            const parts = await res.json();
+            
+            if (parts.length > 0 && parts[0].section_content) {
+                let html = '<strong>Estrutura do Medley:</strong><br>';
+                parts.forEach((p, idx) => { 
+                    html += `<div style="padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.08);">
+                        <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> 
+                        <span style="color:var(--primary-color); font-weight:600;">→ ${p.section}</span>
+                        <div style="font-size:0.8rem; color:var(--text-muted); margin-top:3px; white-space:pre-wrap; max-height:80px; overflow:hidden;">${p.section_content}</div>
+                    </div>`; 
+                });
+                partsDisplay.innerHTML = html;
+            } else {
+                let html = '<strong>Estrutura do Medley:</strong><br>';
+                parts.forEach((p, idx) => { 
+                    html += `<div style="padding:4px 0; border-bottom:1px solid rgba(0,0,0,0.05);">
+                        • <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em> → <span style="color:var(--primary-color); font-weight:600;">${p.section}</span>
+                    </div>`; 
+                });
+                partsDisplay.innerHTML = html;
+            }
+        } catch(e) {
+            partsDisplay.innerHTML = 'Erro ao carregar estrutura.';
+        }
+    } else { 
+        partsDisplay.classList.add('hidden'); 
+    }
+}
+
+// Função para salvar voz/cantor de uma música (qualquer membro pode)
+async function saveVocalistToRepertoire(id) {
+    const input = document.getElementById('edit-vocalist-input');
+    if(!input) return;
+    const newVocalist = input.value.trim();
+    
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?id=eq.${id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ vocalist: newVocalist || null })
+        });
+        
+        if(res.ok) {
+            showCustomAlert('✅ Voz/Cantor atualizado com sucesso!', 'Sucesso');
+            loadRepertoire();
+        } else {
+            showCustomAlert('Erro ao atualizar voz/cantor.');
+        }
+    } catch(e) {
+        console.error(e);
+        showCustomAlert('Erro de conexão ao salvar.');
+    }
+}
+
+async function loadKeysForRepertoire(id) {
+    const container = document.getElementById('view-rep-keys'); 
+    container.innerHTML = '';
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?repertoire_id=eq.${id}`, { headers });
+        const keys = await res.json();
+        let html = '';
+        keys.forEach(k => {
+            let deleteBtn = `<span style="cursor:pointer; color:#ff7675; margin-left:8px;" onclick="deleteKey('${k.id}')">✕</span>`;
+            html += `<span class="badge tom" style="font-size:1rem; padding:6px 12px; border-radius:20px;">${k.ton} ${deleteBtn}</span>`;
+        });
+        container.innerHTML = html;
+    } catch(e) {}
+}
+
+async function addKeyToRepertoire() {
+    const newKey = document.getElementById('new-key-input').value.trim();
+    if(!newKey || !currentViewingRepertoireId) return;
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, { 
+            method: 'POST', 
+            headers, 
+            body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey }) 
+        });
+        document.getElementById('new-key-input').value = ''; 
+        loadKeysForRepertoire(currentViewingRepertoireId); 
+        loadRepertoire();
+    } catch(e) { 
+        showCustomAlert('Erro ao adicionar tom.'); 
+    }
+}
+
+async function deleteKey(keyId) {
+    showCustomConfirm('Deseja remover este tom?', async () => {
+        try { 
+            await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers }); 
+            loadKeysForRepertoire(currentViewingRepertoireId); 
+            loadRepertoire(); 
+        } catch(e) {}
+    });
+}
+
 // ==========================================
 // MEMBROS
 // ==========================================
 async function loadMembers() {
     const lineup = document.getElementById('members-lineup');
     lineup.innerHTML = '<p class="loading-text" style="color:white;">Buscando equipe...</p>';
-    
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,is_leader,member_roles(role)&order=full_name.asc`, { headers });
         const members = await res.json();
-        
         if (members.length === 0) { 
             lineup.innerHTML = '<p style="color:white; text-align:center;">Nenhum membro cadastrado.</p>'; 
             return; 
         }
         
         let team = { lider:[], vocal:[], banda:[], membro:[] };
-        
         members.forEach(m => {
             let p = { id: m.id, name: m.full_name };
             const roles = m.member_roles.map(r => r.role);
             
-            if(m.is_leader) {
-                team.lider.push(p);
-            } else if(roles.includes('vocal')) {
-                team.vocal.push(p);
-            } else if(roles.length > 0) {
-                team.banda.push({...p, role: roles[0]});
-            } else {
-                team.membro.push(p);
-            }
+            if(m.is_leader) team.lider.push(p);
+            else if(roles.includes('vocal')) team.vocal.push(p);
+            else if(roles.length > 0) team.banda.push({...p, role: roles[0]});
+            else team.membro.push(p);
         });
         
         let html = '';
         
-        // Trás (Banda)
-        if(team.banda.length > 0) {
-            html += '<div class="stage-row back">';
-            team.banda.forEach(p => {
-                const icon = getRoleIcon(p.role);
-                html += `
-                    <div class="stage-player">
-                        <div class="stage-avatar banda">
-                            <span class="material-symbols-outlined">${icon}</span>
-                        </div>
-                        <span class="stage-name">${p.name.split(' ')[0]}</span>
-                        <span class="stage-role">${p.role}</span>
-                    </div>
-                `;
+        if(team.lider.length > 0) {
+            html += '<div class="lineup-row">';
+            team.lider.forEach(p => {
+                const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                html += `<div class="lineup-player"><div class="player-avatar lider ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Líder</span></div>`;
             });
             html += '</div>';
         }
         
-        // Frente (Vocais e Líderes)
-        if(team.lider.length > 0 || team.vocal.length > 0) {
-            html += '<div class="stage-row front">';
-            team.lider.forEach(p => {
-                html += `
-                    <div class="stage-player">
-                        <div class="stage-avatar lider">
-                            <span class="material-symbols-outlined">star</span>
-                        </div>
-                        <span class="stage-name" style="font-weight:700; color:var(--primary-color);">${p.name.split(' ')[0]}</span>
-                        <span class="stage-role">Líder</span>
-                    </div>
-                `;
-            });
-            
+        if(team.vocal.length > 0) {
+            html += '<div class="lineup-row">';
             team.vocal.forEach(p => {
-                html += `
-                    <div class="stage-player">
-                        <div class="stage-avatar vocal">
-                            <span class="material-symbols-outlined">mic</span>
-                        </div>
-                        <span class="stage-name">${p.name.split(' ')[0]}</span>
-                        <span class="stage-role">Vocal</span>
-                    </div>
-                `;
+                const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Vocal</span></div>`;
+            });
+            html += '</div>';
+        }
+        
+        if(team.banda.length > 0) {
+            html += '<div class="lineup-row">';
+            team.banda.forEach(p => {
+                const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">${p.role || 'Membro'}</span></div>`;
+            });
+            html += '</div>';
+        }
+        
+        if(team.membro.length > 0) {
+            html += '<div class="lineup-row">';
+            team.membro.forEach(p => {
+                const isCurrent = p.id === currentUserData.id ? 'current-user' : '';
+                html += `<div class="lineup-player"><div class="player-avatar ${isCurrent}">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Membro</span></div>`;
             });
             html += '</div>';
         }
@@ -1235,12 +1636,11 @@ function switchScaleTab(tab) {
 async function loadScales() {
     const listFuture = document.getElementById('scales-list-future');
     const listPast = document.getElementById('scales-list-past');
-    
     listFuture.innerHTML = '<p>Buscando...</p>'; 
     listPast.innerHTML = '<p>Buscando...</p>';
     
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title,repertoire_keys(ton)))&order=event_date.asc`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?select=*,scale_items(role,members(full_name)),scale_songs(repertoire(title,repertoire_keys(ton),vocalist))&order=event_date.asc`, { headers });
         const scales = await res.json();
         
         const todayStr = new Date().toISOString().split('T')[0];
@@ -1251,104 +1651,58 @@ async function loadScales() {
         listPast.innerHTML = renderScaleCards(pasts, false);
 
     } catch(e) { 
-        listFuture.innerHTML = '<p>Erro ao carregar escalas.</p>'; 
+        listFuture.innerHTML = '<p>Erro.</p>'; 
         listPast.innerHTML = '';
     }
 }
 
 function renderScaleCards(scaleArray, isFuture) {
-    if(scaleArray.length === 0) {
-        return isFuture ? '<p>Nenhuma escala programada.</p>' : '<p>O histórico está vazio.</p>';
-    }
+    if(scaleArray.length === 0) return isFuture ? '<p>Nenhuma escala programada.</p>' : '<p>O histórico está vazio.</p>';
     
     let html = '';
-    
     scaleArray.forEach(s => {
         const dateObj = new Date(s.event_date);
         const dateStr = new Date(dateObj.getTime() + dateObj.getTimezoneOffset() * 60000).toLocaleDateString('pt-BR');
         
-        let band = []; 
-        let vocals = []; 
-        let leaders = [];
-        
+        let team = { lider:[], vocal:[], banda:[] };
         s.scale_items.forEach(i => {
             let p = { name: i.members.full_name, role: i.role };
-            if(i.role === 'lider') leaders.push(p); 
-            else if(i.role === 'vocal') vocals.push(p); 
-            else band.push(p);
+            if(i.role === 'lider') team.lider.push(p);
+            else if(i.role === 'vocal') team.vocal.push(p);
+            else team.banda.push(p);
         });
 
-        // Layout de Stage na Escala Card
-        let lineupHtml = '<div class="stage-container" style="border-radius:0; border-left:none; border-right:none;">';
-        
-        if(band.length > 0) {
-            lineupHtml += '<div class="stage-row back" style="transform: scale(0.85);">';
-            band.forEach(p => {
-                lineupHtml += `
-                    <div class="stage-player">
-                        <div class="stage-avatar banda">
-                            <span class="material-symbols-outlined">${getRoleIcon(p.role)}</span>
-                        </div>
-                        <span class="stage-name">${p.name.split(' ')[0]}</span>
-                        <span class="stage-role">${p.role}</span>
-                    </div>
-                `;
-            });
+        let lineupHtml = '<div class="lineup-field">';
+        if(team.lider.length > 0) {
+            lineupHtml += '<div class="lineup-row">';
+            team.lider.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar lider">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Líder</span></div>`);
             lineupHtml += '</div>';
         }
-        
-        if(leaders.length > 0 || vocals.length > 0) {
-            lineupHtml += '<div class="stage-row front" style="transform: scale(0.95);">';
-            leaders.forEach(p => {
-                lineupHtml += `
-                    <div class="stage-player">
-                        <div class="stage-avatar lider">
-                            <span class="material-symbols-outlined">star</span>
-                        </div>
-                        <span class="stage-name" style="font-weight:700; color:var(--primary-color);">${p.name.split(' ')[0]}</span>
-                        <span class="stage-role">Líder</span>
-                    </div>
-                `;
-            });
-            vocals.forEach(p => {
-                lineupHtml += `
-                    <div class="stage-player">
-                        <div class="stage-avatar vocal">
-                            <span class="material-symbols-outlined">mic</span>
-                        </div>
-                        <span class="stage-name">${p.name.split(' ')[0]}</span>
-                        <span class="stage-role">Vocal</span>
-                    </div>
-                `;
-            });
+        if(team.vocal.length > 0) {
+            lineupHtml += '<div class="lineup-row">';
+            team.vocal.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar vocal-role">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">Vocal</span></div>`);
             lineupHtml += '</div>';
         }
-        
+        if(team.banda.length > 0) {
+            lineupHtml += '<div class="lineup-row">';
+            team.banda.forEach(p => lineupHtml += `<div class="lineup-player"><div class="player-avatar band-role">${p.name.charAt(0)}</div><span class="player-name">${p.name.split(' ')[0]}</span><span class="player-role">${p.role}</span></div>`);
+            lineupHtml += '</div>';
+        }
         lineupHtml += '</div>';
 
         let songsHtml = ''; 
         s.scale_songs.forEach(song => { 
             const keys = song.repertoire.repertoire_keys || [];
             const keysStr = keys.length > 0 ? keys.map(k => k.ton).join(', ') : '';
-            const keyBadge = keysStr ? `<span class="badge tom" style="margin-left:auto;">${keysStr}</span>` : '';
-            
-            songsHtml += `
-                <span>
-                    <span class="material-symbols-outlined" style="font-size:1.1rem; color:var(--text-muted);">music_note</span> 
-                    ${song.repertoire.title} 
-                    ${keyBadge}
-                </span>
-            `; 
+            const keyBadge = keysStr ? `<span class="badge tom" style="font-size:0.7rem; padding:2px 8px; margin-left:auto;">${keysStr}</span>` : '';
+            const vocalistBadge = song.repertoire.vocalist ? `<span class="vocalist-mini"><span class="material-symbols-outlined" style="font-size:0.8rem;">mic</span> ${song.repertoire.vocalist}</span>` : '';
+            songsHtml += `<span>🎵 ${song.repertoire.title} ${keyBadge} ${vocalistBadge}</span>`; 
         });
 
         const actionsHtml = currentUserData.is_leader ? `
             <div class="scale-folder-actions">
-                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar Escala">
-                    <span class="material-symbols-outlined">edit</span>
-                </button>
-                <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir">
-                    <span class="material-symbols-outlined">delete</span>
-                </button>
+                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar Escala"><span class="material-symbols-outlined" style="font-size:1.1rem;">edit</span></button>
+                <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir Escala"><span class="material-symbols-outlined" style="font-size:1.1rem;">delete</span></button>
             </div>
         ` : '';
 
@@ -1363,10 +1717,8 @@ function renderScaleCards(scaleArray, isFuture) {
                 </div>
                 ${lineupHtml}
                 <div class="scale-songs-list">${songsHtml || 'Nenhuma música definida.'}</div>
-            </div>
-        `;
+            </div>`;
     });
-    
     return html;
 }
 
@@ -1381,7 +1733,6 @@ async function deleteScale(scaleId) {
             
             showCustomAlert('Escala excluída com sucesso!', 'Sucesso');
             loadScales();
-            
             if(document.getElementById('page-home').classList.contains('active')) {
                 fetchNextScaleHome();
             }
@@ -1395,7 +1746,6 @@ async function openEditScaleModal(scaleId) {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=*,scale_items(member_id,role,members(full_name)),scale_songs(repertoire_id)`, { headers });
         const data = await res.json();
-        
         if(data.length === 0) { 
             showCustomAlert('Escala não encontrada.'); 
             return; 
@@ -1415,7 +1765,6 @@ async function openEditScaleModal(scaleId) {
             role: i.role,
             name: i.members.full_name
         }));
-        
         renderScaleDraftTeam();
         
         if(allMembersCache.length === 0) {
@@ -1423,7 +1772,7 @@ async function openEditScaleModal(scaleId) {
             allMembersCache = await resMem.json();
         }
         if(allRepertoireCache.length === 0) {
-            const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title&order=title.asc`, { headers });
+            const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist&order=title.asc`, { headers });
             allRepertoireCache = await resRep.json();
         }
         
@@ -1436,14 +1785,10 @@ async function openEditScaleModal(scaleId) {
         const songsContainer = document.getElementById('scale-songs-selectors');
         const selectedSongIds = scale.scale_songs.map(s => s.repertoire_id);
         songsContainer.innerHTML = '';
-        
         allRepertoireCache.forEach(song => {
             const checked = selectedSongIds.includes(song.id) ? 'checked' : '';
-            songsContainer.innerHTML += `
-                <label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;">
-                    <input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}> ${song.title}
-                </label>
-            `;
+            const vocalistInfo = song.vocalist ? ` <small style="color:var(--text-muted);">🎤 ${song.vocalist}</small>` : '';
+            songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}> ${song.title}${vocalistInfo}</label>`;
         });
         
     } catch (e) { 
@@ -1455,7 +1800,6 @@ async function openScaleModal() {
     document.getElementById('modal-add-scale').classList.add('active');
     document.getElementById('editing-scale-id').value = '';
     document.getElementById('scale-modal-title').textContent = 'Nova Escala';
-    
     scaleDraftTeam = []; 
     renderScaleDraftTeam();
     
@@ -1463,29 +1807,47 @@ async function openScaleModal() {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,member_roles(role)`, { headers });
         allMembersCache = await res.json();
     }
-    
     if(allRepertoireCache.length === 0) {
-        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title&order=title.asc`, { headers });
+        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist&order=title.asc`, { headers });
         allRepertoireCache = await resRep.json();
     }
 
     const memberSelect = document.getElementById('scale-draft-member');
     memberSelect.innerHTML = '<option value="">Selecionar Membro...</option>';
-    
     allMembersCache.forEach(m => { 
         memberSelect.innerHTML += `<option value="${m.id}">${m.full_name}</option>`; 
     });
 
     const songsContainer = document.getElementById('scale-songs-selectors');
     songsContainer.innerHTML = '';
-    
     allRepertoireCache.forEach(song => {
-        songsContainer.innerHTML += `
-            <label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;">
-                <input type="checkbox" value="${song.id}" class="scale-song-cb"> ${song.title}
-            </label>
-        `;
+        const vocalistInfo = song.vocalist ? ` <small style="color:var(--text-muted);">🎤 ${song.vocalist}</small>` : '';
+        songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb"> ${song.title}${vocalistInfo}</label>`;
     });
+}
+
+// Função para atualizar só as músicas no modal (chamada pelo realtime)
+async function openScaleModalRefreshSongs() {
+    if(!document.getElementById('modal-add-scale').classList.contains('active')) return;
+    
+    try {
+        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist&order=title.asc`, { headers });
+        const newRepertoire = await resRep.json();
+        allRepertoireCache = newRepertoire;
+        
+        // Mantém as músicas já selecionadas
+        const selectedIds = Array.from(document.querySelectorAll('.scale-song-cb:checked')).map(cb => cb.value);
+        
+        const songsContainer = document.getElementById('scale-songs-selectors');
+        songsContainer.innerHTML = '';
+        newRepertoire.forEach(song => {
+            const checked = selectedIds.includes(song.id) ? 'checked' : '';
+            const vocalistInfo = song.vocalist ? ` <small style="color:var(--text-muted);">🎤 ${song.vocalist}</small>` : '';
+            songsContainer.innerHTML += `<label style="display:block; padding:8px; border-bottom:1px solid #eee; cursor:pointer;"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}> ${song.title}${vocalistInfo}</label>`;
+        });
+    } catch(e) {
+        console.warn('Erro ao atualizar músicas no modal:', e);
+    }
 }
 
 function addMemberToScaleDraft() {
@@ -1495,13 +1857,11 @@ function addMemberToScaleDraft() {
     const role = rolSel.value;
     
     if(!memberId) return;
-    
     const memberName = memSel.options[memSel.selectedIndex].text;
     
     if(!scaleDraftTeam.find(i => i.memberId === memberId && i.role === role)) {
         scaleDraftTeam.push({ memberId, role, name: memberName });
     }
-    
     memSel.value = ''; 
     renderScaleDraftTeam();
 }
@@ -1513,7 +1873,6 @@ function removeScaleDraftMember(index) {
 
 function renderScaleDraftTeam() {
     const list = document.getElementById('scale-draft-team-list');
-    
     if(scaleDraftTeam.length === 0) { 
         list.innerHTML = '<p class="loading-text" style="font-size:0.85rem;">Equipe vazia.</p>'; 
         return; 
@@ -1528,7 +1887,6 @@ function renderScaleDraftTeam() {
             </div>
         `;
     });
-    
     list.innerHTML = html;
 }
 
@@ -1541,7 +1899,6 @@ async function saveNewScale() {
         showCustomAlert('A data do culto é obrigatória.'); 
         return; 
     }
-    
     if(scaleDraftTeam.length === 0) { 
         showCustomAlert('Escalone pelo menos 1 membro na equipe.'); 
         return; 
@@ -1591,7 +1948,6 @@ async function saveNewScale() {
         showCustomAlert(successMsg, 'Sucesso'); 
         closeModals(); 
         loadScales();
-        
         if(document.getElementById('page-home').classList.contains('active')) {
             fetchNextScaleHome();
         }
@@ -1607,27 +1963,21 @@ async function createNewMember() {
     const username = document.getElementById('new-username').value.trim().toLowerCase(); 
     const fullname = document.getElementById('new-fullname').value.trim(); 
     const isLeader = document.getElementById('new-is-leader').checked; 
-    
     if (!username || !fullname) { 
         showCustomAlert('Preencha usuário e nome!'); 
         return; 
     }
-    
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members`, { 
             method: 'POST', 
             headers: { ...headers, 'Prefer': 'return=representation' }, 
             body: JSON.stringify({ username, full_name: fullname, is_leader: isLeader }) 
         });
-        
         if (!res.ok) throw new Error('Usuário já existe.');
-        
         showCustomAlert('Membro cadastrado com sucesso!', 'Sucesso'); 
-        
         document.getElementById('new-username').value = ''; 
         document.getElementById('new-fullname').value = ''; 
         document.getElementById('new-is-leader').checked = false; 
-        
         loadAdminMembers();
     } catch (e) { 
         showCustomAlert(e.message, 'Erro'); 
@@ -1637,42 +1987,18 @@ async function createNewMember() {
 async function loadAdminMembers() {
     const list = document.getElementById('admin-members-list'); 
     list.innerHTML = '<p>Carregando...</p>';
-    
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,is_leader,member_roles(role)&order=full_name.asc`, { headers });
         const members = await res.json(); 
-        
         let html = '';
         members.forEach(m => {
             const currentRoles = m.member_roles.map(r => r.role);
-            
-            // Adicionado a role "guitarra" na administração
-            html += `
-                <div class="admin-list-item" id="admin-item-${m.id}">
-                    <div>
-                        <strong>${m.full_name}</strong> 
-                        <span style="font-size:0.8rem">(${m.username})</span>
-                    </div>
-                    <div class="admin-actions">
-                        <button class="btn-icon" onclick="document.getElementById('editor-${m.id}').classList.toggle('hidden')">
-                            <span class="material-symbols-outlined">edit_attributes</span>
-                        </button>
-                        <button class="btn-icon danger" onclick="deleteMember('${m.id}')">
-                            <span class="material-symbols-outlined">delete</span>
-                        </button>
-                    </div>
-                    <div class="roles-editor hidden" id="editor-${m.id}">
-                        ${['lider', 'vocal', 'baterista', 'teclado', 'violao', 'baixo', 'guitarra'].map(role => `
-                            <label class="role-check-item">
-                                <input type="checkbox" onchange="updateRole('${m.id}', '${role}', this.checked)" ${currentRoles.includes(role) || (role==='lider' && m.is_leader) ? 'checked' : ''}>
-                                ${role.toUpperCase()}
-                            </label>
-                        `).join('')}
-                    </div>
-                </div>
-            `;
+            html += `<div class="admin-list-item" id="admin-item-${m.id}">
+                    <div><strong>${m.full_name}</strong> <span style="font-size:0.8rem">(${m.username})</span></div>
+                    <div class="admin-actions"><button class="btn-icon" onclick="document.getElementById('editor-${m.id}').classList.toggle('hidden')"><span class="material-symbols-outlined">edit_attributes</span></button><button class="btn-icon danger" onclick="deleteMember('${m.id}')"><span class="material-symbols-outlined">delete</span></button></div>
+                    <div class="roles-editor hidden" id="editor-${m.id}">${['lider', 'vocal', 'baterista', 'teclado', 'violao', 'baixo'].map(role => `<label class="role-check-item"><input type="checkbox" onchange="updateRole('${m.id}', '${role}', this.checked)" ${currentRoles.includes(role) || (role==='lider' && m.is_leader) ? 'checked' : ''}>${role.toUpperCase()}</label>`).join('')}</div>
+                </div>`;
         });
-        
         list.innerHTML = html;
     } catch (e) { 
         list.innerHTML = '<p>Erro ao carregar lista.</p>'; 
@@ -1689,7 +2015,6 @@ async function updateRole(memberId, role, isAdding) {
             }); 
             return; 
         }
-        
         if (isAdding) {
             await fetch(`${SUPABASE_URL}/rest/v1/member_roles`, { 
                 method: 'POST', 
