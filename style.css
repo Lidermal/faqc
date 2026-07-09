@@ -1087,46 +1087,21 @@ animation: spin 1s linear infinite;
 }
 /* BREADCRUMB DE NAVEGAÇÃO */
 .folder-breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: linear-gradient(135deg, #fff9f3, #ffffff);
-    border-radius: 12px;
-    margin-bottom: 16px;
-    border: 1px solid var(--border-color);
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    background: linear-gradient(135deg, #fff9f3, #ffffff); border-radius: 12px;
+    margin-bottom: 16px; border: 1px solid var(--border-color);
 }
-
 .breadcrumb-btn {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 12px;
-    background: transparent;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.9rem;
-    color: var(--text-muted);
-    transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+    background: transparent; border: none; border-radius: 8px; cursor: pointer;
+    font-size: 0.9rem; color: var(--text-muted); transition: all 0.2s;
 }
+.breadcrumb-btn:hover { background: rgba(240, 90, 40, 0.1); color: var(--primary-color); }
+.breadcrumb-btn.active { background: var(--primary-color); color: white; font-weight: 600; }
+.breadcrumb-btn .material-symbols-outlined { font-size: 1.1rem; }
+.breadcrumb-separator { color: var(--text-muted); font-size: 1.2rem; }
 
-.breadcrumb-btn:hover {
-    background: rgba(240, 90, 40, 0.1);
-    color: var(--primary-color);
-}
-
-.breadcrumb-btn.active {
-    background: var(--primary-color);
-    color: white;
-    font-weight: 600;
-}
-
-.breadcrumb-btn .material-symbols-outlined {
-    font-size: 1.1rem;
-}
-
-.breadcrumb-separator {
-    color: var(--text-muted);
-    font-size: 1.2rem;
-}
+/* LISTA DE PASTAS (VISUAL ORIGINAL) */
+.folders-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem; }
+.folder-wrapper { display: flex; align-items: center; gap: 8px; }
+.folder-wrapper .folder-item { flex: 1; }
