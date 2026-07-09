@@ -1103,7 +1103,7 @@ async function deleteRepertoire(id) {
 }
 
 // ==========================================
-// SUPER BUSCADOR DE LETRAS
+// SUPER BUSCADOR DE LETRAS (ATUALIZADO)
 // ==========================================
 function openRepertoireModal() {
     document.getElementById('modal-add-repertoire').classList.add('active');
@@ -1127,19 +1127,58 @@ async function searchMusicList() {
     const msgBox = document.getElementById('search-msg');
     
     if (!query) return;
-    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando intensamente em todas as fontes...</span>';
+    
+    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando intensamente em fontes Gospel e Gerais...</span>';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
     let foundAnyValid = false;
-    
+
+    // Tenta separar Artista e Música se o usuário digitou "Musica - Artista"
+    let artistSearch = query;
+    let songSearch = query;
+    if (query.includes('-')) {
+        const parts = query.split('-');
+        artistSearch = parts[1].trim();
+        songSearch = parts[0].trim();
+    }
+
+    // 1. TENTATIVA PRINCIPAL: API Lyrics.ovh (Gratuita e aberta)
     try {
+        // Normaliza para minúsculas para a API
+        const normArtist = artistSearch.toLowerCase().replace(/\s+/g, '');
+        const normSong = songSearch.toLowerCase().replace(/\s+/g, '').replace(/'/g, '');
+        
+        console.log(`Buscando em Lyrics.ovh: ${normArtist} / ${normSong}`);
+        const ovhRes = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(normArtist)}/${encodeURIComponent(normSong)}`);
+        
+        if (ovhRes.ok) {
+            const data = await ovhRes.json();
+            if (data && data.lyrics && data.lyrics.length > 20) {
+                const id = `ovh_${Math.random()}`;
+                cachedLyricsSearch[id] = { 
+                    artist: artistSearch, 
+                    song: songSearch, 
+                    lyrics: data.lyrics, 
+                    source: 'Lyrics.ovh' 
+                };
+                addSearchResultToDOM(songSearch, artistSearch, id, 'Lyrics.ovh');
+                foundAnyValid = true;
+            }
+        }
+    } catch (e) {
+        console.warn('Lyrics.ovh falhou ou não encontrou:', e);
+    }
+
+    // 2. TENTATIVA SECUNDÁRIA: Vagalume (Ainda pode funcionar para alguns casos)
+    if (!foundAnyValid) {
         try {
-            const vagRes = await fetch(`https://api.vagalume.com.br/search.artmus?q=${encodeURIComponent(query)}&limit=5`);
+            const vagRes = await fetch(`https://api.vagalume.com.br/search.artmus?q=${encodeURIComponent(query)}&limit=3`);
             const vagData = await vagRes.json();
             
             if (vagData.response && vagData.response.docs) {
                 for (let doc of vagData.response.docs) {
                     if (doc.title && doc.band) {
+                        // Tenta pegar a letra específica
                         const lyricsRes = await fetch(`https://api.vagalume.com.br/search.php?art=${encodeURIComponent(doc.band)}&mus=${encodeURIComponent(doc.title)}`);
                         if (lyricsRes.ok) {
                             const lyricsData = await lyricsRes.json();
@@ -1150,6 +1189,7 @@ async function searchMusicList() {
                                     cachedLyricsSearch[id] = { artist: doc.band, song: doc.title, lyrics: text, source: 'Vagalume' };
                                     addSearchResultToDOM(doc.title, doc.band, id, 'Vagalume');
                                     foundAnyValid = true;
+                                    break; // Pega só a primeira melhor
                                 }
                             }
                         }
@@ -1157,48 +1197,19 @@ async function searchMusicList() {
                 }
             }
         } catch(e) { console.warn('Vagalume API falhou', e); }
+    }
 
-        if (!foundAnyValid) {
-            try {
-                const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=5`);
-                if (letrasRes.ok) {
-                    const letrasData = await letrasRes.json();
-                    for (let item of letrasData) {
-                        if (item.url && item.artista && item.nome) {
-                            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(item.url)}`;
-                            const htmlRes = await fetch(proxyUrl);
-                            const htmlData = await htmlRes.json();
-                            
-                            const parser = new DOMParser();
-                            const doc = parser.parseFromString(htmlData.contents, 'text/html');
-                            
-                            const element = doc.querySelector('.lyric-original') || doc.querySelector('.letra') || doc.querySelector('#letra');
-                            
-                            if (element) {
-                                let htmlStr = element.innerHTML.replace(/<br\s*[\/]?>/gi, '\n');
-                                let plainText = htmlStr.replace(/<\/?[^>]+(>|$)/g, "");
-                                plainText = plainText.trim();
-                                
-                                if (plainText.length > 50) {
-                                    const id = `letras_${Math.random()}`;
-                                    cachedLyricsSearch[id] = { artist: item.artista, song: item.nome, lyrics: plainText, source: 'Letras.mus' };
-                                    addSearchResultToDOM(item.nome, item.artista, id, 'Letras');
-                                    foundAnyValid = true;
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e) { console.warn('Letras Scraper falhou', e); }
-        }
-
-        if (!foundAnyValid) {
-            msgBox.innerHTML = '<span style="color:var(--danger);">❌ Nenhuma fonte encontrou essa música. Digite manualmente.</span>';
-        } else {
-            msgBox.innerHTML = '<span style="color:var(--success);">✅ Letras encontradas na internet! Clique para baixar.</span>';
-        }
-    } catch (e) {
-        msgBox.innerHTML = '<span style="color:var(--danger);">❌ Falha geral nas buscas. Cole a letra manualmente.</span>';
+    // 3. FALLBACK: Se nada funcionou, oferece link direto
+    if (!foundAnyValid) {
+        const googleLink = `https://www.google.com/search?q=letra+${encodeURIComponent(query)}+gospel`;
+        msgBox.innerHTML = `
+            <span style="color:var(--danger);">❌ Não encontramos automaticamente.</span><br>
+            <a href="${googleLink}" target="_blank" style="color:var(--primary-color); text-decoration:underline; font-size:0.9rem; display:block; margin-top:5px;">
+                🔍 Clique aqui para buscar no Google e cole a letra manualmente
+            </a>
+        `;
+    } else {
+        msgBox.innerHTML = '<span style="color:var(--success);">✅ Letras encontradas! Clique para importar.</span>';
     }
 }
 
