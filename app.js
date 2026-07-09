@@ -134,14 +134,20 @@ function showSystemScreen() {
         actionsContainer.style.display = 'none'; 
     }
 
-    if (isLeader || isMedia) {
+    // CORREÇÃO: Escalas visíveis para TODOS
+    if (isLeader) {
         document.getElementById('nav-admin').classList.remove('hidden');
-        document.getElementById('btn-add-scale').classList.remove('hidden');
-        document.getElementById('nav-escalas').classList.remove('hidden');
-    } else {
+        document.getElementById('btn-add-scale').classList.remove('hidden'); // Botão de criar só para líder
+        document.getElementById('nav-escalas').classList.remove('hidden'); // Aba visível para todos
+    } else if (isMedia) {
         document.getElementById('nav-admin').classList.add('hidden');
-        document.getElementById('nav-escalas').classList.add('hidden');
-        document.getElementById('btn-add-scale').classList.add('hidden');
+        document.getElementById('btn-add-scale').classList.remove('hidden'); // Mídia também pode criar
+        document.getElementById('nav-escalas').classList.remove('hidden'); // Aba visível para todos
+    } else {
+        // Membro Comum
+        document.getElementById('nav-admin').classList.add('hidden');
+        document.getElementById('btn-add-scale').classList.add('hidden'); // Não pode criar
+        document.getElementById('nav-escalas').classList.remove('hidden'); // MAS PODE VER A ABA
     }
 
     navigate('home');
@@ -1797,7 +1803,8 @@ function renderScaleCards(scaleArray, isFuture) {
         }
         songsHtml += '</div></div>';
 
-        const actionsHtml = currentUserData.is_leader ? `
+        // CORREÇÃO: Botões de editar/excluir só aparecem para quem tem permissão
+        const actionsHtml = (currentUserData.is_leader || currentUserData.role === 'midia') ? `
             <div class="scale-folder-actions">
                 <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar"><span class="material-symbols-outlined">edit</span></button>
                 <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir"><span class="material-symbols-outlined">delete</span></button>
