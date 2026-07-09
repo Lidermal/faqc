@@ -1,6 +1,6 @@
 // URLs do Supabase
 const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos'; // ⚠️ ATUALIZE COM SUA CHAVE VÁLIDA
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos';
 
 const headers = {
     'apikey': SUPABASE_KEY,
@@ -9,13 +9,7 @@ const headers = {
     'Prefer': 'return=representation'
 };
 
-// ==========================================
-// DEBUG: Confirma que o arquivo foi carregado
-// ==========================================
-console.log('🚀 app.js carregado!');
-console.log('📍 SUPABASE_URL:', SUPABASE_URL);
-
-// Helper para log de erros do Supabase (NOVA FUNÇÃO - CORREÇÃO)
+// Helper para log de erros do Supabase
 function logSupabaseError(endpoint, response) {
     response.clone().text().then(text => {
         console.error(`❌ Erro Supabase em ${endpoint}:`, response.status, text);
@@ -95,23 +89,18 @@ function closeCustomConfirm() {
 async function handleLogin() {
     const usernameInput = document.getElementById('username').value.trim().toLowerCase();
     const btnLogin = document.getElementById('btn-login');
-    
     if (!usernameInput) {
         showCustomAlert('Por favor, digite seu usuário.');
         return;
     }
-    
     btnLogin.disabled = true;
     btnLogin.textContent = 'Validando...';
-    
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${encodeURIComponent(usernameInput)}&select=id,username,full_name,is_leader,role`, {
             method: 'GET',
             headers
         });
-        
         const data = await response.json();
-        
         if (data.length > 0) {
             currentUserData = data[0];
             // Busca campos opcionais em segunda chamada
@@ -767,7 +756,7 @@ function createMemberCard(member, type) {
 }
 
 // ==========================================
-// PASTAS DO REPERTÓRIO (VISUAL ORIGINAL + NAVEGAÇÃO TIPO EXPLORADOR - CORREÇÃO)
+// PASTAS DO REPERTÓRIO (VISUAL EXPLORADOR + PERMISSÕES - CORREÇÃO)
 // ==========================================
 async function loadFolders() {
     const container = document.getElementById('folders-list');
@@ -785,7 +774,7 @@ async function loadFolders() {
             console.warn('Tabela de pastas não encontrada ou erro:', e);
         }
 
-        // Breadcrumb de navegação
+        // Breadcrumb de navegação (CORREÇÃO - tipo explorador de arquivos)
         const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
         let breadcrumbHtml = `<div class="folder-breadcrumb">
             <button class="breadcrumb-btn ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
@@ -802,51 +791,54 @@ async function loadFolders() {
         }
         breadcrumbHtml += `</div>`;
 
-        // Lista de pastas
-        let html = '<div class="folders-list">';
+        // GRID DE PASTAS (visual explorador Linux - CORREÇÃO)
+        let html = '<div class="folders-grid">';
         
         // Pasta Geral
         const generalCount = await countMusicInFolder(null);
         html += `
-            <button class="folder-item ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
-                <span class="material-symbols-outlined">folder_special</span>
-                <div class="folder-info">
-                    <span>Pasta Geral</span>
-                    <small>${generalCount} músicas • Todas as músicas</small>
+            <button class="folder-card ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+                <div class="folder-card-icon"><span class="material-symbols-outlined">folder_special</span></div>
+                <div class="folder-card-info">
+                    <h4>Pasta Geral</h4>
+                    <p>${generalCount} músicas</p>
+                    <small>Todas as músicas</small>
                 </div>
             </button>
         `;
 
-        // Pastas personalizadas (CORREÇÃO: Usando for...of no lugar de forEach)
+        // Pastas personalizadas
         for (const folder of folders) {
-            if (folder.is_general) continue; // No for...of usamos continue
+            if (folder.is_general) continue;
             const canEdit = currentUserData.is_leader || (folder.created_by === currentUserData.id);
             const musicCount = await countMusicInFolder(folder.id);
             
             html += `
-                <div class="folder-wrapper">
-                    <button class="folder-item ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
-                        <span class="material-symbols-outlined">folder</span>
-                        <div class="folder-info">
-                            <span>${folder.name}</span>
-                            <small>${musicCount} músicas • Por: ${folder.created_by === currentUserData.id ? 'Você' : 'Membro'}</small>
-                        </div>
-                    </button>
+                <button class="folder-card ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
+                    <div class="folder-card-icon"><span class="material-symbols-outlined">folder</span></div>
+                    <div class="folder-card-info">
+                        <h4>${folder.name}</h4>
+                        <p>${musicCount} músicas</p>
+                        <small>Por: ${folder.created_by === currentUserData.id ? 'Você' : 'Membro'}</small>
+                    </div>
                     ${canEdit ? `
-                        <button class="btn-folder-delete" onclick="event.stopPropagation(); confirmDeleteFolder('${folder.id}')" title="Excluir pasta">
+                        <button class="folder-card-delete" onclick="event.stopPropagation(); confirmDeleteFolder('${folder.id}')" title="Excluir pasta">
                             <span class="material-symbols-outlined">delete</span>
                         </button>
                     ` : ''}
-                </div>
+                </button>
             `;
         }
 
         // Botão criar pasta (apenas para líderes)
         if (currentUserData.is_leader) {
             html += `
-                <button class="btn-create-folder" onclick="openCreateFolderModal()">
-                    <span class="material-symbols-outlined">create_new_folder</span>
-                    Nova Pasta
+                <button class="folder-card folder-card-create" onclick="openCreateFolderModalCustom()">
+                    <div class="folder-card-icon"><span class="material-symbols-outlined">create_new_folder</span></div>
+                    <div class="folder-card-info">
+                        <h4>Nova Pasta</h4>
+                        <p>Criar pasta pessoal</p>
+                    </div>
                 </button>
             `;
         }
@@ -861,13 +853,14 @@ async function loadFolders() {
     }
 }
 
+// CORREÇÃO: REST API usa eq.null em vez de is.null
 async function countMusicInFolder(folderId) {
     try {
         let query = `${SUPABASE_URL}/rest/v1/repertoire?select=id&count=exact`;
         if (folderId) {
             query += `&folder_id=eq.${folderId}`;
         } else {
-            query += `&folder_id=is.null`;
+            query += `&folder_id=eq.null`;
         }
         const res = await fetch(query, { headers });
         const count = res.headers.get('content-range');
@@ -924,7 +917,8 @@ async function deleteFolder(folderId) {
     }
 }
 
-async function openCreateFolderModal() {
+// CORREÇÃO: Modal personalizado para criar pasta (substitui prompt nativo)
+function openCreateFolderModalCustom() {
     // Verifica se já tem pasta pessoal
     const existingFolder = allFoldersCache.find(f => f.created_by === currentUserData.id && !f.is_general);
     if (existingFolder) {
@@ -932,9 +926,51 @@ async function openCreateFolderModal() {
         return;
     }
 
-    const name = prompt(`Qual será o nome da sua pasta?\nEx: ${currentUserData.full_name}`);
-    if (!name || name.trim() === '') return;
+    // Usa modal personalizado em vez de prompt
+    showCustomInput('Nome da nova pasta:', `Ex: ${currentUserData.full_name}`, (folderName) => {
+        if (!folderName || folderName.trim() === '') return;
+        createFolder(folderName.trim());
+    });
+}
+
+// Modal de input personalizado
+function showCustomInput(label, placeholder, callback) {
+    const modal = document.createElement('div');
+    modal.className = 'modal custom-input-modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h3>Nova Pasta</h3>
+                <button class="close-btn" onclick="this.closest('.modal').classList.remove('active')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>${label}</label>
+                    <input type="text" id="custom-input-field" placeholder="${placeholder}" autofocus>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
+                    <button class="btn-secondary" onclick="this.closest('.modal').classList.remove('active')">Cancelar</button>
+                    <button class="btn-primary" id="custom-input-confirm">Criar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
     
+    const input = modal.querySelector('#custom-input-field');
+    const confirmBtn = modal.querySelector('#custom-input-confirm');
+    
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmBtn.click(); });
+    confirmBtn.addEventListener('click', () => {
+        const value = input.value.trim();
+        modal.remove();
+        if (value) callback(value);
+    });
+    
+    setTimeout(() => input.focus(), 100);
+}
+
+async function createFolder(name) {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
             method: 'POST',
@@ -1186,7 +1222,7 @@ async function saveNewRepertoire() {
 }
 
 // ==========================================
-// REPERTÓRIO COM PASTAS
+// REPERTÓRIO COM PASTAS (CORREÇÃO DE QUERY)
 // ==========================================
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
@@ -1197,6 +1233,9 @@ async function loadRepertoire() {
         let query = `${SUPABASE_URL}/rest/v1/repertoire?select=id,title,lyrics_text,is_medley,vocalist,created_by,repertoire_keys(ton)`;
         if (currentFolderId) {
             query += `&folder_id=eq.${currentFolderId}`;
+        } else {
+            // CORREÇÃO: Pasta Geral usa eq.null
+            query += `&folder_id=eq.null`;
         }
         query += '&order=title.asc';
         
@@ -2122,11 +2161,38 @@ async function deleteMember(id) {
 }
 
 // ==========================================
-// INICIALIZAÇÃO E GARANTIA DE ESCOPO GLOBAL
+// INICIALIZAÇÃO SEGURA (CORREÇÃO FINAL)
 // ==========================================
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('🚀 DOM pronto. Vinculando eventos...');
+    
+    // ✅ CORREÇÃO PRINCIPAL: Vincula login via addEventListener (não depende de escopo global)
+    const loginBtn = document.getElementById('btn-login');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', handleLogin);
+        console.log('✅ Evento de login vinculado com sucesso.');
+    } else {
+        console.error('❌ Botão #btn-login não encontrado no HTML!');
+    }
+    
+    // Restaura sessão se existir
+    const storedUser = localStorage.getItem('sessionUser');
+    if (storedUser) {
+        try {
+            currentUserData = JSON.parse(storedUser);
+            console.log('✅ Sessão restaurada:', currentUserData.full_name);
+            showSystemScreen();
+        } catch (e) {
+            console.error('❌ Erro ao restaurar sessão:', e);
+            localStorage.removeItem('sessionUser');
+        }
+    }
+    
+    // Inicializa Supabase
+    initSupabase();
+});
 
-// 1. Garante que TODAS as funções usadas no HTML (onclick, etc.) estejam no escopo global (window)
-// Isso corrige o erro "handleLogin is not defined"
+// Exporta funções para escopo global (backup para onclicks restantes)
 window.handleLogin = handleLogin;
 window.showSystemScreen = showSystemScreen;
 window.updateHeaderUserInfo = updateHeaderUserInfo;
@@ -2158,6 +2224,9 @@ window.selectFolder = selectFolder;
 window.confirmDeleteFolder = confirmDeleteFolder;
 window.deleteFolder = deleteFolder;
 window.openCreateFolderModal = openCreateFolderModal;
+window.openCreateFolderModalCustom = openCreateFolderModalCustom;
+window.showCustomInput = showCustomInput;
+window.createFolder = createFolder;
 window.openRepertoireModal = openRepertoireModal;
 window.normalizeText = normalizeText;
 window.extractLyricsFromLetras = extractLyricsFromLetras;
