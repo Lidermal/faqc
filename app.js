@@ -9,7 +9,7 @@ const headers = {
     'Prefer': 'return=representation'
 };
 
-// Helper para log de erros do Supabase
+// Helper para log de erros do Supabase (NOVA FUNÇÃO - CORREÇÃO)
 function logSupabaseError(endpoint, response) {
     response.clone().text().then(text => {
         console.error(`❌ Erro Supabase em ${endpoint}:`, response.status, text);
@@ -351,29 +351,41 @@ function scrollCarousel(direction) {
 }
 
 // ==========================================
-// MENSAGEM DO DIA
+// MENSAGEM DO DIA (API SINCRONIZADA - CORREÇÃO)
 // ==========================================
-const bibleVersesPool = [
-    { text: "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.", ref: "João 3:16" },
-    { text: "O Senhor é o meu pastor; nada me faltará.", ref: "Salmos 23:1" },
-    { text: "Porque eu bem sei os pensamentos que penso de vós, diz o Senhor; pensamentos de paz, e não de mal, para vos dar o fim que esperais.", ref: "Jeremias 29:11" },
-    { text: "Tudo posso naquele que me fortalece.", ref: "Filipenses 4:13" }
-];
-
 async function fetchDailyMessage() {
     const container = document.getElementById('daily-message-content');
     const today = new Date().toISOString().split('T')[0];
-    try {
-        const customRes = await fetch(`${SUPABASE_URL}/rest/v1/daily_message?date=eq.${today}&select=verse_text,verse_ref`, { headers });
-        const customData = await customRes.json();
-        if (customData.length > 0) {
-            container.innerHTML = `<p>"${customData[0].verse_text}"</p><span class="verse-ref">- ${customData[0].verse_ref}</span>`;
-            return;
-        }
-    } catch (e) { }
     
-    const randomVerse = bibleVersesPool[Math.floor(Math.random() * bibleVersesPool.length)];
-    container.innerHTML = `<p>"${randomVerse.text}"</p><span class="verse-ref">- ${randomVerse.ref}</span>`;
+    // 1. Tenta buscar do Supabase (mensagem sincronizada para todos)
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/daily_message?date=eq.${today}&select=verse_text,verse_ref`, { headers });
+        if (res.ok) {
+            const data = await res.json();
+            if (data.length > 0) {
+                container.innerHTML = `<p>"${data[0].verse_text}"</p><span class="verse-ref">- ${data[0].verse_ref}</span>`;
+                return;
+            }
+        }
+    } catch (e) { console.warn('Não foi possível buscar mensagem do Supabase'); }
+    
+    // 2. Fallback: versículo do dia baseado na data (sincronizado para todos)
+    try {
+        const seed = today.split('-').join('').slice(-4);
+        const verses = [
+            { t: "Porque Deus amou o mundo de tal maneira que deu o seu Filho unigênito, para que todo aquele que nele crê não pereça, mas tenha a vida eterna.", r: "João 3:16" },
+            { t: "O Senhor é o meu pastor; nada me faltará.", r: "Salmos 23:1" },
+            { t: "Tudo posso naquele que me fortalece.", r: "Filipenses 4:13" },
+            { t: "Entrega o teu caminho ao Senhor; confia nele, e ele tudo fará.", r: "Salmos 37:5" },
+            { t: "Posso todas as coisas naquele que me fortalece.", r: "Filipenses 4:13" },
+            { t: "Deus é o nosso refúgio e fortaleza, socorro bem presente na angústia.", r: "Salmos 46:1" },
+            { t: "O amor é paciente, o amor é bondoso.", r: "1 Coríntios 13:4" }
+        ];
+        const verse = verses[parseInt(seed) % verses.length];
+        container.innerHTML = `<p>"${verse.t}"</p><span class="verse-ref">- ${verse.r}</span>`;
+    } catch (e) {
+        container.innerHTML = `<p>"Deus é o nosso refúgio e fortaleza."</p><span class="verse-ref">- Salmos 46:1</span>`;
+    }
 }
 
 // ==========================================
@@ -451,7 +463,7 @@ async function fetchNextScaleHome() {
 }
 
 // ==========================================
-// PERFIL
+// PERFIL + UPLOAD DE FOTO (COM COMPRESSÃO - CORREÇÃO)
 // ==========================================
 async function loadProfile() {
     const container = document.getElementById('profile-container');
@@ -504,6 +516,33 @@ async function loadProfile() {
     `;
 }
 
+// Função para comprimir/redimensionar imagem no cliente (NOVA - CORREÇÃO)
+function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width, height = img.height;
+                if (width > height) { if (width > maxWidth) { height *= maxWidth / width; width = maxWidth; } }
+                else { if (height > maxHeight) { width *= maxHeight / height; height = maxHeight; } }
+                canvas.width = width; canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                canvas.toBlob((blob) => {
+                    if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+                    else reject(new Error('Falha na compressão'));
+                }, 'image/jpeg', quality);
+            };
+            img.onerror = reject;
+        };
+        reader.onerror = reject;
+    });
+}
+
 async function uploadPhoto(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -518,17 +557,34 @@ async function uploadPhoto(event) {
             return;
         }
 
-        const fileExt = file.name.split('.').pop();
+        // Comprime a imagem antes do upload (CORREÇÃO)
+        const compressedFile = await compressImage(file);
+        const fileExt = 'jpg';
         const fileName = `${currentUserData.id}_${Date.now()}.${fileExt}`;
         
         const { error } = await supabaseClient.storage
             .from('member-photos')
-            .upload(fileName, file, {
+            .upload(fileName, compressedFile, {
                 cacheControl: '3600',
-                upsert: false
+                upsert: true
             });
         
-        if (error) throw error;
+        if (error) {
+            // Fallback se bucket não existir (CORREÇÃO)
+            if (error.message.includes('not found') || error.message.includes('not_found')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    currentUserData.photo_url = e.target.result;
+                    localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
+                    updateHeaderUserInfo();
+                    showCustomAlert('Foto salva localmente (bucket não configurado).', 'Aviso');
+                    loadProfile();
+                };
+                reader.readAsDataURL(compressedFile);
+                return;
+            }
+            throw error;
+        }
 
         const { data: { publicUrl } } = supabaseClient.storage
             .from('member-photos')
@@ -700,7 +756,7 @@ function createMemberCard(member, type) {
 }
 
 // ==========================================
-// PASTAS DO REPERTÓRIO (COM NAVEGAÇÃO)
+// PASTAS DO REPERTÓRIO (VISUAL ORIGINAL + NAVEGAÇÃO TIPO EXPLORADOR - CORREÇÃO)
 // ==========================================
 async function loadFolders() {
     const container = document.getElementById('folders-list');
@@ -710,70 +766,83 @@ async function loadFolders() {
         let folders = [];
         try {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=id,name,created_by,is_general&order=is_general.desc,name.asc`, { headers });
-            if (res.ok) folders = await res.json();
-            allFoldersCache = folders;
+            if (res.ok) {
+                folders = await res.json();
+                allFoldersCache = folders;
+            }
         } catch(e) {
-            console.warn('Tabela de pastas não encontrada:', e);
+            console.warn('Tabela de pastas não encontrada ou erro:', e);
         }
 
-        let html = '<div class="folders-grid">';
+        // Breadcrumb de navegação (CORREÇÃO - tipo explorador de arquivos)
+        const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
+        let breadcrumbHtml = `<div class="folder-breadcrumb">
+            <button class="breadcrumb-btn ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+                <span class="material-symbols-outlined">home</span>
+                <span>Pasta Geral</span>
+            </button>`;
+        if (currentFolder) {
+            breadcrumbHtml += `
+                <span class="breadcrumb-separator">/</span>
+                <button class="breadcrumb-btn active">
+                    <span class="material-symbols-outlined">folder</span>
+                    <span>${currentFolder.name}</span>
+                </button>`;
+        }
+        breadcrumbHtml += `</div>`;
+
+        // Lista de pastas (visual original em lista vertical - mantido conforme solicitado)
+        let html = '<div class="folders-list">';
         
         // Pasta Geral
         const generalCount = await countMusicInFolder(null);
         html += `
-            <div class="folder-card ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
-                <div class="folder-card-icon">
-                    <span class="material-symbols-outlined">folder_special</span>
+            <button class="folder-item ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+                <span class="material-symbols-outlined">folder_special</span>
+                <div class="folder-info">
+                    <span>Pasta Geral</span>
+                    <small>${generalCount} músicas • Todas as músicas</small>
                 </div>
-                <div class="folder-card-info">
-                    <h4>Pasta Geral</h4>
-                    <p>${generalCount} músicas</p>
-                    <small>Todas as músicas</small>
-                </div>
-            </div>
+            </button>
         `;
 
         // Pastas personalizadas
-        for (const folder of folders) {
-            if (folder.is_general) continue; // Pula pasta geral se existir no banco
+        folders.forEach(folder => {
+            if (folder.is_general) return;
             const canEdit = currentUserData.is_leader || (folder.created_by === currentUserData.id);
             const musicCount = await countMusicInFolder(folder.id);
             
             html += `
-                <div class="folder-card ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
-                    <div class="folder-card-icon">
+                <div class="folder-wrapper">
+                    <button class="folder-item ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
                         <span class="material-symbols-outlined">folder</span>
-                    </div>
-                    <div class="folder-card-info">
-                        <h4>${folder.name}</h4>
-                        <p>${musicCount} músicas</p>
-                        <small>Por: ${folder.created_by === currentUserData.id ? 'Você' : 'Membro'}</small>
-                    </div>
+                        <div class="folder-info">
+                            <span>${folder.name}</span>
+                            <small>${musicCount} músicas • Por: ${folder.created_by === currentUserData.id ? 'Você' : 'Membro'}</small>
+                        </div>
+                    </button>
                     ${canEdit ? `
-                        <button class="folder-card-delete" onclick="event.stopPropagation(); confirmDeleteFolder('${folder.id}')" title="Excluir pasta">
+                        <button class="btn-folder-delete" onclick="event.stopPropagation(); confirmDeleteFolder('${folder.id}')" title="Excluir pasta">
                             <span class="material-symbols-outlined">delete</span>
                         </button>
                     ` : ''}
                 </div>
             `;
-        }
+        });
 
+        // Botão criar pasta (apenas para líderes)
         if (currentUserData.is_leader) {
             html += `
-                <button class="folder-card folder-card-create" onclick="openCreateFolderModal()">
-                    <div class="folder-card-icon">
-                        <span class="material-symbols-outlined">create_new_folder</span>
-                    </div>
-                    <div class="folder-card-info">
-                        <h4>Nova Pasta</h4>
-                        <p>Criar pasta pessoal</p>
-                    </div>
+                <button class="btn-create-folder" onclick="openCreateFolderModal()">
+                    <span class="material-symbols-outlined">create_new_folder</span>
+                    Nova Pasta
                 </button>
             `;
         }
         
         html += '</div>';
-        container.innerHTML = html;
+        
+        container.innerHTML = breadcrumbHtml + html;
 
     } catch (e) {
         console.error('❌ Erro loadFolders:', e);
@@ -799,38 +868,10 @@ async function countMusicInFolder(folderId) {
 
 function selectFolder(folderId) {
     currentFolderId = folderId;
-    // Atualiza UI das pastas
+    // Atualiza UI das pastas + breadcrumb
     loadFolders();
-    // Carrega músicas da pasta selecionada
+    // Carrega músicas da pasta selecionada (como "entrar na pasta")
     loadRepertoire();
-    // Atualiza breadcrumb
-    updateFolderBreadcrumb();
-}
-
-function updateFolderBreadcrumb() {
-    const breadcrumbContainer = document.querySelector('.folder-breadcrumb');
-    if (!breadcrumbContainer) return;
-    
-    const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
-    
-    let html = `
-        <button class="breadcrumb-btn ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
-            <span class="material-symbols-outlined">home</span>
-            <span>Pasta Geral</span>
-        </button>
-    `;
-    
-    if (currentFolder) {
-        html += `
-            <span class="breadcrumb-separator">/</span>
-            <button class="breadcrumb-btn active">
-                <span class="material-symbols-outlined">folder</span>
-                <span>${currentFolder.name}</span>
-            </button>
-        `;
-    }
-    
-    breadcrumbContainer.innerHTML = html;
 }
 
 async function confirmDeleteFolder(folderId) {
@@ -838,9 +879,7 @@ async function confirmDeleteFolder(folderId) {
     if (!folder) return;
     
     const musicCount = await countMusicInFolder(folderId);
-    const msg = `Deseja excluir a pasta "${folder.name}"?\n\n${musicCount} música(s) voltarão para a Pasta Geral.`;
-    
-    showCustomConfirm(msg, () => deleteFolder(folderId), 'Excluir Pasta');
+    showCustomConfirm(`Deseja excluir "${folder.name}"?\n\n${musicCount} música(s) voltarão para a Pasta Geral.`, () => deleteFolder(folderId), 'Excluir Pasta');
 }
 
 async function deleteFolder(folderId) {
@@ -1979,11 +2018,13 @@ function filterAdminMembers() {
     });
 }
 
-// Modal de edição de membro
+// ==========================================
+// EDIÇÃO DE MEMBROS (CORRIGIDA - CORREÇÃO)
+// ==========================================
 async function editMember(id) {
     try {
         // Busca dados completos do membro
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}&select=*`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}&select=id,username,full_name,email,phone,is_leader,role`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar dados');
         
         const member = (await res.json())[0];
@@ -1992,7 +2033,7 @@ async function editMember(id) {
             return;
         }
         
-        // Preenche modal
+        // Preenche modal com os dados atuais
         document.getElementById('edit-member-id').value = member.id;
         document.getElementById('edit-fullname').value = member.full_name || '';
         document.getElementById('edit-email').value = member.email || '';
@@ -2037,7 +2078,10 @@ async function saveEditMember() {
             body: JSON.stringify(updateData)
         });
         
-        if (!res.ok) throw new Error('Falha ao atualizar');
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || 'Falha ao atualizar');
+        }
         
         showCustomAlert('Membro atualizado com sucesso!', 'Sucesso');
         closeModals();
@@ -2052,7 +2096,7 @@ async function saveEditMember() {
         
     } catch (e) {
         console.error('Erro ao atualizar membro:', e);
-        showCustomAlert('Erro ao atualizar membro.', 'Erro');
+        showCustomAlert('Erro: ' + e.message, 'Erro');
     }
 }
 
