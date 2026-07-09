@@ -9,6 +9,17 @@ const headers = {
     'Prefer': 'return=representation'
 };
 
+// ==========================================
+// DEBUG: Confirma que o arquivo foi carregado
+// ==========================================
+console.log('🚀 app.js carregado!');
+console.log('📍 SUPABASE_URL:', SUPABASE_URL);
+
+// Garante que funções críticas estejam no escopo global PARA O ONCLICK DO HTML
+window.handleLogin = handleLogin;
+window.showCustomAlert = showCustomAlert;
+window.closeCustomAlert = closeCustomAlert;
+
 // Helper para log de erros do Supabase (NOVA FUNÇÃO - CORREÇÃO)
 function logSupabaseError(endpoint, response) {
     response.clone().text().then(text => {
@@ -2111,8 +2122,11 @@ async function deleteMember(id) {
 }
 
 // ==========================================
-// INICIALIZAÇÃO GLOBAL - GARANTE FUNÇÕES NO ESCOPO GLOBAL
+// INICIALIZAÇÃO E GARANTIA DE ESCOPO GLOBAL
 // ==========================================
+
+// 1. Garante que TODAS as funções usadas no HTML (onclick, etc.) estejam no escopo global (window)
+// Isso corrige o erro "handleLogin is not defined"
 window.handleLogin = handleLogin;
 window.showSystemScreen = showSystemScreen;
 window.updateHeaderUserInfo = updateHeaderUserInfo;
@@ -2197,16 +2211,22 @@ window.editMember = editMember;
 window.saveEditMember = saveEditMember;
 window.deleteMember = deleteMember;
 
+console.log('✅ Todas as funções expostas no escopo global (window)');
+
+// 2. Inicialização quando a página carrega
 window.onload = () => {
-    console.log('🚀 App iniciado');
+    console.log('🚀 App iniciado - window.onload disparado');
     initSupabase();
+    
+    // Verifica se já existe sessão salva
     const storedUser = localStorage.getItem('sessionUser');
     if (storedUser) {
         try {
             currentUserData = JSON.parse(storedUser);
+            console.log('✅ Sessão restaurada para:', currentUserData.full_name);
             showSystemScreen();
         } catch (e) {
-            console.error('Erro ao carregar sessão:', e);
+            console.error('❌ Erro ao restaurar sessão:', e);
             localStorage.removeItem('sessionUser');
         }
     }
