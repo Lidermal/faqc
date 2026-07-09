@@ -5,8 +5,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const headers = {
     'apikey': SUPABASE_KEY,
     'Authorization': `Bearer ${SUPABASE_KEY}`,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
+    'Content-Type': 'application/json'
 };
 
 // Helper para log de erros do Supabase
@@ -96,21 +95,13 @@ async function handleLogin() {
     btnLogin.disabled = true;
     btnLogin.textContent = 'Validando...';
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${encodeURIComponent(usernameInput)}&select=id,username,full_name,is_leader,role`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${encodeURIComponent(usernameInput)}&select=*`, {
             method: 'GET',
             headers
         });
         const data = await response.json();
         if (data.length > 0) {
             currentUserData = data[0];
-            try {
-                const fullRes = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}&select=photo_url,email,phone`, { headers });
-                if (fullRes.ok) {
-                    const fullData = await fullRes.json();
-                    if (fullData.length > 0) currentUserData = { ...currentUserData, ...fullData[0] };
-                }
-            } catch (e) { /* ignora se campos opcionais não existirem */ }
-            
             localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
             showSystemScreen();
         } else {
@@ -213,7 +204,7 @@ function navigate(pageId) {
     } else if (pageId === 'admin') {
         loadAdminDashboard();
     } else if (pageId === 'repertorio') {
-        goBackToFolders(); // Força sempre iniciar na tela de Pastas ao navegar
+        goBackToFolders(); 
     } else if (pageId === 'escalas') {
         loadScales();
     } else if (pageId === 'perfil') {
@@ -407,7 +398,7 @@ async function fetchNextScaleHome() {
     const today = new Date().toISOString().split('T')[0];
     try {
         const scaleRes = await fetch(`${SUPABASE_URL}/rest/v1/scales?event_date=gte.${today}&order=event_date.asc&limit=1`, { headers });
-        if (!scaleRes.ok) { logSupabaseError('fetchNextScaleHome', scaleRes); throw new Error('Erro ao buscar escala'); }
+        if (!scaleRes.ok) { throw new Error('Erro ao buscar escala'); }
         const scaleData = await scaleRes.json();
         if (scaleData.length > 0) {
             const scaleId = scaleData[0].id;
@@ -513,9 +504,8 @@ async function loadProfile() {
 
 function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
     return new Promise((resolve, reject) => {
-        // Fallback rápido se não for um tipo de imagem comum que o canvas suporta bem
         if (!file.type.match(/image\/(jpeg|png|webp|jpg)/i)) {
-            console.warn("Formato de imagem não otimizável nativamente pelo canvas. Usando arquivo original.");
+            console.warn("Formato de imagem não otimizável nativamente. Usando arquivo original.");
             resolve(file);
             return;
         }
@@ -535,12 +525,12 @@ function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
                 ctx.drawImage(img, 0, 0, width, height);
                 canvas.toBlob((blob) => {
                     if (blob) resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
-                    else resolve(file); // se der erro no blob, tenta mandar o arquivo original
+                    else resolve(file); 
                 }, 'image/jpeg', quality);
             };
-            img.onerror = () => resolve(file); // fallback original
+            img.onerror = () => resolve(file); 
         };
-        reader.onerror = () => resolve(file); // fallback original
+        reader.onerror = () => resolve(file); 
     });
 }
 
@@ -648,26 +638,13 @@ async function loadMembers() {
     container.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        let members = [];
+        // Correção de 400 Bad Request: Pedir 'select=*' previne erros caso colunas específicas faltem no banco
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*&order=full_name.asc`, { 
+            headers
+        });
         
-        try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,email,phone,is_leader,role&order=full_name.asc`, { 
-                headers,
-                'Prefer': 'return=representation'
-            });
-            
-            if (res.ok) {
-                members = await res.json();
-            } else if (res.status === 400) {
-                console.warn('⚠️ Query completa falhou (400), tentando query mínima...');
-                const resMin = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,username,is_leader,role&order=full_name.asc`, { headers });
-                if (resMin.ok) members = await resMin.json();
-            }
-        } catch (e) {
-            console.warn('️ Erro na query completa, tentando fallback:', e.message);
-            const resMin = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,username,is_leader,role&order=full_name.asc`, { headers });
-            if (resMin.ok) members = await resMin.json();
-        }
+        if (!res.ok) throw new Error(`Falha no servidor: ${res.status}`);
+        let members = await res.json();
         
         if (members.length === 0) {
             container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:40px;">Nenhum membro cadastrado.</p>';
@@ -703,7 +680,7 @@ async function loadMembers() {
         container.innerHTML = html;
         
     } catch (e) {
-        console.error('❌ Erro crítico ao carregar membros:', e);
+        console.error('❌ Erro ao carregar membros:', e);
         container.innerHTML = `
             <div style="text-align:center; padding:40px;">
                 <p style="color:var(--danger); margin-bottom:10px;">️ Não foi possível carregar a equipe</p>
@@ -750,7 +727,7 @@ function createMemberCard(member, type) {
 }
 
 // ==========================================
-// NAVEGAÇÃO DE PASTAS E REPERTÓRIO (VISUALIZADOR INDEPENDENTE)
+// NAVEGAÇÃO DE PASTAS E REPERTÓRIO
 // ==========================================
 function goBackToFolders() {
     currentFolderId = null;
@@ -762,7 +739,7 @@ function goBackToFolders() {
 }
 
 function selectFolder(folderId) {
-    currentFolderId = folderId; // folderId nulo representa a Pasta Geral
+    currentFolderId = folderId; 
     const foldersList = document.getElementById('folders-list');
     const repList = document.getElementById('repertoire-list');
     if(foldersList) foldersList.style.display = 'none';
@@ -786,10 +763,9 @@ async function loadFolders() {
             console.warn('Tabela de pastas não encontrada ou erro:', e);
         }
 
-        // GRID DE PASTAS
         let html = '<div class="folders-grid" style="margin-top: 15px;">';
         
-        // Pasta Geral (Conta TODAS as músicas, enviando null para não filtrar folder_id)
+        // Pasta Geral
         const generalCount = await countMusicInFolder(null);
         html += `
             <button class="folder-card" onclick="selectFolder(null)">
@@ -802,7 +778,7 @@ async function loadFolders() {
             </button>
         `;
 
-        // Pastas personalizadas de cada membro
+        // Pastas personalizadas
         for (const folder of folders) {
             if (folder.is_general) continue;
             const canEdit = currentUserData.is_leader || (folder.created_by === currentUserData.id);
@@ -825,7 +801,7 @@ async function loadFolders() {
             `;
         }
 
-        // Botão criar pasta (apenas para líderes)
+        // Nova pasta (Líder)
         if (currentUserData.is_leader) {
             html += `
                 <button class="folder-card folder-card-create" onclick="openCreateFolderModalCustom()">
@@ -847,17 +823,24 @@ async function loadFolders() {
     }
 }
 
+// CORREÇÃO do 400 Bad Request na contagem: O Supabase exige que contagens exatas venham no header 'Prefer', e não como string na URL.
 async function countMusicInFolder(folderId) {
     try {
-        let query = `${SUPABASE_URL}/rest/v1/repertoire?select=id&count=exact`;
+        let url = `${SUPABASE_URL}/rest/v1/repertoire?select=id&limit=1`;
         if (folderId) {
-            query += `&folder_id=eq.${folderId}`;
+            url += `&folder_id=eq.${folderId}`;
         }
-        // Se for null, não filtramos por folder_id, pois a pasta geral deve mostrar todas as músicas no global.
         
-        const res = await fetch(query, { headers });
-        const count = res.headers.get('content-range');
-        return count ? parseInt(count.split('/')[1]) : 0;
+        const res = await fetch(url, { 
+            method: 'GET',
+            headers: { ...headers, 'Prefer': 'count=exact' } 
+        });
+        
+        const range = res.headers.get('content-range'); // ex: "0-0/15"
+        if (range) {
+            return parseInt(range.split('/')[1]);
+        }
+        return 0;
     } catch (e) {
         return 0;
     }
@@ -894,7 +877,6 @@ async function deleteFolder(folderId) {
     }
 }
 
-// Modal personalizado para criar pasta com seleção de membro
 async function openCreateFolderModalCustom() {
     if (!currentUserData.is_leader) {
         showCustomAlert('Apenas líderes podem designar novas pastas de repertório.', 'Atenção');
@@ -964,11 +946,12 @@ function showCustomInputHTML(title, label, extraHTML, callback) {
     });
 }
 
+// CORREÇÃO Erro 401: Removido o 'Prefer': 'return=representation' pois a RLS costuma bloquear o SELECT de usuários anônimos logo após o INSERT.
 async function createFolder(name, memberId) {
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
             method: 'POST',
-            headers: { ...headers, 'Prefer': 'return=representation' },
+            headers: headers,
             body: JSON.stringify({
                 name: name.trim(),
                 created_by: memberId,
@@ -976,16 +959,14 @@ async function createFolder(name, memberId) {
             })
         });
         
-        if (!res.ok) throw new Error('Falha ao criar');
+        if (!res.ok) throw new Error('Falha ao criar banco. 401 Unauthorized.');
         
-        const newFolder = await res.json();
-        allFoldersCache.push(newFolder[0]);
-        
-        loadFolders();
+        // Em vez de extrair o retorno da request, nós recarregamos as pastas do zero
+        await loadFolders();
         showCustomAlert(`Pasta "${name}" criada com sucesso!`, 'Sucesso');
     } catch (e) {
         console.error('Erro ao criar pasta:', e);
-        showCustomAlert('Erro ao criar pasta.', 'Erro');
+        showCustomAlert('Erro ao criar pasta. Verifique permissões do Supabase.', 'Erro');
     }
 }
 
@@ -998,7 +979,6 @@ async function loadRepertoire() {
     
     const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
     
-    // Cabeçalho da pasta com botão de Voltar
     let headerHtml = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; padding:12px; background:#fff9f3; border-radius:10px; border:1px solid var(--border-color);">
             <h3 style="font-size:1.1rem; color:var(--primary-color); display:flex; align-items:center; gap:8px;">
@@ -1015,14 +995,13 @@ async function loadRepertoire() {
 
     try {
         let query = `${SUPABASE_URL}/rest/v1/repertoire?select=id,title,lyrics_text,is_medley,vocalist,created_by,repertoire_keys(ton)`;
-        // Se for a Pasta Geral, nós NÃO limitamos o folder_id, assim mostramos o acervo completo.
         if (currentFolderId) {
             query += `&folder_id=eq.${currentFolderId}`;
         }
         query += '&order=title.asc';
         
         const res = await fetch(query, { headers });
-        if (!res.ok) { logSupabaseError('loadRepertoire', res); throw new Error('Erro ao buscar repertório'); }
+        if (!res.ok) throw new Error('Erro ao buscar repertório');
         
         allRepertoireCache = await res.json();
 
@@ -1043,7 +1022,6 @@ async function loadRepertoire() {
                 vocalistHtml = `<div class="vocalist-badge"><span class="material-symbols-outlined" style="font-size:0.9rem;">mic</span> ${song.vocalist}</div>`;
             }
 
-            // Permissões
             const isGeneralFolder = currentFolderId === null;
             const isMedia = currentUserData.role === 'midia';
             
@@ -1054,10 +1032,8 @@ async function loadRepertoire() {
             
             let canEditSong = false;
             if (isGeneralFolder) {
-                // Na pasta geral, qualquer um exceto Mídia pode editar e ver detalhes livremente.
                 canEditSong = !isMedia;
             } else {
-                // Em pastas individuais, apenas dono ou líder.
                 canEditSong = isFolderOwner || currentUserData.is_leader;
             }
 
@@ -1098,7 +1074,7 @@ async function deleteRepertoire(id) {
 }
 
 // ==========================================
-// BUSCA DE LETRAS MELHORADA
+// SUPER BUSCADOR DE LETRAS (Vagalume + Letras.mus)
 // ==========================================
 function openRepertoireModal() {
     document.getElementById('modal-add-repertoire').classList.add('active');
@@ -1113,65 +1089,36 @@ function openRepertoireModal() {
     updateSelectedVocalists();
 }
 
-async function fetchFromOvh(artist, song) {
-    try {
-        const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(song)}`);
-        if (res.ok) { 
-            const data = await res.json(); 
-            if(data.lyrics && data.lyrics.length > 50) return data.lyrics;
-        }
-    } catch(e) {}
-    return null;
-}
-
-async function extractLyricsFromLetras(url) {
-    try {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        const response = await fetch(proxyUrl);
-        const data = await response.json();
-        if (data.contents) {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(data.contents, 'text/html');
-            const element = doc.querySelector('.lyrics-container') || doc.querySelector('.letra') || doc.querySelector('#letra') || doc.querySelector('.lyric-original');
-            if (element) {
-                // Converte <br> para nova linha
-                let htmlStr = element.innerHTML.replace(/<br\s*[\/]?>/gi, '\n');
-                let plainText = htmlStr.replace(/<\/?[^>]+(>|$)/g, ""); // strip tags
-                plainText = plainText.trim();
-                if (plainText.length > 50) return plainText;
-            }
-        }
-    } catch (e) {
-        console.warn('Erro extração Letras.mus:', e);
-    }
-    return null;
-}
-
 async function searchMusicList() {
     const query = document.getElementById('search-query').value.trim();
     const resultsContainer = document.getElementById('search-results');
     const msgBox = document.getElementById('search-msg');
     
     if (!query) return;
-    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando na internet...</span>';
+    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando intensamente em todas as fontes...</span>';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
     let foundAnyValid = false;
     
     try {
-        // 1. Tentar Vagalume primeiro (Costuma ser mais confiável em respostas diretas JSON)
+        // TENTATIVA 1: VAGALUME OFICIAL API (Muito boa para busca direta nacional)
         try {
-            const vagRes = await fetch(`https://api.vagalume.com.br/search.php?exc=${encodeURIComponent(query)}&apikey=a53a6c27f726a530cd8c5cfe161bccda`);
-            if(vagRes.ok) {
-                const data = await vagRes.json();
-                if(data.art) {
-                    for(let artist of data.art) {
-                        if(artist.mus) {
-                            for(let mus of artist.mus) {
-                                if(mus.text && mus.text.length > 30) {
+            const vagRes = await fetch(`https://api.vagalume.com.br/search.artmus?q=${encodeURIComponent(query)}&limit=5`);
+            const vagData = await vagRes.json();
+            
+            if (vagData.response && vagData.response.docs) {
+                for (let doc of vagData.response.docs) {
+                    if (doc.title && doc.band) {
+                        // Faz chamada específica para pegar a letra daquela música
+                        const lyricsRes = await fetch(`https://api.vagalume.com.br/search.php?art=${encodeURIComponent(doc.band)}&mus=${encodeURIComponent(doc.title)}`);
+                        if (lyricsRes.ok) {
+                            const lyricsData = await lyricsRes.json();
+                            if ((lyricsData.type === 'exact' || lyricsData.type === 'aprox') && lyricsData.mus[0].text) {
+                                const text = lyricsData.mus[0].text;
+                                if (text.length > 30) {
                                     const id = `vag_${Math.random()}`;
-                                    cachedLyricsSearch[id] = { artist: artist.name, song: mus.title || mus.desc, lyrics: mus.text, source: 'Vagalume' };
-                                    addSearchResultToDOM(mus.title, artist.name, id);
+                                    cachedLyricsSearch[id] = { artist: doc.band, song: doc.title, lyrics: text, source: 'Vagalume' };
+                                    addSearchResultToDOM(doc.title, doc.band, id, 'Vagalume');
                                     foundAnyValid = true;
                                 }
                             }
@@ -1179,55 +1126,63 @@ async function searchMusicList() {
                     }
                 }
             }
-         } catch(e) { console.warn('Vagalume falhou', e); }
+        } catch(e) { console.warn('Vagalume API falhou', e); }
 
-        // 2. Se Vagalume falhou ou achou pouco, tenta Letras.mus.br
+        // TENTATIVA 2: SCRAPER DO LETRAS.MUS.BR (Acha literalmente quase tudo Gospel que Vagalume não acha)
         if (!foundAnyValid) {
             try {
+                // Pegar sugestões via autocomplete do Letras
                 const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=5`);
                 if (letrasRes.ok) {
                     const letrasData = await letrasRes.json();
-                    if (letrasData && letrasData.length > 0) {
-                        for (let item of letrasData) {
-                            const artist = item.artista || '';
-                            const song = item.nome || '';
-                            if (artist && song) {
-                                // Tenta via OVH (API gratuita) primeiro usando os dados do Letras para ser mais rápido
-                                let lyrics = await fetchFromOvh(artist, song);
+                    for (let item of letrasData) {
+                        if (item.url && item.artista && item.nome) {
+                            // Vamos extrair o HTML usando proxy para burlar o CORS do navegador
+                            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(item.url)}`;
+                            const htmlRes = await fetch(proxyUrl);
+                            const htmlData = await htmlRes.json();
+                            
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(htmlData.contents, 'text/html');
+                            
+                            // Letras.mus usa várias classes CSS para as letras dependendo do design da página
+                            const element = doc.querySelector('.lyric-original') || doc.querySelector('.letra') || doc.querySelector('#letra');
+                            
+                            if (element) {
+                                let htmlStr = element.innerHTML.replace(/<br\s*[\/]?>/gi, '\n');
+                                let plainText = htmlStr.replace(/<\/?[^>]+(>|$)/g, "");
+                                plainText = plainText.trim();
                                 
-                                // Se a OVH não tiver, raspa o HTML do Letras.mus
-                                if (!lyrics) lyrics = await extractLyricsFromLetras(item.url);
-                                
-                                if (lyrics) {
-                                    foundAnyValid = true;
+                                if (plainText.length > 50) {
                                     const id = `letras_${Math.random()}`;
-                                    cachedLyricsSearch[id] = { artist, song, lyrics, source: 'Web' };
-                                    addSearchResultToDOM(song, artist, id);
+                                    cachedLyricsSearch[id] = { artist: item.artista, song: item.nome, lyrics: plainText, source: 'Letras.mus' };
+                                    addSearchResultToDOM(item.nome, item.artista, id, 'Letras');
+                                    foundAnyValid = true;
                                 }
                             }
                         }
                     }
                 }
-            } catch (e) { console.warn('Letras.mus.br falhou', e); }
+            } catch (e) { console.warn('Letras Scraper falhou', e); }
         }
 
         if (!foundAnyValid) {
-            msgBox.innerHTML = '<span style="color:var(--danger);">❌ Não encontramos a letra automaticamente. Você pode digitar ou colar manualmente.</span>';
+            msgBox.innerHTML = '<span style="color:var(--danger);">❌ Nenhuma fonte encontrou essa música. Digite manualmente.</span>';
         } else {
-            msgBox.innerHTML = '<span style="color:var(--success);">✅ Resultados encontrados! Clique para usar.</span>';
+            msgBox.innerHTML = '<span style="color:var(--success);">✅ Letras encontradas na internet! Clique para baixar.</span>';
         }
     } catch (e) {
-        msgBox.innerHTML = '<span style="color:var(--danger);">❌ Erro na busca. Cole a letra manualmente.</span>';
+        msgBox.innerHTML = '<span style="color:var(--danger);">❌ Falha geral nas buscas. Cole a letra manualmente.</span>';
     }
 }
 
-function addSearchResultToDOM(song, artist, id) {
+function addSearchResultToDOM(song, artist, id, fonte) {
     const div = document.createElement('div');
     div.className = 'search-result-item';
     div.innerHTML = `
         <div style="flex:1; min-width:0;">
             <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${song}</strong>
-            <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${artist}</small>
+            <small style="color:var(--text-muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${artist} <span style="background:#eee; padding:2px 4px; border-radius:4px; font-size:0.7rem; margin-left:5px;">via ${fonte}</span></small>
         </div>
         <span class="material-symbols-outlined" style="color:var(--primary-color);">download</span>
     `;
@@ -1290,7 +1245,7 @@ async function searchVocalists(input) {
     
     if (allMembersCache.length === 0) {
         try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name`, { headers });
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*`, { headers });
             allMembersCache = await res.json();
         } catch(e) {}
     }
@@ -1351,7 +1306,6 @@ async function openViewRepertoire(id, title, encodedLyrics, isMedley, encodedVoc
     
     const isMedia = currentUserData.role === 'midia';
     
-    // Configura interface de permissão baseada se é mídia ou não
     if (!isMedia) {
         vocalistDisplay.innerHTML = `
             <div class="vocalist-editor">
@@ -1694,7 +1648,7 @@ async function loadScales() {
     listPast.innerHTML = '<div class="loading-spinner"></div>';
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?select=id,event_date,notes,scale_items(role,members(full_name,photo_url)),scale_songs(repertoire(title,repertoire_keys(ton),vocalist))&order=event_date.asc`, { headers });
-        if (!res.ok) { logSupabaseError('loadScales', res); throw new Error('Erro ao carregar escalas'); }
+        if (!res.ok) { throw new Error('Erro ao carregar escalas'); }
         const scales = await res.json();
         const todayStr = new Date().toISOString().split('T')[0];
         const futures = scales.filter(s => s.event_date >= todayStr);
@@ -1823,7 +1777,7 @@ async function openEditScaleModal(scaleId) {
         renderScaleDraftTeam();
         
         if (allMembersCache.length === 0) {
-            const resMem = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name`, { headers });
+            const resMem = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*`, { headers });
             allMembersCache = await resMem.json();
         }
         if (allRepertoireCache.length === 0) {
@@ -1849,7 +1803,7 @@ async function openScaleModal() {
     scaleDraftTeam = [];
     renderScaleDraftTeam();
     if (allMembersCache.length === 0) {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*`, { headers });
         allMembersCache = await res.json();
     }
     if (allRepertoireCache.length === 0) {
@@ -2046,26 +2000,13 @@ async function loadAdminMembers() {
     container.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        let members = [];
+        // Correção de 400 Bad Request
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*&order=full_name.asc`, { 
+            headers
+        });
         
-        try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,email,phone,is_leader,role&order=full_name.asc`, { 
-                headers,
-                'Prefer': 'return=representation'
-            });
-            
-            if (res.ok) {
-                members = await res.json();
-            } else if (res.status === 400) {
-                console.warn('⚠️ Query admin falhou (400), tentando query mínima...');
-                const resMin = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,username,is_leader,role&order=full_name.asc`, { headers });
-                if (resMin.ok) members = await resMin.json();
-            }
-        } catch (e) {
-            console.warn('⚠️ Fallback para query mínima:', e.message);
-            const resMin = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,username,is_leader,role&order=full_name.asc`, { headers });
-            if (resMin.ok) members = await resMin.json();
-        }
+        if (!res.ok) throw new Error('Falha ao obter do Supabase');
+        let members = await res.json();
         
         if (members.length === 0) {
             container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:40px;">Nenhum membro cadastrado.</p>';
@@ -2118,11 +2059,12 @@ function filterAdminMembers() {
 }
 
 // ==========================================
-// EDIÇÃO DE MEMBROS (CORRIGIDA)
+// EDIÇÃO DE MEMBROS
 // ==========================================
 async function editMember(id) {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}&select=id,username,full_name,email,phone,is_leader,role`, { headers });
+        // Usa select=* para não falhar caso faltem colunas no BD
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}&select=*`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar dados do Supabase');
         
         const memberData = await res.json();
@@ -2157,7 +2099,6 @@ async function saveEditMember() {
     const email = document.getElementById('edit-email').value.trim();
     const phone = document.getElementById('edit-phone').value.trim();
     
-    // Fallbacks robustos caso os elementos HTML falhem ou estejam ausentes
     const roleElem = document.getElementById('edit-role');
     const role = roleElem ? roleElem.value : 'vocal';
     
