@@ -5,7 +5,8 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const headers = {
     'apikey': SUPABASE_KEY,
     'Authorization': `Bearer ${SUPABASE_KEY}`,
-    'Content-Type': 'application/json'
+    'Content-Type': 'application/json',
+    'Prefer': 'return=representation'
 };
 
 // Helper para log de erros do Supabase
@@ -455,6 +456,10 @@ async function loadProfile() {
     const container = document.getElementById('profile-container');
     if (!container) return;
     
+    // Condicional para mostrar campos apenas se existirem na estrutura
+    const emailValue = currentUserData.email || '';
+    const phoneValue = currentUserData.phone || '';
+    
     container.innerHTML = `
         <div class="profile-card">
             <div class="profile-header">
@@ -484,14 +489,16 @@ async function loadProfile() {
                             <label>Nome Completo</label>
                             <input type="text" id="profile-fullname" value="${currentUserData.full_name || ''}">
                         </div>
+                        ${('email' in currentUserData) ? `
                         <div class="input-group">
                             <label>Email</label>
-                            <input type="email" id="profile-email" value="${currentUserData.email || ''}">
-                        </div>
+                            <input type="email" id="profile-email" value="${emailValue}">
+                        </div>` : ''}
+                        ${('phone' in currentUserData) ? `
                         <div class="input-group">
                             <label>Telefone</label>
-                            <input type="tel" id="profile-phone" value="${currentUserData.phone || ''}">
-                        </div>
+                            <input type="tel" id="profile-phone" value="${phoneValue}">
+                        </div>` : ''}
                     </div>
                 </div>
                 <button class="btn-primary" onclick="updateProfile()" style="width:100%; margin-top:1rem;">
@@ -600,17 +607,19 @@ async function uploadPhoto(event) {
 
 async function updateProfile() {
     const fullname = document.getElementById('profile-fullname').value.trim();
-    const email = document.getElementById('profile-email').value.trim();
-    const phone = document.getElementById('profile-phone').value.trim();
+    const emailElem = document.getElementById('profile-email');
+    const phoneElem = document.getElementById('profile-phone');
     
     if (!fullname) {
         showCustomAlert('Nome completo é obrigatório.', 'Erro');
         return;
     }
     try {
+        // Envia APENAS o que sabidamente existe no banco
         const updateData = { full_name: fullname };
-        if (email) updateData.email = email;
-        if (phone) updateData.phone = phone;
+        
+        if (emailElem && ('email' in currentUserData)) updateData.email = emailElem.value.trim() || null;
+        if (phoneElem && ('phone' in currentUserData)) updateData.phone = phoneElem.value.trim() || null;
         
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}`, {
             method: 'PATCH',
@@ -620,8 +629,9 @@ async function updateProfile() {
         if (!res.ok) throw new Error('Erro ao atualizar');
         
         currentUserData.full_name = fullname;
-        if (email) currentUserData.email = email;
-        if (phone) currentUserData.phone = phone;
+        if (updateData.email !== undefined) currentUserData.email = updateData.email;
+        if (updateData.phone !== undefined) currentUserData.phone = updateData.phone;
+        
         localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
         updateHeaderUserInfo();
         showCustomAlert('Perfil atualizado com sucesso!', 'Sucesso');
@@ -638,7 +648,6 @@ async function loadMembers() {
     container.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        // Correção de 400 Bad Request: Pedir 'select=*' previne erros caso colunas específicas faltem no banco
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*&order=full_name.asc`, { 
             headers
         });
@@ -823,7 +832,6 @@ async function loadFolders() {
     }
 }
 
-// CORREÇÃO do 400 Bad Request na contagem: O Supabase exige que contagens exatas venham no header 'Prefer', e não como string na URL.
 async function countMusicInFolder(folderId) {
     try {
         let url = `${SUPABASE_URL}/rest/v1/repertoire?select=id&limit=1`;
@@ -946,12 +954,16 @@ function showCustomInputHTML(title, label, extraHTML, callback) {
     });
 }
 
-// CORREÇÃO Erro 401: Removido o 'Prefer': 'return=representation' pois a RLS costuma bloquear o SELECT de usuários anônimos logo após o INSERT.
 async function createFolder(name, memberId) {
     try {
+        // CORREÇÃO 401: Removido o 'Prefer: return=representation'
+        // Em tabelas com RLS de INSERT, as vezes a política só permite inserção (e barra o Select imediatamente).
+        const postHeaders = { ...headers };
+        delete postHeaders['Prefer']; 
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
             method: 'POST',
-            headers: headers,
+            headers: postHeaders, 
             body: JSON.stringify({
                 name: name.trim(),
                 created_by: memberId,
@@ -961,12 +973,11 @@ async function createFolder(name, memberId) {
         
         if (!res.ok) throw new Error('Falha ao criar banco. 401 Unauthorized.');
         
-        // Em vez de extrair o retorno da request, nós recarregamos as pastas do zero
         await loadFolders();
         showCustomAlert(`Pasta "${name}" criada com sucesso!`, 'Sucesso');
     } catch (e) {
         console.error('Erro ao criar pasta:', e);
-        showCustomAlert('Erro ao criar pasta. Verifique permissões do Supabase.', 'Erro');
+        showCustomAlert('Erro ao criar pasta. Verifique a política RLS (Insert) no Supabase.', 'Erro');
     }
 }
 
@@ -1074,7 +1085,7 @@ async function deleteRepertoire(id) {
 }
 
 // ==========================================
-// SUPER BUSCADOR DE LETRAS (Vagalume + Letras.mus)
+// SUPER BUSCADOR DE LETRAS
 // ==========================================
 function openRepertoireModal() {
     document.getElementById('modal-add-repertoire').classList.add('active');
@@ -1101,7 +1112,6 @@ async function searchMusicList() {
     let foundAnyValid = false;
     
     try {
-        // TENTATIVA 1: VAGALUME OFICIAL API (Muito boa para busca direta nacional)
         try {
             const vagRes = await fetch(`https://api.vagalume.com.br/search.artmus?q=${encodeURIComponent(query)}&limit=5`);
             const vagData = await vagRes.json();
@@ -1109,7 +1119,6 @@ async function searchMusicList() {
             if (vagData.response && vagData.response.docs) {
                 for (let doc of vagData.response.docs) {
                     if (doc.title && doc.band) {
-                        // Faz chamada específica para pegar a letra daquela música
                         const lyricsRes = await fetch(`https://api.vagalume.com.br/search.php?art=${encodeURIComponent(doc.band)}&mus=${encodeURIComponent(doc.title)}`);
                         if (lyricsRes.ok) {
                             const lyricsData = await lyricsRes.json();
@@ -1128,16 +1137,13 @@ async function searchMusicList() {
             }
         } catch(e) { console.warn('Vagalume API falhou', e); }
 
-        // TENTATIVA 2: SCRAPER DO LETRAS.MUS.BR (Acha literalmente quase tudo Gospel que Vagalume não acha)
         if (!foundAnyValid) {
             try {
-                // Pegar sugestões via autocomplete do Letras
                 const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=5`);
                 if (letrasRes.ok) {
                     const letrasData = await letrasRes.json();
                     for (let item of letrasData) {
                         if (item.url && item.artista && item.nome) {
-                            // Vamos extrair o HTML usando proxy para burlar o CORS do navegador
                             const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(item.url)}`;
                             const htmlRes = await fetch(proxyUrl);
                             const htmlData = await htmlRes.json();
@@ -1145,7 +1151,6 @@ async function searchMusicList() {
                             const parser = new DOMParser();
                             const doc = parser.parseFromString(htmlData.contents, 'text/html');
                             
-                            // Letras.mus usa várias classes CSS para as letras dependendo do design da página
                             const element = doc.querySelector('.lyric-original') || doc.querySelector('.letra') || doc.querySelector('#letra');
                             
                             if (element) {
@@ -1965,29 +1970,41 @@ async function loadAdminStats() {
 async function createNewMember() {
     const username = document.getElementById('new-username').value.trim().toLowerCase();
     const fullname = document.getElementById('new-fullname').value.trim();
-    const email = document.getElementById('new-email').value.trim();
-    const phone = document.getElementById('new-phone').value.trim();
+    const emailElem = document.getElementById('new-email');
+    const phoneElem = document.getElementById('new-phone');
     const role = document.getElementById('new-role').value;
     const isLeader = document.getElementById('new-is-leader').checked;
     
     if (!username || !fullname) { showCustomAlert('Preencha usuário e nome completo!'); return; }
     try {
+        const payload = { username, full_name: fullname, is_leader: isLeader, role: role };
+        
+        // Só tenta enviar se existir a coluna em nosso cache global
+        if (currentUserData) {
+            if (emailElem && ('email' in currentUserData)) payload.email = emailElem.value.trim() || null;
+            if (phoneElem && ('phone' in currentUserData)) payload.phone = phoneElem.value.trim() || null;
+        }
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members`, {
             method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' },
-            body: JSON.stringify({ username, full_name: fullname, email: email || null, phone: phone || null, is_leader: isLeader, role: role })
+            body: JSON.stringify(payload)
         });
-        if (!res.ok) throw new Error('Usuário já existe.');
+        if (!res.ok) throw new Error('Usuário já existe ou erro no banco.');
         const saved = await res.json();
         
         if (role !== 'midia') {
+            const postHeaders = { ...headers };
+            delete postHeaders['Prefer']; 
             await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
-                method: 'POST', headers,
+                method: 'POST', headers: postHeaders,
                 body: JSON.stringify({ name: `Repertório de ${fullname}`, created_by: saved[0].id, is_general: false })
             });
         }
         
         showCustomAlert('Membro cadastrado com sucesso!', 'Sucesso');
-        ['new-username', 'new-fullname', 'new-email', 'new-phone'].forEach(id => document.getElementById(id).value = '');
+        ['new-username', 'new-fullname', 'new-email', 'new-phone'].forEach(id => { 
+            if(document.getElementById(id)) document.getElementById(id).value = ''; 
+        });
         document.getElementById('new-is-leader').checked = false;
     } catch (e) {
         console.error('Erro ao cadastrar:', e);
@@ -2000,7 +2017,6 @@ async function loadAdminMembers() {
     container.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        // Correção de 400 Bad Request
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*&order=full_name.asc`, { 
             headers
         });
@@ -2063,7 +2079,6 @@ function filterAdminMembers() {
 // ==========================================
 async function editMember(id) {
     try {
-        // Usa select=* para não falhar caso faltem colunas no BD
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}&select=*`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar dados do Supabase');
         
@@ -2076,8 +2091,11 @@ async function editMember(id) {
         
         document.getElementById('edit-member-id').value = member.id;
         document.getElementById('edit-fullname').value = member.full_name || '';
-        document.getElementById('edit-email').value = member.email || '';
-        document.getElementById('edit-phone').value = member.phone || '';
+        
+        const emailElem = document.getElementById('edit-email');
+        const phoneElem = document.getElementById('edit-phone');
+        if (emailElem && ('email' in member)) emailElem.value = member.email || '';
+        if (phoneElem && ('phone' in member)) phoneElem.value = member.phone || '';
         
         const roleSelect = document.getElementById('edit-role');
         if (roleSelect) roleSelect.value = member.role || 'vocal';
@@ -2096,8 +2114,9 @@ async function editMember(id) {
 async function saveEditMember() {
     const id = document.getElementById('edit-member-id').value;
     const fullname = document.getElementById('edit-fullname').value.trim();
-    const email = document.getElementById('edit-email').value.trim();
-    const phone = document.getElementById('edit-phone').value.trim();
+    
+    const emailElem = document.getElementById('edit-email');
+    const phoneElem = document.getElementById('edit-phone');
     
     const roleElem = document.getElementById('edit-role');
     const role = roleElem ? roleElem.value : 'vocal';
@@ -2111,13 +2130,18 @@ async function saveEditMember() {
     }
     
     try {
+        // Envia SOMENTE colunas base e checa se as extras de fato existem
         const updateData = {
             full_name: fullname,
-            email: email || null,
-            phone: phone || null,
             role: role,
             is_leader: isLeader
         };
+        
+        // Puxa rapidamente do cache pra confirmar colunas do schema
+        if (currentUserData) {
+            if (emailElem && ('email' in currentUserData)) updateData.email = emailElem.value.trim() || null;
+            if (phoneElem && ('phone' in currentUserData)) updateData.phone = phoneElem.value.trim() || null;
+        }
         
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, {
             method: 'PATCH',
