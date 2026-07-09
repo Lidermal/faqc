@@ -1097,7 +1097,7 @@ async function deleteRepertoire(id) {
 }
 
 // ==========================================
-// SUPER BUSCADOR DE LETRAS (MULTI-FONTE OTIMIZADO)
+// SUPER BUSCADOR DE LETRAS (TURBINADO COM PROXY)
 // ==========================================
 function openRepertoireModal() {
     document.getElementById('modal-add-repertoire').classList.add('active');
