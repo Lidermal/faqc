@@ -785,7 +785,7 @@ async function loadFolders() {
             console.warn('Tabela de pastas não encontrada ou erro:', e);
         }
 
-        // Breadcrumb de navegação (CORREÇÃO - tipo explorador de arquivos)
+        // Breadcrumb de navegação
         const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
         let breadcrumbHtml = `<div class="folder-breadcrumb">
             <button class="breadcrumb-btn ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
@@ -802,7 +802,7 @@ async function loadFolders() {
         }
         breadcrumbHtml += `</div>`;
 
-        // Lista de pastas (visual original em lista vertical - mantido conforme solicitado)
+        // Lista de pastas
         let html = '<div class="folders-list">';
         
         // Pasta Geral
@@ -817,9 +817,9 @@ async function loadFolders() {
             </button>
         `;
 
-        // Pastas personalizadas
-        folders.forEach(folder => {
-            if (folder.is_general) return;
+        // Pastas personalizadas (CORREÇÃO: Usando for...of no lugar de forEach)
+        for (const folder of folders) {
+            if (folder.is_general) continue; // No for...of usamos continue
             const canEdit = currentUserData.is_leader || (folder.created_by === currentUserData.id);
             const musicCount = await countMusicInFolder(folder.id);
             
@@ -839,7 +839,7 @@ async function loadFolders() {
                     ` : ''}
                 </div>
             `;
-        });
+        }
 
         // Botão criar pasta (apenas para líderes)
         if (currentUserData.is_leader) {
