@@ -337,7 +337,7 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 }
 .member-contact .material-symbols-outlined { font-size: 1rem; }
 
-/* PASTAS - VISUAL EXPLORADOR LINUX (NOVO) */
+/* PASTAS - VISUAL EXPLORADOR LINUX (CORRIGIDO) */
 #folders-list {
   display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.5rem;
 }
@@ -363,7 +363,8 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
   text-align: center;
   gap: 12px;
   position: relative;
-  min-height: 160px;
+  min-height: 160px; /* Garante altura mínima para 2 linhas */
+  justify-content: flex-start;
 }
 
 .folder-card:hover {
@@ -401,10 +402,15 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
   font-weight: 600;
   color: var(--text-main);
   margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   width: 100%;
+  /* Correção de visualização */
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-wrap: break-word;
+  line-height: 1.2;
 }
 
 .folder-card-info p {
@@ -455,7 +461,7 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
   background: rgba(240, 90, 40, 0.05);
 }
 
-/* BREADCRUMB DE NAVEGAÇÃO (NOVO) */
+/* BREADCRUMB DE NAVEGAÇÃO */
 .folder-breadcrumb {
   display: flex;
   align-items: center;
