@@ -24,7 +24,7 @@ function logSupabaseError(endpoint, response) {
 let currentUserData = null;
 let countdownInterval;
 let currentViewingRepertoireId = null;
-let currentFolderId = null;
+let currentFolderId = null; // null = Pasta Geral
 let allRepertoireCache = [];
 let allMembersCache = [];
 let allFoldersCache = [];
@@ -83,6 +83,46 @@ function closeCustomConfirm() {
     document.getElementById('modal-confirm').classList.remove('active');
 }
 
+// Modal de Input Personalizado (Reutilizável)
+function showCustomInput(label, placeholder, callback) {
+    const existingModal = document.querySelector('.custom-input-modal');
+    if (existingModal) existingModal.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'modal custom-input-modal active';
+    modal.innerHTML = `
+        <div class="modal-content" style="max-width:400px;">
+            <div class="modal-header">
+                <h3>Nova Pasta</h3>
+                <button class="close-btn" onclick="this.closest('.modal').remove()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <label>${label}</label>
+                    <input type="text" id="custom-input-field" placeholder="${placeholder}" autofocus>
+                </div>
+                <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
+                    <button class="btn-secondary" onclick="this.closest('.modal').remove()">Cancelar</button>
+                    <button class="btn-primary" id="custom-input-confirm">Criar</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    const input = modal.querySelector('#custom-input-field');
+    const confirmBtn = modal.querySelector('#custom-input-confirm');
+    
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmBtn.click(); });
+    confirmBtn.addEventListener('click', () => {
+        const value = input.value.trim();
+        modal.remove();
+        if (value) callback(value);
+    });
+    
+    setTimeout(() => input.focus(), 100);
+}
+
 // ==========================================
 // AUTENTICAÇÃO E NAVEGAÇÃO
 // ==========================================
@@ -136,6 +176,7 @@ function showSystemScreen() {
     const isLeader = currentUserData.is_leader;
     const isMedia = currentUserData.role === 'midia';
 
+    // Lógica de Permissão de Navegação
     if (isLeader) {
         document.getElementById('nav-admin').classList.remove('hidden');
         document.getElementById('btn-add-scale').classList.remove('hidden');
@@ -145,8 +186,10 @@ function showSystemScreen() {
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('nav-escalas').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
-        document.getElementById('repertoire-actions').classList.remove('hidden');
+        // Mídia pode ver repertório mas não editar (controlado nas funções de renderização)
+        document.getElementById('repertoire-actions').classList.remove('hidden'); 
     } else {
+        // Membro Comum
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
@@ -214,6 +257,8 @@ function navigate(pageId) {
     } else if (pageId === 'admin') {
         loadAdminDashboard();
     } else if (pageId === 'repertorio') {
+        // Resetar pasta ao entrar no repertório para mostrar visão geral
+        currentFolderId = null; 
         loadFolders();
         loadRepertoire();
     } else if (pageId === 'escalas') {
@@ -351,13 +396,13 @@ function scrollCarousel(direction) {
 }
 
 // ==========================================
-// MENSAGEM DO DIA (API SINCRONIZADA - CORREÇÃO)
+// MENSAGEM DO DIA
 // ==========================================
 async function fetchDailyMessage() {
     const container = document.getElementById('daily-message-content');
     const today = new Date().toISOString().split('T')[0];
     
-    // 1. Tenta buscar do Supabase (mensagem sincronizada para todos)
+    // 1. Tenta buscar do Supabase
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/daily_message?date=eq.${today}&select=verse_text,verse_ref`, { headers });
         if (res.ok) {
@@ -369,7 +414,7 @@ async function fetchDailyMessage() {
         }
     } catch (e) { console.warn('Não foi possível buscar mensagem do Supabase'); }
     
-    // 2. Fallback: versículo do dia baseado na data (sincronizado para todos)
+    // 2. Fallback local sincronizado
     try {
         const seed = today.split('-').join('').slice(-4);
         const verses = [
@@ -463,7 +508,7 @@ async function fetchNextScaleHome() {
 }
 
 // ==========================================
-// PERFIL + UPLOAD DE FOTO (COM COMPRESSÃO - CORREÇÃO)
+// PERFIL + UPLOAD DE FOTO (CORRIGIDO E ROBUSTO)
 // ==========================================
 async function loadProfile() {
     const container = document.getElementById('profile-container');
@@ -516,7 +561,7 @@ async function loadProfile() {
     `;
 }
 
-// Função para comprimir/redimensionar imagem no cliente (NOVA - CORREÇÃO)
+// Função para comprimir/redimensionar imagem no cliente
 function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
@@ -557,7 +602,7 @@ async function uploadPhoto(event) {
             return;
         }
 
-        // Comprime a imagem antes do upload (CORREÇÃO)
+        // Comprime a imagem antes do upload
         const compressedFile = await compressImage(file);
         const fileExt = 'jpg';
         const fileName = `${currentUserData.id}_${Date.now()}.${fileExt}`;
@@ -570,15 +615,24 @@ async function uploadPhoto(event) {
             });
         
         if (error) {
-            // Fallback se bucket não existir (CORREÇÃO)
-            if (error.message.includes('not found') || error.message.includes('not_found')) {
+            // Fallback se bucket não existir ou falhar: Salva como Base64 no banco (menos ideal, mas funcional)
+            if (error.message.includes('not found') || error.message.includes('not_found') || error.statusCode === '404') {
                 const reader = new FileReader();
-                reader.onload = (e) => {
-                    currentUserData.photo_url = e.target.result;
-                    localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
-                    updateHeaderUserInfo();
-                    showCustomAlert('Foto salva localmente (bucket não configurado).', 'Aviso');
-                    loadProfile();
+                reader.onload = async (e) => {
+                    const base64Data = e.target.result;
+                    // Atualiza direto no banco como string base64
+                    const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}`, {
+                        method: 'PATCH',
+                        headers,
+                        body: JSON.stringify({ photo_url: base64Data })
+                    });
+                    if(res.ok) {
+                        currentUserData.photo_url = base64Data;
+                        localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
+                        updateHeaderUserInfo();
+                        showCustomAlert('Foto salva localmente (Bucket não configurado).', 'Aviso');
+                        loadProfile();
+                    }
                 };
                 reader.readAsDataURL(compressedFile);
                 return;
@@ -605,11 +659,7 @@ async function uploadPhoto(event) {
         loadProfile();
     } catch (e) {
         console.error('Erro upload:', e);
-        if (e.message.includes('not found') || e.message.includes('not_found')) {
-             showCustomAlert('Erro: Bucket "member-photos" não existe no Supabase.', 'Erro de Configuração');
-        } else {
-            showCustomAlert('Erro ao fazer upload: ' + e.message, 'Erro');
-        }
+        showCustomAlert('Erro ao fazer upload: ' + e.message, 'Erro');
     }
 }
 
@@ -646,7 +696,7 @@ async function updateProfile() {
 }
 
 // ==========================================
-// MEMBROS (CORRIGIDO - QUERY DEFENSIVA)
+// MEMBROS
 // ==========================================
 async function loadMembers() {
     const container = document.getElementById('members-lineup');
@@ -756,7 +806,7 @@ function createMemberCard(member, type) {
 }
 
 // ==========================================
-// PASTAS DO REPERTÓRIO (VISUAL EXPLORADOR - CORREÇÃO SOLICITADA)
+// PASTAS DO REPERTÓRIO (VISUAL EXPLORADOR)
 // ==========================================
 async function loadFolders() {
     const container = document.getElementById('folders-list');
@@ -774,30 +824,37 @@ async function loadFolders() {
             console.warn('Tabela de pastas não encontrada ou erro:', e);
         }
 
-        // Breadcrumb de navegação
-        const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
+        // Se estamos dentro de uma pasta, não mostramos a lista de pastas, mas sim um botão de voltar
+        if (currentFolderId) {
+            const currentFolderObj = allFoldersCache.find(f => f.id === currentFolderId);
+            const folderName = currentFolderObj ? currentFolderObj.name : 'Pasta';
+            
+            container.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+                    <button class="btn-secondary" onclick="selectFolder(null)" style="display:flex; align-items:center; gap:5px;">
+                        <span class="material-symbols-outlined">arrow_back</span> Voltar para Pastas
+                    </button>
+                    <h3 style="margin:0; color:var(--primary-color);">${folderName}</h3>
+                </div>
+            `;
+            return;
+        }
+
+        // Modo Visualização de Pastas (Raiz)
         let breadcrumbHtml = `<div class="folder-breadcrumb">
-            <button class="breadcrumb-btn ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+            <button class="breadcrumb-btn active">
                 <span class="material-symbols-outlined">home</span>
                 <span>Pasta Geral</span>
-            </button>`;
-        if (currentFolder) {
-            breadcrumbHtml += `
-                <span class="breadcrumb-separator">/</span>
-                <button class="breadcrumb-btn active">
-                    <span class="material-symbols-outlined">folder</span>
-                    <span>${currentFolder.name}</span>
-                </button>`;
-        }
-        breadcrumbHtml += `</div>`;
+            </button>
+        </div>`;
 
-        // GRID DE PASTAS (visual explorador)
+        // GRID DE PASTAS
         let html = '<div class="folders-grid">';
         
         // Pasta Geral
         const generalCount = await countMusicInFolder(null);
         html += `
-            <button class="folder-card ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+            <button class="folder-card active" onclick="selectFolder(null)">
                 <div class="folder-card-icon"><span class="material-symbols-outlined">folder_special</span></div>
                 <div class="folder-card-info">
                     <h4>Pasta Geral</h4>
@@ -814,7 +871,7 @@ async function loadFolders() {
             const musicCount = await countMusicInFolder(folder.id);
             
             html += `
-                <button class="folder-card ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
+                <button class="folder-card" onclick="selectFolder('${folder.id}')">
                     <div class="folder-card-icon"><span class="material-symbols-outlined">folder</span></div>
                     <div class="folder-card-info">
                         <h4>${folder.name}</h4>
@@ -830,8 +887,16 @@ async function loadFolders() {
             `;
         }
 
-        // Botão criar pasta (apenas para líderes)
-        if (currentUserData.is_leader) {
+        // Botão criar pasta (apenas para líderes ou quem não tem pasta ainda)
+        // Regra: Cada membro pode ter sua pasta. Líderes podem criar quantas quiserem? Vamos simplificar:
+        // Se for líder, mostra sempre. Se for membro, mostra se não tiver pasta criada por ele.
+        let showCreateBtn = currentUserData.is_leader;
+        if (!showCreateBtn) {
+            const myFolder = folders.find(f => f.created_by === currentUserData.id);
+            if (!myFolder) showCreateBtn = true;
+        }
+
+        if (showCreateBtn) {
             html += `
                 <button class="folder-card folder-card-create" onclick="openCreateFolderModalCustom()">
                     <div class="folder-card-icon"><span class="material-symbols-outlined">create_new_folder</span></div>
@@ -853,7 +918,6 @@ async function loadFolders() {
     }
 }
 
-// CORREÇÃO: REST API usa is.null para campos nulos
 async function countMusicInFolder(folderId) {
     try {
         let query = `${SUPABASE_URL}/rest/v1/repertoire?select=id&count=exact`;
@@ -872,6 +936,7 @@ async function countMusicInFolder(folderId) {
 
 function selectFolder(folderId) {
     currentFolderId = folderId;
+    // Recarrega a visualização: se null, mostra pastas. Se ID, mostra botão voltar e músicas.
     loadFolders();
     loadRepertoire();
 }
@@ -886,6 +951,7 @@ async function confirmDeleteFolder(folderId) {
 
 async function deleteFolder(folderId) {
     try {
+        // Move músicas para null (Pasta Geral)
         await fetch(`${SUPABASE_URL}/rest/v1/repertoire?folder_id=eq.${folderId}`, {
             method: 'PATCH',
             headers,
@@ -912,54 +978,20 @@ async function deleteFolder(folderId) {
     }
 }
 
-// Modal personalizado para criar pasta
 function openCreateFolderModalCustom() {
-    const existingFolder = allFoldersCache.find(f => f.created_by === currentUserData.id && !f.is_general);
-    if (existingFolder) {
-        showCustomAlert('Você já possui uma pasta pessoal.', 'Atenção');
-        return;
+    // Verifica se usuário já tem pasta (exceto líderes)
+    if (!currentUserData.is_leader) {
+        const existingFolder = allFoldersCache.find(f => f.created_by === currentUserData.id && !f.is_general);
+        if (existingFolder) {
+            showCustomAlert('Você já possui uma pasta pessoal.', 'Atenção');
+            return;
+        }
     }
 
-    showCustomInput('Nome da nova pasta:', `Ex: ${currentUserData.full_name}`, (folderName) => {
+    showCustomInput('Nome da nova pasta:', `Ex: Repertório ${currentUserData.full_name}`, (folderName) => {
         if (!folderName || folderName.trim() === '') return;
         createFolder(folderName.trim());
     });
-}
-
-function showCustomInput(label, placeholder, callback) {
-    const modal = document.createElement('div');
-    modal.className = 'modal custom-input-modal active';
-    modal.innerHTML = `
-        <div class="modal-content" style="max-width:400px;">
-            <div class="modal-header">
-                <h3>Nova Pasta</h3>
-                <button class="close-btn" onclick="this.closest('.modal').classList.remove('active')">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="input-group">
-                    <label>${label}</label>
-                    <input type="text" id="custom-input-field" placeholder="${placeholder}" autofocus>
-                </div>
-                <div style="display:flex; gap:10px; margin-top:20px; justify-content:flex-end;">
-                    <button class="btn-secondary" onclick="this.closest('.modal').classList.remove('active')">Cancelar</button>
-                    <button class="btn-primary" id="custom-input-confirm">Criar</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(modal);
-    
-    const input = modal.querySelector('#custom-input-field');
-    const confirmBtn = modal.querySelector('#custom-input-confirm');
-    
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') confirmBtn.click(); });
-    confirmBtn.addEventListener('click', () => {
-        const value = input.value.trim();
-        modal.remove();
-        if (value) callback(value);
-    });
-    
-    setTimeout(() => input.focus(), 100);
 }
 
 async function createFolder(name) {
@@ -974,7 +1006,10 @@ async function createFolder(name) {
             })
         });
         
-        if (!res.ok) throw new Error('Falha ao criar');
+        if (!res.ok) {
+            const errText = await res.text();
+            throw new Error(errText);
+        }
         
         const newFolder = await res.json();
         allFoldersCache.push(newFolder[0]);
@@ -983,12 +1018,12 @@ async function createFolder(name) {
         showCustomAlert(`Pasta "${name}" criada com sucesso!`, 'Sucesso');
     } catch (e) {
         console.error('Erro ao criar pasta:', e);
-        showCustomAlert('Erro ao criar pasta.', 'Erro');
+        showCustomAlert('Erro ao criar pasta: ' + e.message, 'Erro');
     }
 }
 
 // ==========================================
-// BUSCA DE LETRAS
+// BUSCA DE LETRAS (MELHORADA)
 // ==========================================
 function openRepertoireModal() {
     document.getElementById('modal-add-repertoire').classList.add('active');
@@ -1034,61 +1069,61 @@ async function searchMusicList() {
     const msgBox = document.getElementById('search-msg');
     
     if (!query) return;
-    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando...</span>';
+    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando em bases Gospel...</span>';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
     let foundAnyValid = false;
     
     try {
-        // 1. Tentar Letras.mus.br
+        // 1. Vagalume (Melhor para Gospel Brasileiro)
         try {
-            const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=10`);
-            if (letrasRes.ok) {
-                const letrasData = await letrasRes.json();
-                if (letrasData && letrasData.length > 0) {
-                    for (let item of letrasData.slice(0, 5)) {
-                        const artist = item.artista || '';
-                        const song = item.nome || '';
-                        if (artist && song) {
-                            let lyrics = await extractLyricsFromLetras(item.url);
-                            if (lyrics) {
-                                foundAnyValid = true;
-                                const id = `letras_${Math.random()}`;
-                                cachedLyricsSearch[id] = { artist, song, lyrics, source: 'Letras.mus.br' };
-                                addSearchResultToDOM(song, artist, id);
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e) { console.warn('Letras.mus.br falhou', e); }
-
-        // 2. Tentar Vagalume se não achou
-        if (!foundAnyValid) {
-             try {
-                const vagRes = await fetch(`https://api.vagalume.com.br/search.php?exc=${encodeURIComponent(query)}&apikey=a53a6c27f726a530cd8c5cfe161bccda`);
-                if(vagRes.ok) {
-                    const data = await vagRes.json();
-                    if(data.art) {
-                        for(let artist of data.art) {
-                            if(artist.mus) {
-                                for(let mus of artist.mus) {
-                                    if(mus.text) {
-                                        const id = `vag_${Math.random()}`;
-                                        cachedLyricsSearch[id] = { artist: artist.name, song: mus.title || mus.desc, lyrics: mus.text, source: 'Vagalume' };
-                                        addSearchResultToDOM(mus.title, artist.name, id);
-                                        foundAnyValid = true;
-                                    }
+            const vagRes = await fetch(`https://api.vagalume.com.br/search.php?exc=${encodeURIComponent(query)}&apikey=a53a6c27f726a530cd8c5cfe161bccda`);
+            if(vagRes.ok) {
+                const data = await vagRes.json();
+                if(data.art) {
+                    for(let artist of data.art) {
+                        if(artist.mus) {
+                            for(let mus of artist.mus) {
+                                if(mus.text) {
+                                    const id = `vag_${Math.random()}`;
+                                    cachedLyricsSearch[id] = { artist: artist.name, song: mus.title || mus.desc, lyrics: mus.text, source: 'Vagalume' };
+                                    addSearchResultToDOM(mus.title, artist.name, id);
+                                    foundAnyValid = true;
                                 }
                             }
                         }
                     }
                 }
-             } catch(e) { console.warn('Vagalume falhou', e); }
+            }
+        } catch(e) { console.warn('Vagalume falhou', e); }
+
+        // 2. Letras.mus.br (Fallback)
+        if (!foundAnyValid) {
+            try {
+                const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=10`);
+                if (letrasRes.ok) {
+                    const letrasData = await letrasRes.json();
+                    if (letrasData && letrasData.length > 0) {
+                        for (let item of letrasData.slice(0, 5)) {
+                            const artist = item.artista || '';
+                            const song = item.nome || '';
+                            if (artist && song) {
+                                let lyrics = await extractLyricsFromLetras(item.url);
+                                if (lyrics) {
+                                    foundAnyValid = true;
+                                    const id = `letras_${Math.random()}`;
+                                    cachedLyricsSearch[id] = { artist, song, lyrics, source: 'Letras.mus.br' };
+                                    addSearchResultToDOM(song, artist, id);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) { console.warn('Letras.mus.br falhou', e); }
         }
 
         if (!foundAnyValid) {
-            msgBox.innerHTML = '<span style="color:var(--danger);">❌ Não encontramos a letra automaticamente.</span>';
+            msgBox.innerHTML = '<span style="color:var(--danger);">❌ Não encontramos a letra automaticamente. Tente digitar manualmente.</span>';
         } else {
             msgBox.innerHTML = '<span style="color:var(--success);">✅ Resultados encontrados!</span>';
         }
@@ -1214,13 +1249,13 @@ async function saveNewRepertoire() {
 }
 
 // ==========================================
-// REPERTÓRIO COM PASTAS (CORREÇÃO SOLICITADA)
+// REPERTÓRIO COM PASTAS (CORRIGIDO)
 // ==========================================
 async function loadRepertoire() {
     const list = document.getElementById('repertoire-list');
     if (!list) return;
     
-    // Cabeçalho da pasta atual (efeito explorador)
+    // Cabeçalho da pasta atual
     const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
     let headerHtml = '';
     if (currentFolder) {
@@ -1244,7 +1279,7 @@ async function loadRepertoire() {
         if (currentFolderId) {
             query += `&folder_id=eq.${currentFolderId}`;
         } else {
-            // CORREÇÃO: Pasta Geral usa is.null
+            // Pasta Geral usa is.null
             query += `&folder_id=is.null`;
         }
         query += '&order=title.asc';
@@ -1260,6 +1295,10 @@ async function loadRepertoire() {
         }
 
         let html = headerHtml;
+        
+        // Verifica permissão de edição (Mídia não edita)
+        const isMedia = currentUserData.role === 'midia';
+
         allRepertoireCache.forEach(song => {
             let keysHtml = '';
             if (song.repertoire_keys) {
@@ -1271,14 +1310,25 @@ async function loadRepertoire() {
                 vocalistHtml = `<div class="vocalist-badge"><span class="material-symbols-outlined" style="font-size:0.9rem;">mic</span> ${song.vocalist}</div>`;
             }
 
-            const isSongOwner = song.created_by === currentUserData.id;
-            let isFolderOwner = false;
-            if (currentFolderId && allFoldersCache.length > 0) {
-                const currentFolderObj = allFoldersCache.find(f => f.id === currentFolderId);
-                if (currentFolderObj && currentFolderObj.created_by === currentUserData.id) isFolderOwner = true;
+            // Lógica de Permissão:
+            // 1. Mídia nunca edita.
+            // 2. Líder edita tudo.
+            // 3. Dono da música (created_by) edita.
+            // 4. Dono da pasta (se houver) edita.
+            let canEdit = !isMedia;
+            if (canEdit) {
+                const isSongOwner = song.created_by === currentUserData.id;
+                let isFolderOwner = false;
+                if (currentFolderId && allFoldersCache.length > 0) {
+                    const currentFolderObj = allFoldersCache.find(f => f.id === currentFolderId);
+                    if (currentFolderObj && currentFolderObj.created_by === currentUserData.id) isFolderOwner = true;
+                }
+                // Se não for dono da música nem da pasta, só líder pode editar
+                if (!isSongOwner && !isFolderOwner && !currentUserData.is_leader) {
+                    canEdit = false;
+                }
             }
             
-            const canEdit = isSongOwner || isFolderOwner || currentUserData.is_leader;
             const titleEscaped = song.title.replace(/`/g, "'");
             const lyricsEscaped = encodeURIComponent(song.lyrics_text || '');
             const vocalEscaped = encodeURIComponent(song.vocalist || '');
@@ -1940,7 +1990,7 @@ async function saveNewScale() {
 }
 
 // ==========================================
-// ADMINISTRAÇÃO
+// ADMINISTRAÇÃO (CORRIGIDO)
 // ==========================================
 function loadAdminDashboard() {
     showAdminSection('new-member');
@@ -2079,7 +2129,7 @@ function filterAdminMembers() {
 }
 
 // ==========================================
-// EDIÇÃO DE MEMBROS (CORRIGIDA - CORREÇÃO SOLICITADA)
+// EDIÇÃO DE MEMBROS (CORRIGIDA)
 // ==========================================
 async function editMember(id) {
     try {
