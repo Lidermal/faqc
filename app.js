@@ -1,6 +1,7 @@
 // URLs do Supabase
 const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFicmFvcmFv...'; // MANTENHA SUA KEY ORIGINAL
+const SUPABASE_KEY = 'COLOQUE_SUA_NOVA_CHAVE_ANON_AQUI'; // ⚠️ Atualize com a chave válida do dashboard
+
 const headers = {
     'apikey': SUPABASE_KEY,
     'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -8,11 +9,40 @@ const headers = {
     'Prefer': 'return=representation'
 };
 
-// Helper para log de erros do Supabase
-function logSupabaseError(endpoint, response) {
-    response.clone().text().then(text => {
-        console.error(`❌ Erro Supabase em ${endpoint}:`, response.status, text);
-    });
+// Helper para testar conexão com o Supabase
+async function testSupabaseConnection() {
+    try {
+        console.log('🔍 Testando conexão com Supabase...');
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?limit=1`, { 
+            headers,
+            method: 'GET'
+        });
+        
+        if (res.status === 401) {
+            console.error('❌ ERRO 401: API Key inválida ou expirada.');
+            console.error('✅ SOLUÇÃO: Vá em https://supabase.com/dashboard → Settings → API e copie a nova chave "anon".');
+            showCustomAlert('⚠️ Chave de API inválida. Contate o administrador para renovar.', 'Erro de Conexão');
+            return false;
+        }
+        if (res.status === 404) {
+            console.error('❌ ERRO 404: Tabela "members" não encontrada.');
+            console.error('✅ SOLUÇÃO: Execute o script SQL de criação de tabelas no Supabase.');
+            showCustomAlert('⚠️ Banco de dados não configurado. Execute o script SQL de criação.', 'Erro de Banco');
+            return false;
+        }
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error(`❌ Erro desconhecido ${res.status}:`, errText);
+            return false;
+        }
+        
+        console.log('✅ Conexão com Supabase OK!');
+        return true;
+    } catch (e) {
+        console.error('❌ Erro de rede ao conectar com Supabase:', e);
+        showCustomAlert('⚠️ Não foi possível conectar ao servidor. Verifique sua internet.', 'Erro de Rede');
+        return false;
+    }
 }
 
 // ==========================================
@@ -36,22 +66,30 @@ let selectedVocalists = [];
 let carouselInterval = null;
 
 // ==========================================
-// INICIALIZAÇÃO SUPABASE
+// INICIALIZAÇÃO SUPABASE (MODIFICADA)
 // ==========================================
-function initSupabase() {
+async function initSupabase() {
+    // Testa conexão REST antes de inicializar cliente
+    const connectionOk = await testSupabaseConnection();
+    if (!connectionOk) {
+        console.warn('⚠️ Supabase não está acessível. Funcionalidades limitadas.');
+        return false;
+    }
+    
     try {
         if (window.supabase) {
             supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
             console.log('✅ Supabase client inicializado');
             return true;
         }
-        console.warn('⚠️ Supabase library não carregada');
+        console.warn('⚠️ Biblioteca supabase-js não carregada');
         return false;
     } catch (e) {
-        console.error('❌ Erro ao inicializar Supabase:', e);
+        console.error('❌ Erro ao inicializar cliente Supabase:', e);
         return false;
     }
 }
+
 
 // ==========================================
 // ALERTAS PERSONALIZADOS
