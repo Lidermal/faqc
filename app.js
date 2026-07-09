@@ -2111,13 +2111,103 @@ async function deleteMember(id) {
 }
 
 // ==========================================
-// INICIALIZAÇÃO
+// INICIALIZAÇÃO GLOBAL - GARANTE FUNÇÕES NO ESCOPO GLOBAL
 // ==========================================
+window.handleLogin = handleLogin;
+window.showSystemScreen = showSystemScreen;
+window.updateHeaderUserInfo = updateHeaderUserInfo;
+window.handleLogout = handleLogout;
+window.navigate = navigate;
+window.closeModals = closeModals;
+window.showAdminSection = showAdminSection;
+window.showCustomAlert = showCustomAlert;
+window.closeCustomAlert = closeCustomAlert;
+window.showCustomConfirm = showCustomConfirm;
+window.closeCustomConfirm = closeCustomConfirm;
+window.loadDashboard = loadDashboard;
+window.startCountdown = startCountdown;
+window.startCarouselAutoScroll = startCarouselAutoScroll;
+window.scrollCarousel = scrollCarousel;
+window.fetchDailyMessage = fetchDailyMessage;
+window.getRoleIcon = getRoleIcon;
+window.getRoleName = getRoleName;
+window.fetchNextScaleHome = fetchNextScaleHome;
+window.loadProfile = loadProfile;
+window.compressImage = compressImage;
+window.uploadPhoto = uploadPhoto;
+window.updateProfile = updateProfile;
+window.loadMembers = loadMembers;
+window.createMemberCard = createMemberCard;
+window.loadFolders = loadFolders;
+window.countMusicInFolder = countMusicInFolder;
+window.selectFolder = selectFolder;
+window.confirmDeleteFolder = confirmDeleteFolder;
+window.deleteFolder = deleteFolder;
+window.openCreateFolderModal = openCreateFolderModal;
+window.openRepertoireModal = openRepertoireModal;
+window.normalizeText = normalizeText;
+window.extractLyricsFromLetras = extractLyricsFromLetras;
+window.searchMusicList = searchMusicList;
+window.addSearchResultToDOM = addSearchResultToDOM;
+window.importPreCheckedLyrics = importPreCheckedLyrics;
+window.searchVocalists = searchVocalists;
+window.selectVocalist = selectVocalist;
+window.removeVocalist = removeVocalist;
+window.updateSelectedVocalists = updateSelectedVocalists;
+window.saveNewRepertoire = saveNewRepertoire;
+window.loadRepertoire = loadRepertoire;
+window.deleteRepertoire = deleteRepertoire;
+window.openMedleyModal = openMedleyModal;
+window.resetMedleyFlow = resetMedleyFlow;
+window.loadMedleySongsList = loadMedleySongsList;
+window.selectMedleySong = selectMedleySong;
+window.parseLyricsIntoVerses = parseLyricsIntoVerses;
+window.renderVersesSelector = renderVersesSelector;
+window.toggleVerse = toggleVerse;
+window.selectAllVerses = selectAllVerses;
+window.addSelectedVersesToMedley = addSelectedVersesToMedley;
+window.removeMedleySong = removeMedleySong;
+window.renderMedleyPreview = renderMedleyPreview;
+window.saveNewMedley = saveNewMedley;
+window.generateMedleyLyrics = generateMedleyLyrics;
+window.openViewRepertoire = openViewRepertoire;
+window.saveVocalistToRepertoire = saveVocalistToRepertoire;
+window.loadKeysForRepertoire = loadKeysForRepertoire;
+window.addKeyToRepertoire = addKeyToRepertoire;
+window.deleteKey = deleteKey;
+window.switchScaleTab = switchScaleTab;
+window.loadScales = loadScales;
+window.renderScaleCards = renderScaleCards;
+window.deleteScale = deleteScale;
+window.openEditScaleModal = openEditScaleModal;
+window.openScaleModal = openScaleModal;
+window.searchMembersForScale = searchMembersForScale;
+window.selectMemberForScale = selectMemberForScale;
+window.addMemberToScaleDraft = addMemberToScaleDraft;
+window.removeScaleDraftMember = removeScaleDraftMember;
+window.renderScaleDraftTeam = renderScaleDraftTeam;
+window.searchScaleSongs = searchScaleSongs;
+window.saveNewScale = saveNewScale;
+window.loadAdminDashboard = loadAdminDashboard;
+window.loadAdminStats = loadAdminStats;
+window.createNewMember = createNewMember;
+window.loadAdminMembers = loadAdminMembers;
+window.filterAdminMembers = filterAdminMembers;
+window.editMember = editMember;
+window.saveEditMember = saveEditMember;
+window.deleteMember = deleteMember;
+
 window.onload = () => {
+    console.log('🚀 App iniciado');
     initSupabase();
     const storedUser = localStorage.getItem('sessionUser');
     if (storedUser) {
-        currentUserData = JSON.parse(storedUser);
-        showSystemScreen();
+        try {
+            currentUserData = JSON.parse(storedUser);
+            showSystemScreen();
+        } catch (e) {
+            console.error('Erro ao carregar sessão:', e);
+            localStorage.removeItem('sessionUser');
+        }
     }
 };
