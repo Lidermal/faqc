@@ -1,6 +1,6 @@
 // URLs do Supabase
 const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co';
-const SUPABASE_KEY = 'COLOQUE_SUA_NOVA_CHAVE_ANON_AQUI'; // ⚠️ Atualize com a chave válida do dashboard
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos'; // ⚠️ Atualize com a chave válida do dashboard
 
 const headers = {
     'apikey': SUPABASE_KEY,
