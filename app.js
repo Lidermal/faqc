@@ -15,11 +15,6 @@ const headers = {
 console.log('🚀 app.js carregado!');
 console.log('📍 SUPABASE_URL:', SUPABASE_URL);
 
-// Garante que funções críticas estejam no escopo global PARA O ONCLICK DO HTML
-window.handleLogin = handleLogin;
-window.showCustomAlert = showCustomAlert;
-window.closeCustomAlert = closeCustomAlert;
-
 // Helper para log de erros do Supabase (NOVA FUNÇÃO - CORREÇÃO)
 function logSupabaseError(endpoint, response) {
     response.clone().text().then(text => {
@@ -100,18 +95,23 @@ function closeCustomConfirm() {
 async function handleLogin() {
     const usernameInput = document.getElementById('username').value.trim().toLowerCase();
     const btnLogin = document.getElementById('btn-login');
+    
     if (!usernameInput) {
         showCustomAlert('Por favor, digite seu usuário.');
         return;
     }
+    
     btnLogin.disabled = true;
     btnLogin.textContent = 'Validando...';
+    
     try {
         const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${encodeURIComponent(usernameInput)}&select=id,username,full_name,is_leader,role`, {
             method: 'GET',
             headers
         });
+        
         const data = await response.json();
+        
         if (data.length > 0) {
             currentUserData = data[0];
             // Busca campos opcionais em segunda chamada
