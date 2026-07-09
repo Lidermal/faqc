@@ -127,42 +127,36 @@ function showSystemScreen() {
     const isLeader = currentUserData.is_leader;
     const isMedia = currentUserData.role === 'midia';
 
-    // Lógica de permissão para botões de adicionar música/medley
-    // Se for Líder OU Mídia, eles podem adicionar. Se for membro comum, não aparece o botão geral.
-    // Mas vamos controlar a visibilidade via CSS dinâmico nas funções de pasta.
-    
-    // Inicialmente escondemos o container geral para garantir que só apareça dentro da pasta
-    // Se quiser que apareça na tela inicial da pasta geral, mude a lógica abaixo.
-    // Por padrão, vamos deixar hidden e mostrar via JS ao entrar na pasta.
-    
+    // Prepara o container de ações, mas mantém escondido inicialmente
+    const actionsContainer = document.getElementById('repertoire-actions');
+    if (actionsContainer) {
+        // Remove classes que possam esconder, mas aplica display none inline para controle total via JS
+        actionsContainer.classList.remove('hidden');
+        actionsContainer.style.display = 'none'; 
+    }
+
     if (isLeader || isMedia) {
         document.getElementById('nav-admin').classList.remove('hidden');
         document.getElementById('btn-add-scale').classList.remove('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
-        
-        // Permitimos que o container exista no DOM, mas controlamos display via CSS injection
-        document.getElementById('repertoire-actions').classList.remove('hidden'); 
     } else {
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('nav-escalas').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
-        document.getElementById('repertoire-actions').classList.remove('hidden');
     }
-
-    // Forçar o estado inicial dos botões como escondido até entrar numa pasta
-    updateAddButtonsVisibility(false);
 
     navigate('home');
     if (!supabaseClient) initSupabase();
     if (supabaseClient) setupRealtimeSubscriptions();
 }
 
-// Função auxiliar para mostrar/esconder botões de add música/medley
+// Função auxiliar robusta para mostrar/esconder botões
 function updateAddButtonsVisibility(show) {
     const actionsContainer = document.getElementById('repertoire-actions');
     if (actionsContainer) {
         if (show) {
-            actionsContainer.style.display = 'flex'; // Ou block, dependendo do seu CSS original
+            // Força a exibição usando !important via style inline
+            actionsContainer.style.setProperty('display', 'flex', 'important');
         } else {
             actionsContainer.style.display = 'none';
         }
@@ -476,7 +470,6 @@ async function loadProfile() {
     const container = document.getElementById('profile-container');
     if (!container) return;
     
-    // Condicional para mostrar campos apenas se existirem na estrutura
     const emailValue = currentUserData.email || '';
     const phoneValue = currentUserData.phone || '';
     
@@ -635,7 +628,6 @@ async function updateProfile() {
         return;
     }
     try {
-        // Envia APENAS o que sabidamente existe no banco
         const updateData = { full_name: fullname };
         
         if (emailElem && ('email' in currentUserData)) updateData.email = emailElem.value.trim() || null;
@@ -872,7 +864,7 @@ async function countMusicInFolder(folderId) {
             headers: { ...headers, 'Prefer': 'count=exact' } 
         });
         
-        const range = res.headers.get('content-range'); // ex: "0-0/15"
+        const range = res.headers.get('content-range');
         if (range) {
             return parseInt(range.split('/')[1]);
         }
@@ -984,8 +976,6 @@ function showCustomInputHTML(title, label, extraHTML, callback) {
 
 async function createFolder(name, memberId) {
     try {
-        // CORREÇÃO 401: Removido o 'Prefer: return=representation'
-        // Em tabelas com RLS de INSERT, as vezes a política só permite inserção (e barra o Select imediatamente).
         const postHeaders = { ...headers };
         delete postHeaders['Prefer']; 
 
@@ -1245,7 +1235,6 @@ async function saveNewRepertoire() {
     }
 
     try {
-        // Usa a pasta atual (currentFolderId). Se for null, vai para a Geral (null no banco).
         const folderId = currentFolderId || null;
         
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
@@ -1633,7 +1622,6 @@ async function saveNewMedley() {
     if (medleyDraft.length < 2) { showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); return; }
     
     try {
-        // Usa a pasta atual (currentFolderId). Se for null, vai para a Geral.
         const folderId = currentFolderId || null;
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
             method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' },
@@ -2012,7 +2000,6 @@ async function createNewMember() {
     try {
         const payload = { username, full_name: fullname, is_leader: isLeader, role: role };
         
-        // Só tenta enviar se existir a coluna em nosso cache global
         if (currentUserData) {
             if (emailElem && ('email' in currentUserData)) payload.email = emailElem.value.trim() || null;
             if (phoneElem && ('phone' in currentUserData)) payload.phone = phoneElem.value.trim() || null;
@@ -2163,14 +2150,12 @@ async function saveEditMember() {
     }
     
     try {
-        // Envia SOMENTE colunas base e checa se as extras de fato existem
         const updateData = {
             full_name: fullname,
             role: role,
             is_leader: isLeader
         };
         
-        // Puxa rapidamente do cache pra confirmar colunas do schema
         if (currentUserData) {
             if (emailElem && ('email' in currentUserData)) updateData.email = emailElem.value.trim() || null;
             if (phoneElem && ('phone' in currentUserData)) updateData.phone = phoneElem.value.trim() || null;
