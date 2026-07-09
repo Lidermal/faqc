@@ -127,26 +127,46 @@ function showSystemScreen() {
     const isLeader = currentUserData.is_leader;
     const isMedia = currentUserData.role === 'midia';
 
-    if (isLeader) {
+    // Lógica de permissão para botões de adicionar música/medley
+    // Se for Líder OU Mídia, eles podem adicionar. Se for membro comum, não aparece o botão geral.
+    // Mas vamos controlar a visibilidade via CSS dinâmico nas funções de pasta.
+    
+    // Inicialmente escondemos o container geral para garantir que só apareça dentro da pasta
+    // Se quiser que apareça na tela inicial da pasta geral, mude a lógica abaixo.
+    // Por padrão, vamos deixar hidden e mostrar via JS ao entrar na pasta.
+    
+    if (isLeader || isMedia) {
         document.getElementById('nav-admin').classList.remove('hidden');
         document.getElementById('btn-add-scale').classList.remove('hidden');
-        document.getElementById('repertoire-actions').classList.remove('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
-    } else if (isMedia) {
+        
+        // Permitimos que o container exista no DOM, mas controlamos display via CSS injection
+        document.getElementById('repertoire-actions').classList.remove('hidden'); 
+    } else {
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('nav-escalas').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
         document.getElementById('repertoire-actions').classList.remove('hidden');
-    } else {
-        document.getElementById('nav-admin').classList.add('hidden');
-        document.getElementById('btn-add-scale').classList.add('hidden');
-        document.getElementById('nav-escalas').classList.remove('hidden');
-        document.getElementById('repertoire-actions').classList.remove('hidden');
     }
+
+    // Forçar o estado inicial dos botões como escondido até entrar numa pasta
+    updateAddButtonsVisibility(false);
 
     navigate('home');
     if (!supabaseClient) initSupabase();
     if (supabaseClient) setupRealtimeSubscriptions();
+}
+
+// Função auxiliar para mostrar/esconder botões de add música/medley
+function updateAddButtonsVisibility(show) {
+    const actionsContainer = document.getElementById('repertoire-actions');
+    if (actionsContainer) {
+        if (show) {
+            actionsContainer.style.display = 'flex'; // Ou block, dependendo do seu CSS original
+        } else {
+            actionsContainer.style.display = 'none';
+        }
+    }
 }
 
 function updateHeaderUserInfo() {
@@ -744,6 +764,10 @@ function goBackToFolders() {
     const repList = document.getElementById('repertoire-list');
     if(foldersList) foldersList.style.display = 'block';
     if(repList) repList.style.display = 'none';
+    
+    // Esconde os botões de adicionar ao sair da pasta
+    updateAddButtonsVisibility(false);
+    
     loadFolders();
 }
 
@@ -753,6 +777,10 @@ function selectFolder(folderId) {
     const repList = document.getElementById('repertoire-list');
     if(foldersList) foldersList.style.display = 'none';
     if(repList) repList.style.display = 'block';
+    
+    // Mostra os botões de adicionar ao entrar na pasta
+    updateAddButtonsVisibility(true);
+    
     loadRepertoire();
 }
 
@@ -1093,9 +1121,12 @@ function openRepertoireModal() {
     document.getElementById('search-msg').textContent = '';
     document.getElementById('search-query').value = '';
     document.getElementById('rep-title').value = '';
-    document.getElementById('rep-vocalist').value = '';
     document.getElementById('rep-key').value = '';
     document.getElementById('rep-lyrics').value = '';
+    
+    // AUTO-PREENCHER VOCALISTA COM O DONO DA PASTA/USUÁRIO LOGADO
+    document.getElementById('rep-vocalist').value = currentUserData.full_name || '';
+    
     selectedVocalists = [];
     updateSelectedVocalists();
 }
@@ -1214,6 +1245,7 @@ async function saveNewRepertoire() {
     }
 
     try {
+        // Usa a pasta atual (currentFolderId). Se for null, vai para a Geral (null no banco).
         const folderId = currentFolderId || null;
         
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
@@ -1601,6 +1633,7 @@ async function saveNewMedley() {
     if (medleyDraft.length < 2) { showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); return; }
     
     try {
+        // Usa a pasta atual (currentFolderId). Se for null, vai para a Geral.
         const folderId = currentFolderId || null;
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
             method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' },
