@@ -1,6 +1,6 @@
 // URLs do Supabase
 const SUPABASE_URL = 'https://jinyoffunabdraoqbzpq.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFiZHJhb3FienBxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI0MTExOTYsImV4cCI6MjA5Nzk4NzE5Nn0.u81W_jPaeFTEVDJUgULq8tfNfKO61J5nTW_3kwl2xos';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImppbnlvZmZ1bmFicmFvcmFv...'; // Mantenha sua key original
 const headers = {
     'apikey': SUPABASE_KEY,
     'Authorization': `Bearer ${SUPABASE_KEY}`,
@@ -13,7 +13,7 @@ const headers = {
 let currentUserData = null;
 let countdownInterval;
 let currentViewingRepertoireId = null;
-let currentFolderId = null; // ID da pasta selecionada
+let currentFolderId = null;
 let allRepertoireCache = [];
 let allMembersCache = [];
 let allFoldersCache = [];
@@ -85,13 +85,22 @@ async function handleLogin() {
     btnLogin.disabled = true;
     btnLogin.textContent = 'Validando...';
     try {
-        const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${usernameInput}&select=*`, {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/members?username=eq.${usernameInput}&select=id,username,full_name,is_leader,role`, {
             method: 'GET',
             headers
         });
         const data = await response.json();
         if (data.length > 0) {
             currentUserData = data[0];
+            // Busca dados completos em segunda chamada (campos opcionais)
+            try {
+                const fullRes = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}&select=*,photo_url,email,phone`, { headers });
+                if (fullRes.ok) {
+                    const fullData = await fullRes.json();
+                    if (fullData.length > 0) currentUserData = { ...currentUserData, ...fullData[0] };
+                }
+            } catch (e) { /* ignora se campos opcionais não existirem */ }
+            
             localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
             showSystemScreen();
         } else {
@@ -113,24 +122,20 @@ function showSystemScreen() {
     document.getElementById('system-screen').classList.add('active');
     updateHeaderUserInfo();
 
-    // Verificar permissões e exibir/esconder menu
     const isLeader = currentUserData.is_leader;
-    const isMedia = currentUserData.role === 'midia'; // Cargo de Mídia
+    const isMedia = currentUserData.role === 'midia';
 
     if (isLeader) {
         document.getElementById('nav-admin').classList.remove('hidden');
         document.getElementById('btn-add-scale').classList.remove('hidden');
         document.getElementById('repertoire-actions').classList.remove('hidden');
-        // Líder vê tudo
         document.getElementById('nav-escalas').classList.remove('hidden');
     } else if (isMedia) {
-        // Mídia só vê Início, Membros e Repertório
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('nav-escalas').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
-        document.getElementById('repertoire-actions').classList.remove('hidden'); // Mídia pode ver, mas talvez não criar (definir regras)
+        document.getElementById('repertoire-actions').classList.remove('hidden');
     } else {
-        // Membro comum
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
@@ -175,24 +180,20 @@ function handleLogout() {
     document.getElementById('login-screen').classList.add('active');
     document.getElementById('username').value = '';
     
-    // Reset navegação
     document.getElementById('nav-admin').classList.add('hidden');
     document.getElementById('nav-escalas').classList.remove('hidden');
     document.getElementById('btn-add-scale').classList.add('hidden');
 }
 
 function navigate(pageId) {
-    // Esconder todas as subpages
     document.querySelectorAll('.subpage').forEach(page => page.classList.remove('active'));
     const targetPage = document.getElementById('page-' + pageId);
     if (targetPage) targetPage.classList.add('active');
 
-    // Atualizar menu
     document.querySelectorAll('.bottom-nav-item').forEach(btn => btn.classList.remove('active'));
     const targetNav = document.getElementById('nav-' + pageId);
     if (targetNav) targetNav.classList.add('active');
 
-    // Carregar dados específicos da página
     if (pageId === 'home') {
         loadDashboard();
     } else if (pageId === 'membros') {
@@ -238,7 +239,6 @@ function showAdminSection(section) {
 function setupRealtimeSubscriptions() {
     if (!supabaseClient) return;
     try {
-        // Escutar mudanças em membros
         const memberChannel = supabaseClient
             .channel('member-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'members' }, (payload) => {
@@ -254,7 +254,6 @@ function setupRealtimeSubscriptions() {
             .subscribe();
         realtimeChannels.push(memberChannel);
         
-        // Escutar mudanças no repertório
         const repChannel = supabaseClient
             .channel('repertoire-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'repertoire' }, (payload) => {
@@ -265,7 +264,6 @@ function setupRealtimeSubscriptions() {
             .subscribe();
         realtimeChannels.push(repChannel);
 
-        // Escutar mudanças nas pastas
         const folderChannel = supabaseClient
             .channel('folder-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'folders' }, (payload) => {
@@ -297,7 +295,6 @@ function startCountdown() {
     function updateTimer() {
         const now = new Date();
         const target = new Date();
-        // Lógica para o próximo domingo
         const daysUntilSunday = (7 - now.getDay()) % 7;
         if (daysUntilSunday === 0 && (now.getHours() > 18 || (now.getHours() === 18 && now.getMinutes() >= 30))) {
             target.setDate(now.getDate() + 7);
@@ -354,7 +351,7 @@ async function fetchDailyMessage() {
     const container = document.getElementById('daily-message-content');
     const today = new Date().toISOString().split('T')[0];
     try {
-        const customRes = await fetch(`${SUPABASE_URL}/rest/v1/daily_message?date=eq.${today}&select=*`, { headers });
+        const customRes = await fetch(`${SUPABASE_URL}/rest/v1/daily_message?date=eq.${today}&select=verse_text,verse_ref`, { headers });
         const customData = await customRes.json();
         if (customData.length > 0) {
             container.innerHTML = `<p>"${customData[0].verse_text}"</p><span class="verse-ref">- ${customData[0].verse_ref}</span>`;
@@ -362,7 +359,6 @@ async function fetchDailyMessage() {
         }
     } catch (e) { }
     
-    // Versículo padrão se não houver customizado
     const randomVerse = bibleVersesPool[Math.floor(Math.random() * bibleVersesPool.length)];
     container.innerHTML = `<p>"${randomVerse.text}"</p><span class="verse-ref">- ${randomVerse.ref}</span>`;
 }
@@ -383,7 +379,7 @@ function getRoleName(role) {
         'lider': 'Líder', 'vocal': 'Vocal', 'baterista': 'Baterista',
         'teclado': 'Teclado', 'violao': 'Violão', 'baixo': 'Baixo', 'midia': 'Mídia'
     };
-    return names[role] || role.charAt(0).toUpperCase() + role.slice(1);
+    return names[role] || (role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Membro');
 }
 
 async function fetchNextScaleHome() {
@@ -394,20 +390,15 @@ async function fetchNextScaleHome() {
         const scaleData = await scaleRes.json();
         if (scaleData.length > 0) {
             const scaleId = scaleData[0].id;
-            // Buscar itens da escala
-            const itemsRes = await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name,photo_url,is_leader)&order=role.asc`, { headers });
+            const itemsRes = await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}&select=role,members(id,full_name,photo_url)`, { headers });
             const itemsData = await itemsRes.json();
             
             if (itemsData.length > 0) {
                 let html = '';
                 itemsData.forEach(item => {
                     const isCurrent = item.members.id === currentUserData.id ? 'current-user' : '';
-                    
-                    // BUG FIX: Mostrar a função da ESCALA (item.role), não a função fixa do membro
-                    // Se item.role for 'lider', mostra ícone de líder. Se for 'vocal', mostra mic.
                     const icon = getRoleIcon(item.role); 
                     const roleName = getRoleName(item.role);
-                    
                     const photoUrl = item.members.photo_url;
 
                     html += `
@@ -477,7 +468,7 @@ async function loadProfile() {
                     <div class="form-grid">
                         <div class="input-group">
                             <label>Nome Completo</label>
-                            <input type="text" id="profile-fullname" value="${currentUserData.full_name}">
+                            <input type="text" id="profile-fullname" value="${currentUserData.full_name || ''}">
                         </div>
                         <div class="input-group">
                             <label>Email</label>
@@ -506,7 +497,6 @@ async function uploadPhoto(event) {
     }
     
     try {
-        // Verifica se o cliente está pronto
         if (!supabaseClient) {
             showCustomAlert('Erro de inicialização. Recarregue a página.', 'Erro');
             return;
@@ -515,7 +505,6 @@ async function uploadPhoto(event) {
         const fileExt = file.name.split('.').pop();
         const fileName = `${currentUserData.id}_${Date.now()}.${fileExt}`;
         
-        // Tenta fazer upload
         const { data, error } = await supabaseClient.storage
             .from('member-photos')
             .upload(fileName, file, {
@@ -529,7 +518,6 @@ async function uploadPhoto(event) {
             .from('member-photos')
             .getPublicUrl(fileName);
 
-        // Salva URL no banco
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}`, {
             method: 'PATCH',
             headers,
@@ -545,9 +533,8 @@ async function uploadPhoto(event) {
         loadProfile();
     } catch (e) {
         console.error('Erro upload:', e);
-        // Mensagem específica se o bucket não existe
         if (e.message.includes('not found') || e.message.includes('not_found')) {
-             showCustomAlert('Erro: O local de armazenamento (Bucket) não existe no Supabase. Peça ao administrador para criar o Bucket "member-photos".', 'Erro de Configuração');
+             showCustomAlert('Erro: Bucket "member-photos" não existe no Supabase. Peça ao administrador para criá-lo.', 'Erro de Configuração');
         } else {
             showCustomAlert('Erro ao fazer upload: ' + e.message, 'Erro');
         }
@@ -564,16 +551,20 @@ async function updateProfile() {
         return;
     }
     try {
+        const updateData = { full_name: fullname };
+        if (email) updateData.email = email;
+        if (phone) updateData.phone = phone;
+        
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}`, {
             method: 'PATCH',
             headers,
-            body: JSON.stringify({ full_name: fullname, email: email || null, phone: phone || null })
+            body: JSON.stringify(updateData)
         });
         if (!res.ok) throw new Error('Erro ao atualizar');
         
         currentUserData.full_name = fullname;
-        currentUserData.email = email || null;
-        currentUserData.phone = phone || null;
+        if (email) currentUserData.email = email;
+        if (phone) currentUserData.phone = phone;
         localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
         updateHeaderUserInfo();
         showCustomAlert('Perfil atualizado com sucesso!', 'Sucesso');
@@ -583,26 +574,40 @@ async function updateProfile() {
 }
 
 // ==========================================
-// MEMBROS (CORRIGIDO - SEM JOIN COMPLEXO)
+// MEMBROS (CORRIGIDO - QUERY DEFENSIVA)
 // ==========================================
 async function loadMembers() {
     const container = document.getElementById('members-lineup');
     container.innerHTML = '<div class="loading-spinner"></div>';
     
     try {
-        // BUG FIX: Query simplificada, sem join na tabela member_roles para evitar 400
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,email,phone,is_leader,role&order=full_name.asc`, { headers });
+        let members = [];
         
-        if (!res.ok) throw new Error('Erro na requisição: ' + res.status);
-        
-        const members = await res.json();
+        // Tentativa 1: Query completa
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,photo_url,email,phone,is_leader,role&order=full_name.asc`, { 
+                headers,
+                'Prefer': 'return=representation'
+            });
+            
+            if (res.ok) {
+                members = await res.json();
+            } else if (res.status === 400) {
+                console.warn('⚠️ Query completa falhou (400), tentando query mínima...');
+                const resMin = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,username,is_leader,role&order=full_name.asc`, { headers });
+                if (resMin.ok) members = await resMin.json();
+            }
+        } catch (e) {
+            console.warn('⚠️ Erro na query completa, tentando fallback:', e.message);
+            const resMin = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,username,is_leader,role&order=full_name.asc`, { headers });
+            if (resMin.ok) members = await resMin.json();
+        }
         
         if (members.length === 0) {
             container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:40px;">Nenhum membro cadastrado.</p>';
             return;
         }
         
-        // Agrupar por categoria
         const leaders = members.filter(m => m.is_leader);
         const vocals = members.filter(m => !m.is_leader && m.role === 'vocal');
         const band = members.filter(m => !m.is_leader && m.role !== 'vocal' && m.role !== 'midia');
@@ -630,15 +635,24 @@ async function loadMembers() {
             html += '</div></div>';
         }
         container.innerHTML = html;
+        
     } catch (e) {
-        console.error('Erro ao carregar membros:', e);
-        container.innerHTML = `<p style="color:var(--danger); text-align:center; padding:40px;">Erro ao carregar: ${e.message}</p>`;
+        console.error('❌ Erro crítico ao carregar membros:', e);
+        container.innerHTML = `
+            <div style="text-align:center; padding:40px;">
+                <p style="color:var(--danger); margin-bottom:10px;">⚠️ Não foi possível carregar a equipe</p>
+                <p style="color:var(--text-muted); font-size:0.9rem;">${e.message}</p>
+                <button class="btn-secondary" onclick="loadMembers()" style="margin-top:15px;">🔄 Tentar novamente</button>
+            </div>
+        `;
     }
 }
 
 function createMemberCard(member, type) {
-    const photoUrl = member.photo_url;
-    const role = member.role;
+    const photoUrl = member.photo_url || null;
+    const role = member.role || 'membro';
+    const email = member.email || null;
+    const phone = member.phone || null;
     
     return `
         <div class="member-showcase-card ${type}">
@@ -652,8 +666,8 @@ function createMemberCard(member, type) {
                     ${member.is_leader ? '<div class="leader-crown">★</div>' : ''}
                 </div>
                 <div class="member-social-links">
-                    ${member.email ? `<a href="mailto:${member.email}" class="social-link" title="Email"><span class="material-symbols-outlined">mail</span></a>` : ''}
-                    ${member.phone ? `<a href="tel:${member.phone}" class="social-link" title="Telefone"><span class="material-symbols-outlined">phone</span></a>` : ''}
+                    ${email ? `<a href="mailto:${email}" class="social-link" title="Email"><span class="material-symbols-outlined">mail</span></a>` : ''}
+                    ${phone ? `<a href="tel:${phone}" class="social-link" title="Telefone"><span class="material-symbols-outlined">phone</span></a>` : ''}
                 </div>
             </div>
             <div class="member-card-body">
@@ -662,8 +676,8 @@ function createMemberCard(member, type) {
                     ${member.is_leader ? '<span class="role-badge leader">Líder</span>' : ''}
                     ${role ? `<span class="role-badge ${role}">${getRoleName(role)}</span>` : ''}
                 </div>
-                ${member.email ? `<p class="member-contact"><span class="material-symbols-outlined">mail</span> ${member.email}</p>` : ''}
-                ${member.phone ? `<p class="member-contact"><span class="material-symbols-outlined">phone</span> ${member.phone}</p>` : ''}
+                ${email ? `<p class="member-contact"><span class="material-symbols-outlined">mail</span> ${email}</p>` : ''}
+                ${phone ? `<p class="member-contact"><span class="material-symbols-outlined">phone</span> ${phone}</p>` : ''}
             </div>
         </div>
     `;
@@ -677,7 +691,6 @@ async function loadFolders() {
     if (!container) return;
     
     try {
-        // Tenta buscar pastas. Se tabela não existir, cria fallback visual.
         let folders = [];
         try {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=*,members!created_by(full_name)&order=is_general.desc,name.asc`, { headers });
@@ -699,10 +712,8 @@ async function loadFolders() {
         </div>
         `;
 
-        // Renderiza pastas personalizadas
         folders.forEach(folder => {
             const creatorName = folder.members ? folder.members.full_name : 'Membro';
-            // Só mostra botão de excluir se for líder ou dono
             const canEdit = currentUserData.is_leader || (folder.created_by === currentUserData.id);
             
             html += `
@@ -723,7 +734,6 @@ async function loadFolders() {
             `;
         });
 
-        // Botão criar pasta (Só líder)
         if (currentUserData.is_leader) {
             html += `
             <button class="btn-create-folder" onclick="openCreateFolderModal()">
@@ -746,7 +756,6 @@ function selectFolder(folderId) {
 }
 
 async function openCreateFolderModal() {
-    // Verifica se o usuário já tem uma pasta própria
     const existingFolder = allFoldersCache.find(f => f.created_by === currentUserData.id);
     if (existingFolder) {
         showCustomAlert('Você já possui uma pasta pessoal. Se quiser criar outra, entre em contato com um líder.', 'Atenção');
@@ -777,13 +786,11 @@ async function openCreateFolderModal() {
 async function deleteFolder(folderId) {
     if (!confirm('Deseja excluir esta pasta? As músicas voltarão para a Pasta Geral.')) return;
     try {
-        // Move as músicas para null (pasta geral)
         await fetch(`${SUPABASE_URL}/rest/v1/repertoire?folder_id=eq.${folderId}`, {
             method: 'PATCH',
             headers,
             body: JSON.stringify({ folder_id: null })
         });
-        // Deleta a pasta
         await fetch(`${SUPABASE_URL}/rest/v1/folders?id=eq.${folderId}`, {
             method: 'DELETE',
             headers
@@ -818,14 +825,12 @@ function normalizeText(text) {
 
 async function extractLyricsFromLetras(url) {
     try {
-        // Tenta pegar via proxy allorigins
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
         const data = await response.json();
         if (data.contents) {
             const parser = new DOMParser();
             const doc = parser.parseFromString(data.contents, 'text/html');
-            // Seletores comuns para letras
             const element = doc.querySelector('.lyrics-container') || doc.querySelector('.letra') || doc.querySelector('#letra');
             if (element) {
                 let lyrics = element.innerText || element.textContent;
@@ -851,7 +856,6 @@ async function searchMusicList() {
     let foundAnyValid = false;
     
     try {
-        // 1. Tentar Letras.mus.br
         try {
             const letrasRes = await fetch(`https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=10`);
             if (letrasRes.ok) {
@@ -874,7 +878,6 @@ async function searchMusicList() {
             }
         } catch (e) { console.warn('Letras.mus.br falhou', e); }
 
-        // 2. Tentar Vagalume se não achou
         if (!foundAnyValid) {
              try {
                 const vagRes = await fetch(`https://api.vagalume.com.br/search.php?exc=${encodeURIComponent(query)}&apikey=a53a6c27f726a530cd8c5cfe161bccda`);
@@ -935,7 +938,6 @@ async function searchVocalists(input) {
     if (query.length < 2) { dropdown.innerHTML = ''; dropdown.style.display = 'none'; return; }
     
     if (allMembersCache.length === 0) {
-        // Carregar cache se vazio
         try {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name`, { headers });
             allMembersCache = await res.json();
@@ -996,7 +998,6 @@ async function saveNewRepertoire() {
     }
 
     try {
-        // Salva na pasta atual, ou null (geral) se não estiver selecionada
         const folderId = currentFolderId || null;
         
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
@@ -1035,8 +1036,6 @@ async function loadRepertoire() {
     list.innerHTML = '<div class="loading-spinner"></div>';
 
     try {
-        // Se folderId for null, não filtra (mostra tudo da pasta geral)
-        // Se folderId for ID, filtra por ele
         let query = `${SUPABASE_URL}/rest/v1/repertoire?select=*,repertoire_keys(ton),members!created_by(full_name)`;
         if (currentFolderId) {
             query += `&folder_id=eq.${currentFolderId}`;
@@ -1067,7 +1066,6 @@ async function loadRepertoire() {
 
             const ownerName = song.members ? song.members.full_name : '';
             
-            // Lógica de permissão: Pode editar se for dono da música, dono da pasta (se houver), ou líder
             const isSongOwner = song.created_by === currentUserData.id;
             let isFolderOwner = false;
             if (currentFolderId && allFoldersCache.length > 0) {
@@ -1176,7 +1174,6 @@ function parseLyricsIntoVerses(lyrics) {
     let currentLabel = 'Intro';
     let currentLines = [];
     
-    // Padrões para detectar seções
     const sectionPatterns = [/^(intro|introdução)/i, /^(verso|verse)/i, /^(pr[eé]-?refr[aã]o)/i, /^(refr[aã]o)/i, /^(ponte|bridge)/i, /^(final|outro)/i];
     
     for (let i = 0; i < lines.length; i++) {
@@ -1776,7 +1773,6 @@ async function createNewMember() {
         if (!res.ok) throw new Error('Usuário já existe.');
         const saved = await res.json();
         
-        // Cria pasta pessoal automaticamente se for novo membro e não for midia
         if (role !== 'midia') {
             await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
                 method: 'POST', headers,
@@ -1793,28 +1789,54 @@ async function createNewMember() {
     }
 }
 
+// ==========================================
+// ADMIN - MEMBROS (CORRIGIDO - QUERY DEFENSIVA)
+// ==========================================
 async function loadAdminMembers() {
     const container = document.getElementById('admin-members-list');
     container.innerHTML = '<div class="loading-spinner"></div>';
+    
     try {
-        // BUG FIX: Query simplificada
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,email,phone,is_leader,role&order=full_name.asc`, { headers });
-        const members = await res.json();
+        let members = [];
+        
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,username,full_name,email,phone,is_leader,role&order=full_name.asc`, { 
+                headers,
+                'Prefer': 'return=representation'
+            });
+            
+            if (res.ok) {
+                members = await res.json();
+            } else if (res.status === 400) {
+                console.warn('⚠️ Query admin falhou (400), tentando query mínima...');
+                const resMin = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,username,is_leader,role&order=full_name.asc`, { headers });
+                if (resMin.ok) members = await resMin.json();
+            }
+        } catch (e) {
+            console.warn('⚠️ Fallback para query mínima:', e.message);
+            const resMin = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,username,is_leader,role&order=full_name.asc`, { headers });
+            if (resMin.ok) members = await resMin.json();
+        }
+        
         if (members.length === 0) {
             container.innerHTML = '<p style="text-align:center; color:var(--text-muted); padding:40px;">Nenhum membro cadastrado.</p>';
             return;
         }
+        
         let html = '<div class="admin-members-grid">';
         members.forEach(m => {
+            const email = m.email || '';
+            const role = m.role || '';
+            
             html += `
-                <div class="admin-member-card" data-name="${m.full_name.toLowerCase()}">
+                <div class="admin-member-card" data-name="${(m.full_name || '').toLowerCase()}">
                     <div class="member-info">
-                        <h4>${m.full_name}</h4>
-                        <p class="member-username">@${m.username}</p>
-                        ${m.email ? `<p class="member-contact"><span class="material-symbols-outlined">mail</span> ${m.email}</p>` : ''}
+                        <h4>${m.full_name || 'Sem nome'}</h4>
+                        <p class="member-username">@${m.username || 'sem.usuario'}</p>
+                        ${email ? `<p class="member-contact"><span class="material-symbols-outlined">mail</span> ${email}</p>` : ''}
                         <div class="member-roles-tags">
                             ${m.is_leader ? '<span class="role-badge leader">Líder</span>' : ''}
-                            ${m.role ? `<span class="role-badge">${getRoleName(m.role)}</span>` : ''}
+                            ${role ? `<span class="role-badge">${getRoleName(role)}</span>` : ''}
                         </div>
                     </div>
                     <div class="member-actions">
@@ -1826,9 +1848,16 @@ async function loadAdminMembers() {
         });
         html += '</div>';
         container.innerHTML = html;
+        
     } catch (e) {
-        console.error('Erro ao carregar membros:', e);
-        container.innerHTML = '<p style="text-align:center; color:var(--danger);">Erro ao carregar lista.</p>';
+        console.error('❌ Erro ao carregar membros no admin:', e);
+        container.innerHTML = `
+            <p style="text-align:center; color:var(--danger); padding:40px;">
+                Erro ao carregar lista.<br>
+                <small>${e.message}</small><br>
+                <button class="btn-secondary" onclick="loadAdminMembers()" style="margin-top:10px;">🔄 Recarregar</button>
+            </p>
+        `;
     }
 }
 
@@ -1840,8 +1869,6 @@ function filterAdminMembers() {
 }
 
 async function editMember(id) {
-    // Implementação simples de edição (ou pode ser um modal, mas o prompt não pediu especificamente modal de edição)
-    // Mantive o alerta do código anterior para não quebrar fluxo
     showCustomAlert('Função de edição em desenvolvimento. Use o cadastro para adicionar novos membros.');
 }
 
