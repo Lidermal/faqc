@@ -127,10 +127,9 @@ function showSystemScreen() {
     const isLeader = currentUserData.is_leader;
     const isMedia = currentUserData.role === 'midia';
 
-    // Prepara o container de ações, mas mantém escondido inicialmente
+    // Prepara o container de ações
     const actionsContainer = document.getElementById('repertoire-actions');
     if (actionsContainer) {
-        // Remove classes que possam esconder, mas aplica display none inline para controle total via JS
         actionsContainer.classList.remove('hidden');
         actionsContainer.style.display = 'none'; 
     }
@@ -150,12 +149,10 @@ function showSystemScreen() {
     if (supabaseClient) setupRealtimeSubscriptions();
 }
 
-// Função auxiliar robusta para mostrar/esconder botões
 function updateAddButtonsVisibility(show) {
     const actionsContainer = document.getElementById('repertoire-actions');
     if (actionsContainer) {
         if (show) {
-            // Força a exibição usando !important via style inline
             actionsContainer.style.setProperty('display', 'flex', 'important');
         } else {
             actionsContainer.style.display = 'none';
@@ -633,22 +630,26 @@ async function updateProfile() {
         if (emailElem && ('email' in currentUserData)) updateData.email = emailElem.value.trim() || null;
         if (phoneElem && ('phone' in currentUserData)) updateData.phone = phoneElem.value.trim() || null;
         
+        // ATUALIZAÇÃO NO BANCO
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${currentUserData.id}`, {
             method: 'PATCH',
             headers,
             body: JSON.stringify(updateData)
         });
-        if (!res.ok) throw new Error('Erro ao atualizar');
         
+        if (!res.ok) throw new Error('Erro ao atualizar no servidor');
+        
+        // ATUALIZAÇÃO LOCAL IMEDIATA
         currentUserData.full_name = fullname;
         if (updateData.email !== undefined) currentUserData.email = updateData.email;
         if (updateData.phone !== undefined) currentUserData.phone = updateData.phone;
         
         localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
         updateHeaderUserInfo();
-        showCustomAlert('Perfil atualizado com sucesso!', 'Sucesso');
+        showCustomAlert('Perfil atualizado com sucesso no banco de dados!', 'Sucesso');
     } catch (e) {
-        showCustomAlert('Erro ao atualizar perfil.', 'Erro');
+        console.error(e);
+        showCustomAlert('Erro ao atualizar perfil no banco.', 'Erro');
     }
 }
 
@@ -757,9 +758,7 @@ function goBackToFolders() {
     if(foldersList) foldersList.style.display = 'block';
     if(repList) repList.style.display = 'none';
     
-    // Esconde os botões de adicionar ao sair da pasta
     updateAddButtonsVisibility(false);
-    
     loadFolders();
 }
 
@@ -770,9 +769,7 @@ function selectFolder(folderId) {
     if(foldersList) foldersList.style.display = 'none';
     if(repList) repList.style.display = 'block';
     
-    // Mostra os botões de adicionar ao entrar na pasta
     updateAddButtonsVisibility(true);
-    
     loadRepertoire();
 }
 
@@ -794,7 +791,6 @@ async function loadFolders() {
 
         let html = '<div class="folders-grid" style="margin-top: 15px;">';
         
-        // Pasta Geral
         const generalCount = await countMusicInFolder(null);
         html += `
             <button class="folder-card" onclick="selectFolder(null)">
@@ -807,7 +803,6 @@ async function loadFolders() {
             </button>
         `;
 
-        // Pastas personalizadas
         for (const folder of folders) {
             if (folder.is_general) continue;
             const canEdit = currentUserData.is_leader || (folder.created_by === currentUserData.id);
@@ -830,7 +825,6 @@ async function loadFolders() {
             `;
         }
 
-        // Nova pasta (Líder)
         if (currentUserData.is_leader) {
             html += `
                 <button class="folder-card folder-card-create" onclick="openCreateFolderModalCustom()">
@@ -1103,7 +1097,7 @@ async function deleteRepertoire(id) {
 }
 
 // ==========================================
-// SUPER BUSCADOR DE LETRAS (ATUALIZADO)
+// SUPER BUSCADOR DE LETRAS (MULTI-FONTE OTIMIZADO)
 // ==========================================
 function openRepertoireModal() {
     document.getElementById('modal-add-repertoire').classList.add('active');
@@ -1114,8 +1108,24 @@ function openRepertoireModal() {
     document.getElementById('rep-key').value = '';
     document.getElementById('rep-lyrics').value = '';
     
-    // AUTO-PREENCHER VOCALISTA COM O DONO DA PASTA/USUÁRIO LOGADO
-    document.getElementById('rep-vocalist').value = currentUserData.full_name || '';
+    // LÓGICA DE VOCALISTA AUTOMÁTICO POR PASTA
+    let autoVocalist = currentUserData.full_name; // Padrão: Eu
+    
+    if (currentFolderId) {
+        // Se estiver em uma pasta específica, tenta achar o dono
+        const folder = allFoldersCache.find(f => f.id === currentFolderId);
+        if (folder) {
+            // Tenta achar o nome do dono no cache de membros
+            const owner = allMembersCache.find(m => m.id === folder.created_by);
+            if (owner) {
+                autoVocalist = owner.full_name;
+            } else if (folder.created_by === currentUserData.id) {
+                autoVocalist = currentUserData.full_name;
+            }
+        }
+    }
+    
+    document.getElementById('rep-vocalist').value = autoVocalist;
     
     selectedVocalists = [];
     updateSelectedVocalists();
@@ -1128,12 +1138,12 @@ async function searchMusicList() {
     
     if (!query) return;
     
-    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Buscando intensamente em fontes Gospel e Gerais...</span>';
+    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Vasculhando Lyrics.ovh, Vagalume e Letras.mus...</span>';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
     let foundAnyValid = false;
 
-    // Tenta separar Artista e Música se o usuário digitou "Musica - Artista"
+    // Separa Artista e Música se possível
     let artistSearch = query;
     let songSearch = query;
     if (query.includes('-')) {
@@ -1142,34 +1152,24 @@ async function searchMusicList() {
         songSearch = parts[0].trim();
     }
 
-    // 1. TENTATIVA PRINCIPAL: API Lyrics.ovh (Gratuita e aberta)
+    // 1. LYRICS.OVH (Rápido e Global)
     try {
-        // Normaliza para minúsculas para a API
         const normArtist = artistSearch.toLowerCase().replace(/\s+/g, '');
         const normSong = songSearch.toLowerCase().replace(/\s+/g, '').replace(/'/g, '');
         
-        console.log(`Buscando em Lyrics.ovh: ${normArtist} / ${normSong}`);
         const ovhRes = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(normArtist)}/${encodeURIComponent(normSong)}`);
-        
         if (ovhRes.ok) {
             const data = await ovhRes.json();
             if (data && data.lyrics && data.lyrics.length > 20) {
                 const id = `ovh_${Math.random()}`;
-                cachedLyricsSearch[id] = { 
-                    artist: artistSearch, 
-                    song: songSearch, 
-                    lyrics: data.lyrics, 
-                    source: 'Lyrics.ovh' 
-                };
+                cachedLyricsSearch[id] = { artist: artistSearch, song: songSearch, lyrics: data.lyrics, source: 'Lyrics.ovh' };
                 addSearchResultToDOM(songSearch, artistSearch, id, 'Lyrics.ovh');
                 foundAnyValid = true;
             }
         }
-    } catch (e) {
-        console.warn('Lyrics.ovh falhou ou não encontrou:', e);
-    }
+    } catch (e) { console.warn('Lyrics.ovh falhou', e); }
 
-    // 2. TENTATIVA SECUNDÁRIA: Vagalume (Ainda pode funcionar para alguns casos)
+    // 2. VAGALUME (Bom para Gospel BR)
     if (!foundAnyValid) {
         try {
             const vagRes = await fetch(`https://api.vagalume.com.br/search.artmus?q=${encodeURIComponent(query)}&limit=3`);
@@ -1178,7 +1178,6 @@ async function searchMusicList() {
             if (vagData.response && vagData.response.docs) {
                 for (let doc of vagData.response.docs) {
                     if (doc.title && doc.band) {
-                        // Tenta pegar a letra específica
                         const lyricsRes = await fetch(`https://api.vagalume.com.br/search.php?art=${encodeURIComponent(doc.band)}&mus=${encodeURIComponent(doc.title)}`);
                         if (lyricsRes.ok) {
                             const lyricsData = await lyricsRes.json();
@@ -1189,7 +1188,7 @@ async function searchMusicList() {
                                     cachedLyricsSearch[id] = { artist: doc.band, song: doc.title, lyrics: text, source: 'Vagalume' };
                                     addSearchResultToDOM(doc.title, doc.band, id, 'Vagalume');
                                     foundAnyValid = true;
-                                    break; // Pega só a primeira melhor
+                                    break;
                                 }
                             }
                         }
@@ -1199,11 +1198,53 @@ async function searchMusicList() {
         } catch(e) { console.warn('Vagalume API falhou', e); }
     }
 
-    // 3. FALLBACK: Se nada funcionou, oferece link direto
+    // 3. LETRAS.MUS.BR (Via Proxy AllOrigins para burlar CORS)
+    if (!foundAnyValid) {
+        try {
+            const searchUrl = `https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=3`;
+            // Usamos allorigins para evitar bloqueio de CORS do navegador
+            const proxyRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`);
+            const proxyData = await proxyRes.json();
+            
+            if (proxyData.contents) {
+                const letrasData = JSON.parse(proxyData.contents);
+                if (Array.isArray(letrasData)) {
+                    for (let item of letrasData) {
+                        if (item.url && item.artista && item.nome) {
+                            // Busca a página da letra via proxy
+                            const pageProxyRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(item.url)}`);
+                            const pageData = await pageProxyRes.json();
+                            
+                            if (pageData.contents) {
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(pageData.contents, 'text/html');
+                                // Tenta encontrar a div da letra
+                                const element = doc.querySelector('.lyric-original') || doc.querySelector('.letra') || doc.querySelector('#letra');
+                                
+                                if (element) {
+                                    let htmlStr = element.innerHTML.replace(/<br\s*[\/]?>/gi, '\n');
+                                    let plainText = htmlStr.replace(/<\/?[^>]+(>|$)/g, "").trim();
+                                    
+                                    if (plainText.length > 50) {
+                                        const id = `letras_${Math.random()}`;
+                                        cachedLyricsSearch[id] = { artist: item.artista, song: item.nome, lyrics: plainText, source: 'Letras.mus' };
+                                        addSearchResultToDOM(item.nome, item.artista, id, 'Letras.mus');
+                                        foundAnyValid = true;
+                                        break; // Pega a primeira boa
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e) { console.warn('Scraper Letras.mus falhou', e); }
+    }
+
     if (!foundAnyValid) {
         const googleLink = `https://www.google.com/search?q=letra+${encodeURIComponent(query)}+gospel`;
         msgBox.innerHTML = `
-            <span style="color:var(--danger);">❌ Não encontramos automaticamente.</span><br>
+            <span style="color:var(--danger);">❌ Não encontramos automaticamente nas APIs.</span><br>
             <a href="${googleLink}" target="_blank" style="color:var(--primary-color); text-decoration:underline; font-size:0.9rem; display:block; margin-top:5px;">
                 🔍 Clique aqui para buscar no Google e cole a letra manualmente
             </a>
