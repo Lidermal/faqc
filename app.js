@@ -700,7 +700,7 @@ function createMemberCard(member, type) {
 }
 
 // ==========================================
-// PASTAS DO REPERTÓRIO
+// PASTAS DO REPERTÓRIO (VISUAL EM BLOCOS)
 // ==========================================
 async function loadFolders() {
     const container = document.getElementById('folders-list');
@@ -713,55 +713,113 @@ async function loadFolders() {
             folders = await res.json();
             allFoldersCache = folders;
         } catch(e) {
-            console.warn('Tabela de pastas não encontrada ou erro:', e);
+            console.warn('Tabela de pastas não encontrada:', e);
         }
 
-        let html = `
-        <div class="folder-wrapper">
-            <button class="folder-item ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
-                <span class="material-symbols-outlined">folder_special</span>
-                <div class="folder-info">
-                    <span>Pasta Geral</span>
+        // Conta músicas por pasta
+        let html = '<div class="folders-grid">';
+        
+        // Pasta Geral (sempre primeira)
+        const generalMusicCount = currentFolderId === null ? 
+            allRepertoireCache.length : 
+            await countMusicInFolder(null);
+        
+        html += `
+            <div class="folder-card ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+                <div class="folder-card-icon">
+                    <span class="material-symbols-outlined">folder_special</span>
+                </div>
+                <div class="folder-card-info">
+                    <h4>Pasta Geral</h4>
+                    <p>${generalMusicCount || 0} músicas</p>
                     <small>Todas as músicas</small>
                 </div>
-            </button>
-        </div>
+                ${currentFolderId === null ? '<div class="folder-active-indicator"></div>' : ''}
+            </div>
         `;
 
-        folders.forEach(folder => {
+        // Pastas personalizadas
+        for (const folder of folders) {
             const canEdit = currentUserData.is_leader || (folder.created_by === currentUserData.id);
+            const musicCount = currentFolderId === folder.id ? 
+                allRepertoireCache.length : 
+                await countMusicInFolder(folder.id);
             
             html += `
-            <div class="folder-wrapper">
-                <button class="folder-item ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
-                    <span class="material-symbols-outlined">folder</span>
-                    <div class="folder-info">
-                        <span>${folder.name}</span>
+                <div class="folder-card ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
+                    <div class="folder-card-icon">
+                        <span class="material-symbols-outlined">folder</span>
+                    </div>
+                    <div class="folder-card-info">
+                        <h4>${folder.name}</h4>
+                        <p>${musicCount || 0} músicas</p>
                         <small>Por: ${folder.created_by === currentUserData.id ? 'Você' : 'Membro'}</small>
                     </div>
-                </button>
-                ${canEdit ? `
-                <button class="btn-folder-delete" onclick="deleteFolder('${folder.id}')" title="Excluir pasta">
-                    <span class="material-symbols-outlined">delete</span>
-                </button>
-                ` : ''}
-            </div>
+                    ${canEdit ? `
+                        <button class="folder-card-delete" onclick="event.stopPropagation(); deleteFolder('${folder.id}')" title="Excluir pasta">
+                            <span class="material-symbols-outlined">delete</span>
+                        </button>
+                    ` : ''}
+                    ${currentFolderId === folder.id ? '<div class="folder-active-indicator"></div>' : ''}
+                </div>
             `;
-        });
+        }
 
         if (currentUserData.is_leader) {
             html += `
-            <button class="btn-create-folder" onclick="openCreateFolderModal()">
-                <span class="material-symbols-outlined">create_new_folder</span>
-                Nova Pasta
-            </button>
+                <button class="folder-card folder-card-create" onclick="openCreateFolderModal()">
+                    <div class="folder-card-icon">
+                        <span class="material-symbols-outlined">create_new_folder</span>
+                    </div>
+                    <div class="folder-card-info">
+                        <h4>Nova Pasta</h4>
+                        <p>Criar pasta pessoal</p>
+                    </div>
+                </button>
             `;
         }
-        container.innerHTML = html;
+        
+        html += '</div>';
+        
+        // breadcrumb de navegação
+        const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
+        const breadcrumbHtml = `
+            <div class="folder-breadcrumb">
+                <button class="breadcrumb-btn ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+                    <span class="material-symbols-outlined">home</span>
+                    <span>Pasta Geral</span>
+                </button>
+                ${currentFolder ? `
+                    <span class="breadcrumb-separator">/</span>
+                    <button class="breadcrumb-btn active" onclick="selectFolder('${currentFolder.id}')">
+                        <span class="material-symbols-outlined">folder</span>
+                        <span>${currentFolder.name}</span>
+                    </button>
+                ` : ''}
+            </div>
+        `;
+        
+        container.innerHTML = breadcrumbHtml + html;
 
     } catch (e) {
-        console.error('Erro ao carregar pastas:', e);
+        console.error('❌ Erro loadFolders:', e);
         container.innerHTML = `<p style="text-align:center; color:var(--danger); padding:20px;">Erro ao carregar pastas.</p>`;
+    }
+}
+
+async function countMusicInFolder(folderId) {
+    try {
+        let query = `${SUPABASE_URL}/rest/v1/repertoire?select=id&count=exact`;
+        if (folderId) {
+            query += `&folder_id=eq.${folderId}`;
+        } else {
+            query += `&folder_id=is.null`;
+        }
+        const res = await fetch(query, { headers });
+        const count = res.headers.get('content-range');
+        return count ? parseInt(count.split('/')[1]) : 0;
+    } catch (e) {
+        return 0;
     }
 }
 
@@ -769,54 +827,6 @@ function selectFolder(folderId) {
     currentFolderId = folderId;
     loadFolders();
     loadRepertoire();
-}
-
-async function openCreateFolderModal() {
-    const existingFolder = allFoldersCache.find(f => f.created_by === currentUserData.id);
-    if (existingFolder) {
-        showCustomAlert('Você já possui uma pasta pessoal.', 'Atenção');
-        return;
-    }
-
-    const name = prompt(`Qual será o nome da sua pasta? (Ex: ${currentUserData.full_name})`);
-    if (!name) return;
-
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
-            method: 'POST',
-            headers: { ...headers, 'Prefer': 'return=representation' },
-            body: JSON.stringify({
-                name: name,
-                created_by: currentUserData.id,
-                is_general: false
-            })
-        });
-        loadFolders();
-        showCustomAlert('Pasta criada com sucesso!', 'Sucesso');
-    } catch (e) {
-        console.error('Erro ao criar pasta:', e);
-        showCustomAlert('Erro ao criar pasta.', 'Erro');
-    }
-}
-
-async function deleteFolder(folderId) {
-    if (!confirm('Deseja excluir esta pasta? As músicas voltarão para a Pasta Geral.')) return;
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/repertoire?folder_id=eq.${folderId}`, {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify({ folder_id: null })
-        });
-        await fetch(`${SUPABASE_URL}/rest/v1/folders?id=eq.${folderId}`, {
-            method: 'DELETE',
-            headers
-        });
-        loadFolders();
-        loadRepertoire();
-        showCustomAlert('Pasta excluída!', 'Sucesso');
-    } catch (e) {
-        console.error('Erro ao excluir pasta:', e);
-    }
 }
 
 // ==========================================
