@@ -700,7 +700,7 @@ function createMemberCard(member, type) {
 }
 
 // ==========================================
-// PASTAS DO REPERTÓRIO (VISUAL EM BLOCOS)
+// PASTAS DO REPERTÓRIO (COM NAVEGAÇÃO)
 // ==========================================
 async function loadFolders() {
     const container = document.getElementById('folders-list');
@@ -710,20 +710,16 @@ async function loadFolders() {
         let folders = [];
         try {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=id,name,created_by,is_general&order=is_general.desc,name.asc`, { headers });
-            folders = await res.json();
+            if (res.ok) folders = await res.json();
             allFoldersCache = folders;
         } catch(e) {
             console.warn('Tabela de pastas não encontrada:', e);
         }
 
-        // Conta músicas por pasta
         let html = '<div class="folders-grid">';
         
-        // Pasta Geral (sempre primeira)
-        const generalMusicCount = currentFolderId === null ? 
-            allRepertoireCache.length : 
-            await countMusicInFolder(null);
-        
+        // Pasta Geral
+        const generalCount = await countMusicInFolder(null);
         html += `
             <div class="folder-card ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
                 <div class="folder-card-icon">
@@ -731,19 +727,17 @@ async function loadFolders() {
                 </div>
                 <div class="folder-card-info">
                     <h4>Pasta Geral</h4>
-                    <p>${generalMusicCount || 0} músicas</p>
+                    <p>${generalCount} músicas</p>
                     <small>Todas as músicas</small>
                 </div>
-                ${currentFolderId === null ? '<div class="folder-active-indicator"></div>' : ''}
             </div>
         `;
 
         // Pastas personalizadas
         for (const folder of folders) {
+            if (folder.is_general) continue; // Pula pasta geral se existir no banco
             const canEdit = currentUserData.is_leader || (folder.created_by === currentUserData.id);
-            const musicCount = currentFolderId === folder.id ? 
-                allRepertoireCache.length : 
-                await countMusicInFolder(folder.id);
+            const musicCount = await countMusicInFolder(folder.id);
             
             html += `
                 <div class="folder-card ${currentFolderId === folder.id ? 'active' : ''}" onclick="selectFolder('${folder.id}')">
@@ -752,15 +746,14 @@ async function loadFolders() {
                     </div>
                     <div class="folder-card-info">
                         <h4>${folder.name}</h4>
-                        <p>${musicCount || 0} músicas</p>
+                        <p>${musicCount} músicas</p>
                         <small>Por: ${folder.created_by === currentUserData.id ? 'Você' : 'Membro'}</small>
                     </div>
                     ${canEdit ? `
-                        <button class="folder-card-delete" onclick="event.stopPropagation(); deleteFolder('${folder.id}')" title="Excluir pasta">
+                        <button class="folder-card-delete" onclick="event.stopPropagation(); confirmDeleteFolder('${folder.id}')" title="Excluir pasta">
                             <span class="material-symbols-outlined">delete</span>
                         </button>
                     ` : ''}
-                    ${currentFolderId === folder.id ? '<div class="folder-active-indicator"></div>' : ''}
                 </div>
             `;
         }
@@ -780,26 +773,7 @@ async function loadFolders() {
         }
         
         html += '</div>';
-        
-        // breadcrumb de navegação
-        const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
-        const breadcrumbHtml = `
-            <div class="folder-breadcrumb">
-                <button class="breadcrumb-btn ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
-                    <span class="material-symbols-outlined">home</span>
-                    <span>Pasta Geral</span>
-                </button>
-                ${currentFolder ? `
-                    <span class="breadcrumb-separator">/</span>
-                    <button class="breadcrumb-btn active" onclick="selectFolder('${currentFolder.id}')">
-                        <span class="material-symbols-outlined">folder</span>
-                        <span>${currentFolder.name}</span>
-                    </button>
-                ` : ''}
-            </div>
-        `;
-        
-        container.innerHTML = breadcrumbHtml + html;
+        container.innerHTML = html;
 
     } catch (e) {
         console.error('❌ Erro loadFolders:', e);
@@ -825,8 +799,114 @@ async function countMusicInFolder(folderId) {
 
 function selectFolder(folderId) {
     currentFolderId = folderId;
+    // Atualiza UI das pastas
     loadFolders();
+    // Carrega músicas da pasta selecionada
     loadRepertoire();
+    // Atualiza breadcrumb
+    updateFolderBreadcrumb();
+}
+
+function updateFolderBreadcrumb() {
+    const breadcrumbContainer = document.querySelector('.folder-breadcrumb');
+    if (!breadcrumbContainer) return;
+    
+    const currentFolder = currentFolderId ? allFoldersCache.find(f => f.id === currentFolderId) : null;
+    
+    let html = `
+        <button class="breadcrumb-btn ${currentFolderId === null ? 'active' : ''}" onclick="selectFolder(null)">
+            <span class="material-symbols-outlined">home</span>
+            <span>Pasta Geral</span>
+        </button>
+    `;
+    
+    if (currentFolder) {
+        html += `
+            <span class="breadcrumb-separator">/</span>
+            <button class="breadcrumb-btn active">
+                <span class="material-symbols-outlined">folder</span>
+                <span>${currentFolder.name}</span>
+            </button>
+        `;
+    }
+    
+    breadcrumbContainer.innerHTML = html;
+}
+
+async function confirmDeleteFolder(folderId) {
+    const folder = allFoldersCache.find(f => f.id === folderId);
+    if (!folder) return;
+    
+    const musicCount = await countMusicInFolder(folderId);
+    const msg = `Deseja excluir a pasta "${folder.name}"?\n\n${musicCount} música(s) voltarão para a Pasta Geral.`;
+    
+    showCustomConfirm(msg, () => deleteFolder(folderId), 'Excluir Pasta');
+}
+
+async function deleteFolder(folderId) {
+    try {
+        // Move músicas para pasta geral (null)
+        await fetch(`${SUPABASE_URL}/rest/v1/repertoire?folder_id=eq.${folderId}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({ folder_id: null })
+        });
+        
+        // Deleta a pasta
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/folders?id=eq.${folderId}`, {
+            method: 'DELETE',
+            headers
+        });
+        
+        if (!res.ok) throw new Error('Falha ao excluir');
+        
+        // Se estava na pasta deletada, volta para geral
+        if (currentFolderId === folderId) {
+            currentFolderId = null;
+        }
+        
+        loadFolders();
+        loadRepertoire();
+        showCustomAlert('Pasta excluída com sucesso!', 'Sucesso');
+    } catch (e) {
+        console.error('Erro ao excluir pasta:', e);
+        showCustomAlert('Erro ao excluir pasta.', 'Erro');
+    }
+}
+
+async function openCreateFolderModal() {
+    // Verifica se já tem pasta pessoal
+    const existingFolder = allFoldersCache.find(f => f.created_by === currentUserData.id && !f.is_general);
+    if (existingFolder) {
+        showCustomAlert('Você já possui uma pasta pessoal.', 'Atenção');
+        return;
+    }
+
+    const name = prompt(`Qual será o nome da sua pasta?\nEx: ${currentUserData.full_name}`);
+    if (!name || name.trim() === '') return;
+    
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
+            method: 'POST',
+            headers: { ...headers, 'Prefer': 'return=representation' },
+            body: JSON.stringify({
+                name: name.trim(),
+                created_by: currentUserData.id,
+                is_general: false
+            })
+        });
+        
+        if (!res.ok) throw new Error('Falha ao criar');
+        
+        const newFolder = await res.json();
+        allFoldersCache.push(newFolder[0]);
+        
+        loadFolders();
+        showCustomAlert(`Pasta "${name}" criada com sucesso!`, 'Sucesso');
+    } catch (e) {
+        console.error('Erro ao criar pasta:', e);
+        showCustomAlert('Erro ao criar pasta.', 'Erro');
+    }
 }
 
 // ==========================================
@@ -1899,8 +1979,81 @@ function filterAdminMembers() {
     });
 }
 
+// Modal de edição de membro
 async function editMember(id) {
-    showCustomAlert('Função de edição em desenvolvimento. Use o cadastro para adicionar novos membros.');
+    try {
+        // Busca dados completos do membro
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}&select=*`, { headers });
+        if (!res.ok) throw new Error('Falha ao carregar dados');
+        
+        const member = (await res.json())[0];
+        if (!member) {
+            showCustomAlert('Membro não encontrado.', 'Erro');
+            return;
+        }
+        
+        // Preenche modal
+        document.getElementById('edit-member-id').value = member.id;
+        document.getElementById('edit-fullname').value = member.full_name || '';
+        document.getElementById('edit-email').value = member.email || '';
+        document.getElementById('edit-phone').value = member.phone || '';
+        document.getElementById('edit-role').value = member.role || 'vocal';
+        document.getElementById('edit-is-leader').checked = member.is_leader || false;
+        
+        // Abre modal
+        document.getElementById('modal-edit-member').classList.add('active');
+        
+    } catch (e) {
+        console.error('Erro ao carregar membro:', e);
+        showCustomAlert('Erro ao carregar dados do membro.', 'Erro');
+    }
+}
+
+async function saveEditMember() {
+    const id = document.getElementById('edit-member-id').value;
+    const fullname = document.getElementById('edit-fullname').value.trim();
+    const email = document.getElementById('edit-email').value.trim();
+    const phone = document.getElementById('edit-phone').value.trim();
+    const role = document.getElementById('edit-role').value;
+    const isLeader = document.getElementById('edit-is-leader').checked;
+    
+    if (!fullname) {
+        showCustomAlert('Nome completo é obrigatório.', 'Erro');
+        return;
+    }
+    
+    try {
+        const updateData = {
+            full_name: fullname,
+            email: email || null,
+            phone: phone || null,
+            role: role,
+            is_leader: isLeader
+        };
+        
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(updateData)
+        });
+        
+        if (!res.ok) throw new Error('Falha ao atualizar');
+        
+        showCustomAlert('Membro atualizado com sucesso!', 'Sucesso');
+        closeModals();
+        loadAdminMembers();
+        
+        // Atualiza cache se for o usuário atual
+        if (id === currentUserData.id) {
+            currentUserData = { ...currentUserData, ...updateData };
+            localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
+            updateHeaderUserInfo();
+        }
+        
+    } catch (e) {
+        console.error('Erro ao atualizar membro:', e);
+        showCustomAlert('Erro ao atualizar membro.', 'Erro');
+    }
 }
 
 async function deleteMember(id) {
