@@ -611,6 +611,9 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 .scale-empty { text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 10px; font-style: italic; }
 
 /* REPERTÓRIO */
+#repertoire-actions {
+  display: none; /* Escondido por padrão */
+}
 .repertoire-playlist {
   background-color: var(--surface-color); border-radius: 16px;
   border: 1px solid var(--border-color); padding: 5px;
