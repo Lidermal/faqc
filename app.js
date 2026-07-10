@@ -240,6 +240,7 @@ function closeModals() {
     const modalTitle = document.getElementById('scale-modal-title');
     if (modalTitle) modalTitle.textContent = 'Nova Escala';
     resetMedleyFlow();
+    closeScaleRepertoireModal();
 }
 
 function showAdminSection(section) {
@@ -695,7 +696,7 @@ async function loadMembers() {
             html += '</div></div>';
         }
         if (band.length > 0) {
-            html += '<div class="members-section"><h3 class="section-title"> Banda</h3><div class="members-cards-grid">';
+            html += '<div class="members-section"><h3 class="section-title">🎸 Banda</h3><div class="members-cards-grid">';
             band.forEach(m => { html += createMemberCard(m, 'band'); });
             html += '</div></div>';
         }
@@ -846,7 +847,7 @@ async function loadFolders() {
         container.innerHTML = html;
 
     } catch (e) {
-        console.error('❌ Erro loadFolders:', e);
+        console.error(' Erro loadFolders:', e);
         container.innerHTML = `<p style="text-align:center; color:var(--danger); padding:20px;">Erro ao carregar pastas.</p>`;
     }
 }
@@ -1737,36 +1738,137 @@ async function selectMedleySong(songId) {
     renderVersesSelector(song.title);
 }
 
+// ==========================================
+// FUNÇÃO MELHORADA PARA PARSEAR PARTES DA MÚSICA
+// ==========================================
 function parseLyricsIntoVerses(lyrics) {
-    if (!lyrics) return [];
+    if (!lyrics || lyrics.trim() === '') return [];
+    
     const lines = lyrics.split('\n');
     const verses = [];
     let currentLabel = 'Intro';
     let currentLines = [];
+    let verseNumber = 1;
+    let chorusCount = 0;
     
-    const sectionPatterns = [/^(intro|introdução)/i, /^(verso|verse)/i, /^(pr[eé]-?refr[aã]o)/i, /^(refr[aã]o)/i, /^(ponte|bridge)/i, /^(final|outro)/i];
+    // Padrões para detectar seções
+    const sectionPatterns = [
+        { pattern: /^(intro|introdução)\s*:?\s*$/i, label: 'Intro' },
+        { pattern: /^(verso|verse)\s*(\d+)?:?\s*$/i, label: 'Verso' },
+        { pattern: /^(pr[eé]-?refr[aã]o|pre-?chorus)\s*:?\s*$/i, label: 'Pré-Refrão' },
+        { pattern: /^(refr[aã]o|chorus)\s*:?\s*$/i, label: 'Refrão' },
+        { pattern: /^(ponte|bridge)\s*:?\s*$/i, label: 'Ponte' },
+        { pattern: /^(final|outro|encerramento)\s*:?\s*$/i, label: 'Final' },
+        { pattern: /^(ponte instrumental|interl[uú]dio|interlude)\s*:?\s*$/i, label: 'Interlúdio' },
+        // Padrões com colchetes
+        { pattern: /^\[(intro|introdu[çc]ão)\]$/i, label: 'Intro' },
+        { pattern: /^\[(verso|verse)\s*(\d+)?\]$/i, label: 'Verso' },
+        { pattern: /^\[(pr[eé]-?refr[aã]o|pre-?chorus)\]$/i, label: 'Pré-Refrão' },
+        { pattern: /^\[(refr[aã]o|chorus)\]$/i, label: 'Refrão' },
+        { pattern: /^\[(ponte|bridge)\]$/i, label: 'Ponte' },
+        { pattern: /^\[(final|outro)\]$/i, label: 'Final' }
+    ];
+    
+    // Detecta se é uma linha de seção
+    function getSectionLabel(line) {
+        for (const { pattern, label } of sectionPatterns) {
+            if (pattern.test(line.trim())) {
+                const match = line.trim().match(pattern);
+                // Se for verso, adiciona número
+                if (label === 'Verso' && match && match[2]) {
+                    return `Verso ${match[2]}`;
+                }
+                return label;
+            }
+        }
+        return null;
+    }
+    
+    // Agrupa linhas consecutivas em blocos
+    const blocks = [];
+    let currentBlock = [];
     
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        let newSection = null;
+        const sectionLabel = getSectionLabel(line);
         
-        for (let p of sectionPatterns) {
-            if (p.test(line.trim())) {
-                newSection = line.trim().replace(/[:\[\]()]/g, '');
-                break;
+        if (sectionLabel) {
+            // Salva bloco anterior se existir
+            if (currentBlock.length > 0) {
+                blocks.push({ label: currentLabel, lines: currentBlock });
+                currentBlock = [];
+            }
+            currentLabel = sectionLabel;
+        } else if (line.trim() === '') {
+            // Linha em branco separa blocos
+            if (currentBlock.length > 0) {
+                blocks.push({ label: currentLabel, lines: currentBlock });
+                currentBlock = [];
+                currentLabel = null; // Reset para detectar próxima seção
+            }
+        } else {
+            currentBlock.push(line);
+        }
+    }
+    
+    // Adiciona último bloco
+    if (currentBlock.length > 0) {
+        blocks.push({ label: currentLabel || 'Verso', lines: currentBlock });
+    }
+    
+    // Processa blocos para detectar refrões repetidos e numerar versos
+    const processedVerses = [];
+    const seenContent = new Map(); // Para detectar refrões repetidos
+    
+    blocks.forEach((block, index) => {
+        const content = block.lines.join('\n').trim();
+        if (!content) return;
+        
+        let label = block.label;
+        
+        // Se não tem label definido, tenta inferir
+        if (!label || label === 'Intro') {
+            // Verifica se é refrão (conteúdo repetido)
+            if (seenContent.has(content)) {
+                label = 'Refrão';
+            } else if (block.lines.length > 4) {
+                // Blocos longos sem label provavelmente são versos
+                label = `Verso ${verseNumber}`;
+                verseNumber++;
+            } else {
+                label = 'Verso';
             }
         }
         
-        if (newSection) {
-            if (currentLines.length > 0) verses.push({ label: currentLabel, content: currentLines.join('\n').trim() });
-            currentLabel = newSection;
-            currentLines = [];
-        } else if (line.trim() !== '') {
-            currentLines.push(line);
+        // Detecta refrões automaticamente por repetição
+        if (label !== 'Refrão' && seenContent.has(content)) {
+            label = 'Refrão';
         }
-    }
-    if (currentLines.length > 0) verses.push({ label: currentLabel, content: currentLines.join('\n').trim() });
-    return verses;
+        
+        // Numera versos sequencialmente
+        if (label.startsWith('Verso') && !label.match(/\d+/)) {
+            label = `Verso ${verseNumber}`;
+            verseNumber++;
+        }
+        
+        // Conta refrões
+        if (label === 'Refrão') {
+            chorusCount++;
+            if (chorusCount > 1) {
+                label = 'Refrão';
+            }
+        }
+        
+        seenContent.set(content, label);
+        
+        processedVerses.push({
+            label: label,
+            content: content,
+            id: `v${index}_${Date.now()}`
+        });
+    });
+    
+    return processedVerses;
 }
 
 function renderVersesSelector(songTitle) {
@@ -1970,6 +2072,187 @@ async function loadScales() {
     }
 }
 
+// ==========================================
+// NOVA FUNÇÃO: ABRIR MODAL PARA EDITAR REPERTÓRIO DA ESCALA
+// ==========================================
+async function openScaleRepertoireModal(scaleId) {
+    // Mídia não pode editar repertório da escala
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para editar o repertório.', 'Aviso');
+        return;
+    }
+
+    try {
+        // Carregar dados da escala
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes,scale_songs(repertoire_id,title,vocalist,is_medley)`, { headers });
+        if (!res.ok) throw new Error('Falha ao carregar escala');
+        const data = await res.json();
+        if (data.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
+        const scale = data[0];
+        
+        // Carregar todas as pastas
+        let folders = [];
+        try {
+            const resFolders = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=id,name,is_general&order=is_general.desc,name.asc`, { headers });
+            if (resFolders.ok) {
+                folders = await resFolders.json();
+            }
+        } catch (e) {
+            console.warn('Erro ao carregar pastas:', e);
+        }
+        
+        // Carregar todo o repertório
+        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist,is_medley,folder_id&order=title.asc`, { headers });
+        if (!resRep.ok) throw new Error('Falha ao carregar repertório');
+        const allSongs = await resRep.json();
+        
+        // Criar modal
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.id = 'modal-scale-repertoire';
+        
+        // Agrupar músicas por pasta
+        const songsByFolder = {};
+        allSongs.forEach(song => {
+            const folderId = song.folder_id || 'geral';
+            if (!songsByFolder[folderId]) {
+                songsByFolder[folderId] = [];
+            }
+            songsByFolder[folderId].push(song);
+        });
+        
+        // Músicas selecionadas atualmente
+        const selectedIds = scale.scale_songs.map(s => s.repertoire_id);
+        
+        let folderTabs = '';
+        let folderContents = '';
+        let firstFolder = true;
+        
+        // Pasta Geral sempre primeiro
+        if (songsByFolder['geral']) {
+            folderTabs += `<button class="folder-tab ${firstFolder ? 'active' : ''}" data-folder="geral"> Pasta Geral</button>`;
+            folderContents += `<div class="folder-content ${firstFolder ? 'active' : ''}" data-folder="geral">`;
+            songsByFolder['geral'].forEach(song => {
+                const checked = selectedIds.includes(song.id) ? 'checked' : '';
+                const medleyBadge = song.is_medley ? '<span class="badge" style="font-size:0.7rem;">Medley</span>' : '';
+                folderContents += `
+                    <label class="song-checkbox">
+                        <input type="checkbox" value="${song.id}" class="scale-rep-song-cb" ${checked}>
+                        <span>${song.title} ${medleyBadge}</span>
+                        ${song.vocalist ? `<small style="color:var(--text-muted); display:block;">🎤 ${song.vocalist}</small>` : ''}
+                    </label>
+                `;
+            });
+            folderContents += '</div>';
+            firstFolder = false;
+        }
+        
+        // Outras pastas
+        folders.filter(f => !f.is_general).forEach(folder => {
+            if (songsByFolder[folder.id]) {
+                folderTabs += `<button class="folder-tab ${firstFolder ? 'active' : ''}" data-folder="${folder.id}"> ${folder.name}</button>`;
+                folderContents += `<div class="folder-content ${firstFolder ? 'active' : ''}" data-folder="${folder.id}">`;
+                songsByFolder[folder.id].forEach(song => {
+                    const checked = selectedIds.includes(song.id) ? 'checked' : '';
+                    const medleyBadge = song.is_medley ? '<span class="badge" style="font-size:0.7rem;">Medley</span>' : '';
+                    folderContents += `
+                        <label class="song-checkbox">
+                            <input type="checkbox" value="${song.id}" class="scale-rep-song-cb" ${checked}>
+                            <span>${song.title} ${medleyBadge}</span>
+                            ${song.vocalist ? `<small style="color:var(--text-muted); display:block;">🎤 ${song.vocalist}</small>` : ''}
+                        </label>
+                    `;
+                });
+                folderContents += '</div>';
+                firstFolder = false;
+            }
+        });
+        
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:700px;">
+                <div class="modal-header">
+                    <div>
+                        <h3>Editar Repertório da Escala</h3>
+                        <p style="color:var(--text-muted); font-size:0.9rem;">Data: ${new Date(scale.event_date).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <button class="close-btn" onclick="closeScaleRepertoireModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="folder-tabs" style="display:flex; gap:10px; margin-bottom:15px; border-bottom:2px solid var(--border-color); padding-bottom:10px;">
+                        ${folderTabs}
+                    </div>
+                    <div class="folder-contents" style="max-height:400px; overflow-y:auto; padding:10px;">
+                        ${folderContents}
+                    </div>
+                    <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                        <button class="btn-secondary" onclick="closeScaleRepertoireModal()">Cancelar</button>
+                        <button class="btn-primary" onclick="saveScaleRepertoire('${scaleId}')">Salvar Repertório</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Adicionar event listeners nas tabs
+        modal.querySelectorAll('.folder-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                modal.querySelectorAll('.folder-tab').forEach(t => t.classList.remove('active'));
+                modal.querySelectorAll('.folder-content').forEach(c => c.classList.remove('active'));
+                tab.classList.add('active');
+                const folderId = tab.getAttribute('data-folder');
+                modal.querySelector(`.folder-content[data-folder="${folderId}"]`).classList.add('active');
+            });
+        });
+        
+    } catch (e) {
+        console.error('Erro ao abrir modal de repertório:', e);
+        showCustomAlert('Erro ao carregar repertório da escala.', 'Erro');
+    }
+}
+
+function closeScaleRepertoireModal() {
+    const modal = document.getElementById('modal-scale-repertoire');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+async function saveScaleRepertoire(scaleId) {
+    const modal = document.getElementById('modal-scale-repertoire');
+    if (!modal) return;
+    
+    const selectedCbs = modal.querySelectorAll('.scale-rep-song-cb:checked');
+    const selectedSongIds = Array.from(selectedCbs).map(cb => cb.value);
+    
+    try {
+        // Deletar músicas atuais
+        await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}`, { 
+            method: 'DELETE', 
+            headers 
+        });
+        
+        // Adicionar novas músicas
+        for (const songId of selectedSongIds) {
+            await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ 
+                    scale_id: scaleId, 
+                    repertoire_id: songId 
+                })
+            });
+        }
+        
+        showCustomAlert('Repertório atualizado com sucesso!', 'Sucesso');
+        closeScaleRepertoireModal();
+        loadScales();
+    } catch (e) {
+        console.error('Erro ao salvar repertório:', e);
+        showCustomAlert('Erro ao salvar repertório.', 'Erro');
+    }
+}
+
 function renderScaleCards(scaleArray, isFuture) {
     if (scaleArray.length === 0) return '<p style="text-align:center; color:var(--text-muted); padding:40px;">' + (isFuture ? 'Nenhuma escala programada.' : 'Histórico vazio.') + '</p>';
     let html = '';
@@ -2029,10 +2312,17 @@ function renderScaleCards(scaleArray, isFuture) {
 
         // Mídia NÃO pode editar ou excluir escalas
         const isMedia = currentUserData.role === 'midia';
-        const actionsHtml = (!isMedia && (currentUserData.is_leader || true)) ? `
+        const actionsHtml = (!isMedia) ? `
             <div class="scale-folder-actions">
-                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar"><span class="material-symbols-outlined">edit</span></button>
-                <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir"><span class="material-symbols-outlined">delete</span></button>
+                <button class="btn-icon" onclick="openScaleRepertoireModal('${s.id}')" title="Editar Repertório">
+                    <span class="material-symbols-outlined">playlist_add</span>
+                </button>
+                <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar Escala Completa">
+                    <span class="material-symbols-outlined">edit</span>
+                </button>
+                <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir">
+                    <span class="material-symbols-outlined">delete</span>
+                </button>
             </div>
         ` : '';
 
@@ -2077,6 +2367,9 @@ async function deleteScale(scaleId) {
     });
 }
 
+// ==========================================
+// CORREÇÃO: EDITAR ESCALA CARREGANDO MEMBROS
+// ==========================================
 async function openEditScaleModal(scaleId) {
     // Mídia não pode editar escalas
     if (currentUserData.role === 'midia') {
@@ -2085,26 +2378,43 @@ async function openEditScaleModal(scaleId) {
     }
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes,scale_items(member_id,role,members(full_name)),scale_songs(repertoire_id)`, { headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes,scale_items(member_id,role,members(id,full_name)),scale_songs(repertoire_id)`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar escala');
         const data = await res.json();
         if (data.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
         const scale = data[0];
+        
         document.getElementById('modal-add-scale').classList.add('active');
         document.getElementById('editing-scale-id').value = scaleId;
         document.getElementById('scale-modal-title').textContent = 'Editar Escala';
         document.getElementById('scale-date').value = scale.event_date;
         document.getElementById('scale-notes').value = scale.notes || '';
-        scaleDraftTeam = scale.scale_items.map(i => ({ memberId: i.member_id, role: i.role, name: i.members ? i.members.full_name : 'Desconhecido' }));
+        
+        // CORREÇÃO: Carregar membros antes de renderizar
+        try {
+            const resMembers = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,role,is_leader&order=full_name.asc`, { headers });
+            if (resMembers.ok) {
+                allMembersCache = await resMembers.json();
+                console.log('Membros carregados para edição:', allMembersCache.length);
+            }
+        } catch (e) {
+            console.error('Erro ao carregar membros:', e);
+        }
+        
+        // Carregar equipe atual
+        scaleDraftTeam = scale.scale_items.map(i => ({ 
+            memberId: i.member_id, 
+            role: i.role, 
+            name: i.members ? i.members.full_name : 'Desconhecido' 
+        }));
         renderScaleDraftTeam();
         
-        if (allMembersCache.length === 0) {
-            const resMem = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*`, { headers });
-            allMembersCache = await resMem.json();
-        }
+        // Carregar repertório se necessário
         if (allRepertoireCache.length === 0) {
-            const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist&order=title.asc`, { headers });
-            allRepertoireCache = await resRep.json();
+            const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist,is_medley&order=title.asc`, { headers });
+            if (resRep.ok) {
+                allRepertoireCache = await resRep.json();
+            }
         }
         
         const songsContainer = document.getElementById('scale-songs-selectors');
@@ -2112,12 +2422,25 @@ async function openEditScaleModal(scaleId) {
         songsContainer.innerHTML = '';
         allRepertoireCache.forEach(song => {
             const checked = selectedSongIds.includes(song.id) ? 'checked' : '';
+            const medleyBadge = song.is_medley ? ' 🎵 Medley' : '';
             const vocalistInfo = song.vocalist ? ` <small style="color:var(--text-muted);">🎤 ${song.vocalist}</small>` : '';
-            songsContainer.innerHTML += `<label class="song-checkbox"><input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}><span>${song.title}</span>${vocalistInfo}</label>`;
+            songsContainer.innerHTML += `
+                <label class="song-checkbox">
+                    <input type="checkbox" value="${song.id}" class="scale-song-cb" ${checked}>
+                    <span>${song.title}${medleyBadge}</span>
+                    ${vocalistInfo}
+                </label>
+            `;
         });
-    } catch (e) { showCustomAlert('Erro ao carregar escala para edição.'); }
+    } catch (e) { 
+        console.error('Erro ao carregar escala:', e);
+        showCustomAlert('Erro ao carregar escala para edição.', 'Erro'); 
+    }
 }
 
+// ==========================================
+// CORREÇÃO: CARREGAR MEMBROS NA ESCALA
+// ==========================================
 async function openScaleModal() {
     // Mídia não pode criar escalas
     if (currentUserData.role === 'midia') {
@@ -2130,19 +2453,41 @@ async function openScaleModal() {
     document.getElementById('scale-modal-title').textContent = 'Nova Escala';
     scaleDraftTeam = [];
     renderScaleDraftTeam();
-    if (allMembersCache.length === 0) {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*`, { headers });
+    
+    // CORREÇÃO: Carregar membros corretamente
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,role,is_leader&order=full_name.asc`, { headers });
+        if (!res.ok) throw new Error('Falha ao carregar membros');
         allMembersCache = await res.json();
+        console.log('Membros carregados:', allMembersCache.length);
+    } catch (e) {
+        console.error('Erro ao carregar membros:', e);
+        showCustomAlert('Erro ao carregar lista de membros.', 'Erro');
+        return;
     }
-    if (allRepertoireCache.length === 0) {
-        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist&order=title.asc`, { headers });
+    
+    // Carregar repertório
+    try {
+        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist,is_medley&order=title.asc`, { headers });
+        if (!resRep.ok) throw new Error('Falha ao carregar repertório');
         allRepertoireCache = await resRep.json();
+    } catch (e) {
+        console.error('Erro ao carregar repertório:', e);
+        allRepertoireCache = [];
     }
+    
     const songsContainer = document.getElementById('scale-songs-selectors');
     songsContainer.innerHTML = '';
     allRepertoireCache.forEach(song => {
+        const medleyBadge = song.is_medley ? ' 🎵 Medley' : '';
         const vocalistInfo = song.vocalist ? ` <small style="color:var(--text-muted);">🎤 ${song.vocalist}</small>` : '';
-        songsContainer.innerHTML += `<label class="song-checkbox"><input type="checkbox" value="${song.id}" class="scale-song-cb"><span>${song.title}</span>${vocalistInfo}</label>`;
+        songsContainer.innerHTML += `
+            <label class="song-checkbox">
+                <input type="checkbox" value="${song.id}" class="scale-song-cb">
+                <span>${song.title}${medleyBadge}</span>
+                ${vocalistInfo}
+            </label>
+        `;
     });
 }
 
@@ -2389,7 +2734,7 @@ async function loadAdminMembers() {
             <p style="text-align:center; color:var(--danger); padding:40px;">
                 Erro ao carregar lista.<br>
                 <small>${e.message}</small><br>
-                <button class="btn-secondary" onclick="loadAdminMembers()" style="margin-top:10px;">🔄 Recarregar</button>
+                <button class="btn-secondary" onclick="loadAdminMembers()" style="margin-top:10px;"> Recarregar</button>
             </p>
         `;
     }
@@ -2505,6 +2850,40 @@ async function deleteMember(id) {
         } catch (e) { showCustomAlert('Erro ao excluir membro.'); }
     });
 }
+
+// ==========================================
+// ESTILOS CSS ADICIONAIS
+// ==========================================
+const style = document.createElement('style');
+style.textContent = `
+    .folder-tab {
+        padding: 8px 16px;
+        border: none;
+        background: #f5f5f5;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 500;
+    }
+    .folder-tab:hover {
+        background: #e0e0e0;
+    }
+    .folder-tab.active {
+        background: var(--primary-color);
+        color: white;
+    }
+    .folder-content {
+        display: none;
+    }
+    .folder-content.active {
+        display: block;
+    }
+    .scale-folder-actions {
+        display: flex;
+        gap: 5px;
+    }
+`;
+document.head.appendChild(style);
 
 // ==========================================
 // INICIALIZAÇÃO
