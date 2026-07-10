@@ -1945,7 +1945,11 @@ async function openScaleRepertoireModal(scaleId) {
     }
 
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes,scale_songs(repertoire_id,title,vocalist,is_medley)`, { headers });
+        // CORRIGIDO: scale_songs não possui as colunas title/vocalist/is_medley diretamente
+        // (elas pertencem à tabela repertoire). Pedir essas colunas aqui fazia o Supabase
+        // retornar erro 400, que caía no catch abaixo e mostrava "Erro ao carregar repertório da escala".
+        // Só precisamos do repertoire_id para saber quais músicas já estão marcadas.
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes,scale_songs(repertoire_id)`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar escala');
         const data = await res.json();
         if (data.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
@@ -2301,6 +2305,7 @@ async function openScaleModal() {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,role,is_leader&order=full_name.asc`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar membros');
         allMembersCache = await res.json();
+        console.log(`✅ ${allMembersCache.length} membro(s) carregado(s) para escala.`);
     } catch (e) {
         console.error('Erro ao carregar membros:', e);
         showCustomAlert('Erro ao carregar lista de membros.', 'Erro');
@@ -2332,9 +2337,19 @@ async function openScaleModal() {
 }
 
 // FUNÇÃO ATUALIZADA: Evita o erro Cannot read properties of null (toLowerCase)
+// CORRIGIDO: adicionadas checagens de nulidade para não travar silenciosamente
+// caso o HTML não tenha exatamente o elemento #member-scale-dropdown.
 async function searchMembersForScale(input) {
+    if (!input) {
+        console.error('searchMembersForScale: parâmetro "input" não foi passado. Confira o oninput/onkeyup no HTML, ex: oninput="searchMembersForScale(this)"');
+        return;
+    }
     const query = input.value.trim().toLowerCase();
     const dropdown = document.getElementById('member-scale-dropdown');
+    if (!dropdown) {
+        console.error('searchMembersForScale: elemento #member-scale-dropdown não existe no HTML. Crie um <div id="member-scale-dropdown"></div> logo abaixo do campo de busca de membro da escala.');
+        return;
+    }
     if (query.length < 2) { 
         dropdown.style.display = 'none'; 
         return; 
@@ -2355,7 +2370,7 @@ async function searchMembersForScale(input) {
     
     if (filtered.length > 0) {
         dropdown.innerHTML = filtered.map(m => `
-            <div class="dropdown-item" onclick="selectMemberForScale('${m.id}', '${m.full_name}')">
+            <div class="dropdown-item" onclick="selectMemberForScale('${m.id}', '${m.full_name.replace(/'/g, "\\'")}')">
                 <span class="material-symbols-outlined">person</span> ${m.full_name}
             </div>`).join('');
         dropdown.style.display = 'block';
@@ -2409,6 +2424,11 @@ function addMemberToScaleDraft() {
         }
     }
 }
+
+// Aliases de segurança: caso o HTML chame a função com um nome ligeiramente
+// diferente (singular/plural), garantimos que ainda funcione.
+window.searchMemberForScale = searchMembersForScale;
+window.searchScaleMembers = searchMembersForScale;
 
 function removeScaleDraftMember(index) {
     scaleDraftTeam.splice(index, 1);
