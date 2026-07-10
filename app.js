@@ -138,10 +138,12 @@ function showSystemScreen() {
         document.getElementById('btn-add-scale').classList.remove('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
     } else if (isMedia) {
+        // Mídia: só visualização básica, sem permissões de edição
         document.getElementById('nav-admin').classList.add('hidden');
-        document.getElementById('btn-add-scale').classList.remove('hidden');
+        document.getElementById('btn-add-scale').classList.add('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
     } else {
+        // Membros normais: podem ver escalas e editar repertório das suas pastas
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
@@ -693,7 +695,7 @@ async function loadMembers() {
             html += '</div></div>';
         }
         if (band.length > 0) {
-            html += '<div class="members-section"><h3 class="section-title">🎸 Banda</h3><div class="members-cards-grid">';
+            html += '<div class="members-section"><h3 class="section-title"> Banda</h3><div class="members-cards-grid">';
             band.forEach(m => { html += createMemberCard(m, 'band'); });
             html += '</div></div>';
         }
@@ -1144,6 +1146,12 @@ async function fetchViaProxy(targetUrl) {
 }
 
 function openRepertoireModal() {
+    // Mídia não pode adicionar músicas
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para adicionar músicas.', 'Aviso');
+        return;
+    }
+
     // Só faz sentido adicionar música se já estiver dentro de uma pasta
     if (!currentFolderId) {
         showCustomAlert('Abra uma pasta do ministério antes de adicionar uma música ao repertório.');
@@ -1442,6 +1450,12 @@ function importPreCheckedLyrics(id) {
 }
 
 async function saveNewRepertoire() {
+    // Mídia não pode salvar músicas
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para adicionar músicas.', 'Aviso');
+        return;
+    }
+
     const title = document.getElementById('rep-title').value.trim();
     const lyrics = document.getElementById('rep-lyrics').value.trim();
     const initialKey = document.getElementById('rep-key').value.trim();
@@ -1653,6 +1667,12 @@ async function deleteKey(keyId) {
 // MEDLEY (LAYOUT CORRIGIDO E VOCALISTA AUTOMÁTICO)
 // ==========================================
 function openMedleyModal() {
+    // Mídia não pode criar medley
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para criar medleys.', 'Aviso');
+        return;
+    }
+
     document.getElementById('drawer-medley').classList.add('active');
     document.getElementById('drawer-medley-overlay').classList.add('active');
     resetMedleyFlow();
@@ -1855,6 +1875,12 @@ function renderMedleyPreview() {
 }
 
 async function saveNewMedley() {
+    // Mídia não pode salvar medley
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para criar medleys.', 'Aviso');
+        return;
+    }
+
     const title = document.getElementById('medley-title').value.trim();
     if (!title) { showCustomAlert('Dê um nome ao Medley.'); return; }
     if (medleyDraft.length < 2) { showCustomAlert('O Medley precisa de pelo menos 2 músicas.'); return; }
@@ -2001,7 +2027,9 @@ function renderScaleCards(scaleArray, isFuture) {
         }
         songsHtml += '</div></div>';
 
-        const actionsHtml = (currentUserData.is_leader || currentUserData.role === 'midia') ? `
+        // Mídia NÃO pode editar ou excluir escalas
+        const isMedia = currentUserData.role === 'midia';
+        const actionsHtml = (!isMedia && (currentUserData.is_leader || true)) ? `
             <div class="scale-folder-actions">
                 <button class="btn-icon" onclick="openEditScaleModal('${s.id}')" title="Editar"><span class="material-symbols-outlined">edit</span></button>
                 <button class="btn-icon danger" onclick="deleteScale('${s.id}')" title="Excluir"><span class="material-symbols-outlined">delete</span></button>
@@ -2031,6 +2059,12 @@ function renderScaleCards(scaleArray, isFuture) {
 }
 
 async function deleteScale(scaleId) {
+    // Mídia não pode excluir escalas
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para excluir escalas.', 'Aviso');
+        return;
+    }
+
     showCustomConfirm('Deseja realmente excluir esta escala?', async () => {
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
@@ -2044,6 +2078,12 @@ async function deleteScale(scaleId) {
 }
 
 async function openEditScaleModal(scaleId) {
+    // Mídia não pode editar escalas
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para editar escalas.', 'Aviso');
+        return;
+    }
+
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes,scale_items(member_id,role,members(full_name)),scale_songs(repertoire_id)`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar escala');
@@ -2079,6 +2119,12 @@ async function openEditScaleModal(scaleId) {
 }
 
 async function openScaleModal() {
+    // Mídia não pode criar escalas
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para criar escalas.', 'Aviso');
+        return;
+    }
+
     document.getElementById('modal-add-scale').classList.add('active');
     document.getElementById('editing-scale-id').value = '';
     document.getElementById('scale-modal-title').textContent = 'Nova Escala';
@@ -2167,6 +2213,12 @@ function searchScaleSongs(input) {
 }
 
 async function saveNewScale() {
+    // Mídia não pode salvar escalas
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para criar/editar escalas.', 'Aviso');
+        return;
+    }
+
     const date = document.getElementById('scale-date').value;
     const notes = document.getElementById('scale-notes').value;
     const editingId = document.getElementById('editing-scale-id').value;
