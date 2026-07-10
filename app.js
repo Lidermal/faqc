@@ -1100,9 +1100,56 @@ async function deleteRepertoire(id) {
 }
 
 // ==========================================
-// SUPER BUSCADOR DE LETRAS (REVISADO - ACHA TUDO!)
+// SUPER BUSCADOR DE LETRAS (CORRIGIDO)
 // ==========================================
+
+// IMPORTANTE: crie uma chave GRATUITA em https://api.vagalume.com.br
+// (opção "Documentação" > "Registre-se"). Sem essa chave, a Vagalume
+// acha o título da música mas BLOQUEIA o retorno da letra completa.
+const VAGALUME_API_KEY = ''; // <-- COLE SUA CHAVE AQUI
+
+// Proxies de CORS, tentados em ordem até um responder.
+// O allorigins sozinho tem rate limit baixo e cai com frequência,
+// por isso agora existe fallback.
+const CORS_PROXIES = [
+    (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+];
+
+// Busca uma URL testando cada proxy da lista até um devolver conteúdo válido
+async function fetchViaProxy(targetUrl) {
+    for (const buildProxyUrl of CORS_PROXIES) {
+        try {
+            const proxyUrl = buildProxyUrl(targetUrl);
+            const res = await fetch(proxyUrl);
+            if (!res.ok) continue;
+
+            const raw = await res.text();
+
+            // allorigins devolve {"contents": "..."} — os outros devolvem HTML puro
+            try {
+                const asJson = JSON.parse(raw);
+                if (asJson.contents) return asJson.contents;
+            } catch (_) {
+                // não era JSON, é HTML puro mesmo — segue o jogo
+            }
+
+            if (raw && raw.length > 50) return raw;
+        } catch (e) {
+            console.warn('Proxy falhou, tentando o próximo...', e);
+        }
+    }
+    return null;
+}
+
 function openRepertoireModal() {
+    // Só faz sentido adicionar música se já estiver dentro de uma pasta
+    if (!currentFolderId) {
+        showCustomAlert('Abra uma pasta do ministério antes de adicionar uma música ao repertório.');
+        return;
+    }
+
     document.getElementById('modal-add-repertoire').classList.add('active');
     document.getElementById('search-results').innerHTML = '';
     document.getElementById('search-msg').textContent = '';
@@ -1110,143 +1157,170 @@ function openRepertoireModal() {
     document.getElementById('rep-title').value = '';
     document.getElementById('rep-key').value = '';
     document.getElementById('rep-lyrics').value = '';
-    
-    // LÓGICA DE VOCALISTA AUTOMÁTICO POR PASTA
-    let autoVocalist = currentUserData.full_name; // Padrão: Eu
-    
-    if (currentFolderId) {
-        const folder = allFoldersCache.find(f => f.id === currentFolderId);
-        if (folder) {
-            const owner = allMembersCache.find(m => m.id === folder.created_by);
-            if (owner) {
-                autoVocalist = owner.full_name;
-            } else if (folder.created_by === currentUserData.id) {
-                autoVocalist = currentUserData.full_name;
-            }
+
+    // VOCALISTA AUTOMÁTICO = responsável (dono) da pasta atual
+    let autoVocalist = { id: currentUserData.id, name: currentUserData.full_name };
+
+    const folder = allFoldersCache.find(f => f.id === currentFolderId);
+    if (folder) {
+        const owner = allMembersCache.find(m => m.id === folder.created_by);
+        if (owner) {
+            autoVocalist = { id: owner.id, name: owner.full_name };
         }
     }
-    
-    document.getElementById('rep-vocalist').value = autoVocalist;
-    
-    selectedVocalists = [];
+
+    // Preenche o vocalista já selecionado (sem zerar o campo depois)
+    selectedVocalists = [autoVocalist];
     updateSelectedVocalists();
+}
+
+async function searchVagalume(query, results) {
+    try {
+        const excerptUrl = `https://api.vagalume.com.br/search.excerpt?q=${encodeURIComponent(query)}&limit=6`;
+        const vagRes = await fetch(excerptUrl);
+        const vagData = await vagRes.json();
+        const docs = (vagData.response && vagData.response.docs) || [];
+
+        for (const doc of docs) {
+            if (!doc.title || !doc.band) continue;
+            try {
+                const keyParam = VAGALUME_API_KEY ? `&apikey=${VAGALUME_API_KEY}` : '';
+                const lyricsUrl = `https://api.vagalume.com.br/search.php?musid=${doc.id}${keyParam}`;
+                const lyricsRes = await fetch(lyricsUrl);
+                const lyricsData = await lyricsRes.json();
+
+                if (lyricsData.mus && lyricsData.mus[0] && lyricsData.mus[0].text) {
+                    const text = lyricsData.mus[0].text;
+                    if (text.length > 30) {
+                        const id = `vag_${Math.random()}`;
+                        cachedLyricsSearch[id] = { artist: doc.band, song: doc.title, lyrics: text, source: 'Vagalume' };
+                        addSearchResultToDOM(doc.title, doc.band, id, 'Vagalume');
+                        results.found = true;
+                    }
+                } else if (!VAGALUME_API_KEY) {
+                    console.warn('Vagalume: configure VAGALUME_API_KEY para liberar a letra de', doc.title);
+                }
+            } catch (e) {
+                console.warn('Vagalume: falha ao buscar letra de', doc.title, e);
+            }
+        }
+    } catch (e) {
+        console.warn('Vagalume: busca de títulos falhou', e);
+    }
+}
+
+async function searchLetrasMus(query, results) {
+    try {
+        const searchUrl = `https://www.letras.mus.br/?q=${encodeURIComponent(query)}`;
+        const html = await fetchViaProxy(searchUrl);
+        if (!html) return;
+
+        const parser = new DOMParser();
+        const searchDoc = parser.parseFromString(html, 'text/html');
+
+        // Pega links que parecem página de música (/artista/musica/)
+        const links = Array.from(searchDoc.querySelectorAll('a[href]'))
+            .map(a => a.getAttribute('href'))
+            .filter(href => href && /^\/[a-z0-9-]+\/[a-z0-9-]+\/?$/i.test(href));
+
+        const uniqueLinks = [...new Set(links)].slice(0, 5);
+
+        for (const link of uniqueLinks) {
+            try {
+                const targetUrl = 'https://www.letras.mus.br' + link;
+                const pageHtml = await fetchViaProxy(targetUrl);
+                if (!pageHtml) continue;
+
+                const pageDoc = parser.parseFromString(pageHtml, 'text/html');
+                const element =
+                    pageDoc.querySelector('.lyric-original') ||
+                    pageDoc.querySelector('.lyric') ||
+                    pageDoc.querySelector('.letra') ||
+                    pageDoc.querySelector('#letra') ||
+                    pageDoc.querySelector('.js-lyric-text') ||
+                    pageDoc.querySelector('[data-client-id="lyric"]') ||
+                    pageDoc.querySelector('div[class*="lyric"]');
+
+                if (!element) continue;
+
+                const htmlStr = element.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+                const plainText = htmlStr.replace(/<\/?[^>]+(>|$)/g, '').trim();
+
+                if (plainText.length > 50) {
+                    const titleEl = pageDoc.querySelector('h1');
+                    const artistEl = pageDoc.querySelector('h2 a, .artist-name, [class*="artist"] a');
+                    const song = titleEl ? titleEl.textContent.trim() : query;
+                    const artist = artistEl ? artistEl.textContent.trim() : 'Desconhecido';
+
+                    const id = `letras_${Math.random()}`;
+                    cachedLyricsSearch[id] = { artist, song, lyrics: plainText, source: 'Letras.mus' };
+                    addSearchResultToDOM(song, artist, id, 'Letras.mus');
+                    results.found = true;
+                }
+            } catch (e) {
+                console.warn('Letras.mus: falha ao ler página', link, e);
+            }
+        }
+    } catch (e) {
+        console.warn('Letras.mus: busca falhou', e);
+    }
+}
+
+async function searchLyricsOvh(query, results) {
+    const parts = query.split(/[-–]/).map(p => p.trim()).filter(Boolean);
+    if (parts.length < 2) return;
+
+    // Tenta nas duas ordens possíveis: "Artista - Música" e "Música - Artista"
+    const combos = [
+        { artist: parts[0], song: parts.slice(1).join(' ') },
+        { artist: parts[parts.length - 1], song: parts.slice(0, -1).join(' ') },
+    ];
+
+    for (const combo of combos) {
+        try {
+            const url = `https://api.lyrics.ovh/v1/${encodeURIComponent(combo.artist)}/${encodeURIComponent(combo.song)}`;
+            const res = await fetch(url);
+            if (!res.ok) continue;
+
+            const data = await res.json();
+            if (data && data.lyrics && data.lyrics.length > 20) {
+                const id = `ovh_${Math.random()}`;
+                cachedLyricsSearch[id] = { artist: combo.artist, song: combo.song, lyrics: data.lyrics, source: 'Lyrics.ovh' };
+                addSearchResultToDOM(combo.song, combo.artist, id, 'Lyrics.ovh');
+                results.found = true;
+            }
+        } catch (e) {
+            console.warn('Lyrics.ovh: falha', e);
+        }
+    }
 }
 
 async function searchMusicList() {
     const query = document.getElementById('search-query').value.trim();
     const resultsContainer = document.getElementById('search-results');
     const msgBox = document.getElementById('search-msg');
-    
+
     if (!query) return;
-    
+
     msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Vasculhando Vagalume, Letras.mus e Lyrics.ovh... Aguarde!</span>';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
-    let foundAnyValid = false;
 
-    // 1. VAGALUME EXCERPT SEARCH (PODEROSO PARA GOSPEL BRASILEIRO)
-    try {
-        // Usa a busca global de textos do Vagalume
-        const vagRes = await fetch(`https://api.vagalume.com.br/search.excerpt?q=${encodeURIComponent(query)}&limit=5`);
-        const vagData = await vagRes.json();
-        
-        if (vagData.response && vagData.response.docs) {
-            for (let doc of vagData.response.docs) {
-                if (doc.title && doc.band) {
-                    // Pega a letra exata pelo ID
-                    const lyricsRes = await fetch(`https://api.vagalume.com.br/search.php?musid=${doc.id}`);
-                    const lyricsData = await lyricsRes.json();
-                    
-                    if (lyricsData.mus && lyricsData.mus[0] && lyricsData.mus[0].text) {
-                        const text = lyricsData.mus[0].text;
-                        if (text.length > 30) {
-                            const id = `vag_${Math.random()}`;
-                            cachedLyricsSearch[id] = { artist: doc.band, song: doc.title, lyrics: text, source: 'Vagalume' };
-                            addSearchResultToDOM(doc.title, doc.band, id, 'Vagalume');
-                            foundAnyValid = true;
-                        }
-                    }
-                }
-            }
-        }
-    } catch(e) { console.warn('Vagalume API falhou', e); }
+    const results = { found: false };
 
-    // 2. LETRAS.MUS.BR (Correção do scraper - Acha quase tudo que falta)
-    if (!foundAnyValid) {
-        try {
-            const searchUrl = `https://www.letras.mus.br/api/autocomplete?q=${encodeURIComponent(query)}&limit=4`;
-            const proxyRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(searchUrl)}`);
-            const proxyData = await proxyRes.json();
-            
-            if (proxyData.contents) {
-                const letrasData = JSON.parse(proxyData.contents);
-                if (Array.isArray(letrasData)) {
-                    for (let item of letrasData) {
-                        if (item.url && item.artista && item.nome) {
-                            
-                            // Letras as vezes retorna URL relativa (ex: /cantor/musica/)
-                            let targetUrl = item.url;
-                            if (targetUrl.startsWith('/')) {
-                                targetUrl = 'https://www.letras.mus.br' + targetUrl;
-                            }
-                            
-                            const pageProxyRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`);
-                            const pageData = await pageProxyRes.json();
-                            
-                            if (pageData.contents) {
-                                const parser = new DOMParser();
-                                const doc = parser.parseFromString(pageData.contents, 'text/html');
-                                
-                                // Nova seleção agressiva para abranger os novos formatos do Letras.mus
-                                const element = doc.querySelector('.lyric-original') || doc.querySelector('.lyric') || doc.querySelector('.letra') || doc.querySelector('#letra') || doc.querySelector('.js-lyric-text') || doc.querySelector('[data-client-id="lyric"]');
-                                
-                                if (element) {
-                                    let htmlStr = element.innerHTML.replace(/<br\s*[\/]?>/gi, '\n');
-                                    let plainText = htmlStr.replace(/<\/?[^>]+(>|$)/g, "").trim();
-                                    
-                                    if (plainText.length > 50) {
-                                        const id = `letras_${Math.random()}`;
-                                        cachedLyricsSearch[id] = { artist: item.artista, song: item.nome, lyrics: plainText, source: 'Letras.mus' };
-                                        addSearchResultToDOM(item.nome, item.artista, id, 'Letras.mus');
-                                        foundAnyValid = true;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (e) { console.warn('Scraper Letras.mus falhou', e); }
-    }
+    // As 3 fontes rodam em paralelo e TODAS contribuem — não para na primeira que der certo
+    await Promise.allSettled([
+        searchVagalume(query, results),
+        searchLetrasMus(query, results),
+        searchLyricsOvh(query, results),
+    ]);
 
-    // 3. LYRICS.OVH (Global / Inglês - Backup)
-    if (!foundAnyValid && query.includes('-')) {
-        try {
-            const parts = query.split('-');
-            const artistSearch = parts[1].trim();
-            const songSearch = parts[0].trim();
-            const normArtist = artistSearch.toLowerCase().replace(/\s+/g, '');
-            const normSong = songSearch.toLowerCase().replace(/\s+/g, '').replace(/'/g, '');
-            
-            const ovhRes = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(normArtist)}/${encodeURIComponent(normSong)}`);
-            if (ovhRes.ok) {
-                const data = await ovhRes.json();
-                if (data && data.lyrics && data.lyrics.length > 20) {
-                    const id = `ovh_${Math.random()}`;
-                    cachedLyricsSearch[id] = { artist: artistSearch, song: songSearch, lyrics: data.lyrics, source: 'Lyrics.ovh' };
-                    addSearchResultToDOM(songSearch, artistSearch, id, 'Lyrics.ovh');
-                    foundAnyValid = true;
-                }
-            }
-        } catch (e) { console.warn('Lyrics.ovh falhou', e); }
-    }
-
-    if (!foundAnyValid) {
+    if (!results.found) {
         const googleLink = `https://www.google.com/search?q=letra+${encodeURIComponent(query)}+gospel`;
         msgBox.innerHTML = `
-            <span style="color:var(--danger);">❌ Nenhuma letra completa foi lida automaticamente.</span><br>
+            <span style="color:var(--danger);">❌ Nenhuma letra completa foi localizada automaticamente.</span><br>
             <a href="${googleLink}" target="_blank" style="color:var(--primary-color); text-decoration:underline; font-size:0.9rem; display:block; margin-top:5px;">
-                🔍 Clique aqui para buscar no Google e cole a letra manualmente
+                🔍 Buscar no Google e colar manualmente
             </a>
         `;
     } else {
@@ -1287,8 +1361,11 @@ async function saveNewRepertoire() {
     }
 
     try {
+        // folder_id fica preenchido -> a música pertence à pasta atual
+        // Se sua tela "Geral" já lista repertoire sem filtrar por folder_id,
+        // essa música vai aparecer lá automaticamente também.
         const folderId = currentFolderId || null;
-        
+
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
             method: 'POST',
             headers: { ...headers, 'Prefer': 'return=representation' },
@@ -1320,14 +1397,14 @@ async function searchVocalists(input) {
     const query = input.value.trim().toLowerCase();
     const dropdown = document.getElementById('vocalist-dropdown');
     if (query.length < 2) { dropdown.innerHTML = ''; dropdown.style.display = 'none'; return; }
-    
+
     if (allMembersCache.length === 0) {
         try {
             const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=*`, { headers });
             allMembersCache = await res.json();
-        } catch(e) {}
+        } catch (e) { }
     }
-    
+
     const filtered = allMembersCache.filter(m => m.full_name.toLowerCase().includes(query)).slice(0, 5);
     if (filtered.length > 0) {
         dropdown.innerHTML = filtered.map(m => `
