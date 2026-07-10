@@ -1174,6 +1174,103 @@ function openRepertoireModal() {
     updateSelectedVocalists();
 }
 
+// Extrator GENÉRICO de letra — tenta os formatos mais comuns de site de letra/cifra.
+// Funciona em Letras.mus.br, Vagalume, Cifra Club, Genius, Musixmatch e variantes.
+function extractLyricsFromHtml(html) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+
+    // Sites de CIFRA (ex: Cifra Club) marcam o acorde dentro de <b>.
+    // Removendo esses <b>, sobra só a letra pura.
+    doc.querySelectorAll('pre.cifra_l b, .cifra_l b').forEach(b => b.remove());
+
+    const selectors = [
+        'pre.cifra_l', '.cifra_l',
+        '.lyric-original', '.lyric', '.letra', '#letra',
+        '.js-lyric-text', '[data-client-id="lyric"]',
+        '[data-lyrics-container="true"]',
+        '#lyrics', '.song-lyrics', '.songLyricsV14',
+        'div[class*="lyric" i]', 'div[class*="letra" i]',
+    ];
+
+    for (const sel of selectors) {
+        const els = doc.querySelectorAll(sel);
+        if (els.length === 0) continue;
+
+        const text = Array.from(els)
+            .map(el => {
+                const htmlStr = el.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+                return htmlStr.replace(/<\/?[^>]+(>|$)/g, '');
+            })
+            .join('\n')
+            .replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+
+        if (text.length > 60) {
+            const titleEl = doc.querySelector('h1');
+            const artistEl = doc.querySelector('h2 a, .artist-name, [class*="artist"] a, [class*="artista"] a');
+            return {
+                lyrics: text,
+                title: titleEl ? titleEl.textContent.trim() : null,
+                artist: artistEl ? artistEl.textContent.trim() : null,
+            };
+        }
+    }
+    return null;
+}
+
+// Busca ampla na web (não depende da busca interna de nenhum site específico).
+// Acha a página da música em QUALQUER site de letra/cifra e manda ler direto de lá.
+async function searchWebWide(query, results) {
+    try {
+        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query + ' letra gospel')}`;
+        const html = await fetchViaProxy(searchUrl);
+        if (!html) return;
+
+        const parser = new DOMParser();
+        const searchDoc = parser.parseFromString(html, 'text/html');
+
+        const anchors = Array.from(searchDoc.querySelectorAll('a.result__a, a[href*="uddg="]'));
+        let urls = anchors.map(a => {
+            let href = a.getAttribute('href') || '';
+            const match = href.match(/uddg=([^&]+)/);
+            return match ? decodeURIComponent(match[1]) : href;
+        }).filter(href => href.startsWith('http'));
+
+        urls = [...new Set(urls)];
+
+        // Prioriza domínios conhecidos de letra/cifra, mas não descarta o resto
+        // (se nenhum "conhecido" aparecer, tenta os primeiros resultados mesmo assim)
+        const knownDomain = /letras\.(mus\.br|com)|vagalume\.com\.br|cifraclub\.com\.br|genius\.com|musixmatch\.com|ouvirmusica/i;
+        const known = urls.filter(u => knownDomain.test(u));
+        const candidates = (known.length > 0 ? known : urls).slice(0, 6);
+
+        for (const url of candidates) {
+            try {
+                const pageHtml = await fetchViaProxy(url);
+                if (!pageHtml) continue;
+
+                const extracted = extractLyricsFromHtml(pageHtml);
+                if (extracted) {
+                    const song = extracted.title || query;
+                    const artist = extracted.artist || 'Desconhecido';
+                    const fonte = new URL(url).hostname.replace('www.', '');
+
+                    const id = `web_${Math.random()}`;
+                    cachedLyricsSearch[id] = { artist, song, lyrics: extracted.lyrics, source: fonte };
+                    addSearchResultToDOM(song, artist, id, fonte);
+                    results.found = true;
+                }
+            } catch (e) {
+                console.warn('Busca ampla: falha ao ler', url, e);
+            }
+        }
+    } catch (e) {
+        console.warn('Busca ampla: falhou', e);
+    }
+}
+
 async function searchVagalume(query, results) {
     try {
         const excerptUrl = `https://api.vagalume.com.br/search.excerpt?q=${encodeURIComponent(query)}&limit=6`;
@@ -1182,87 +1279,32 @@ async function searchVagalume(query, results) {
         const docs = (vagData.response && vagData.response.docs) || [];
 
         for (const doc of docs) {
-            if (!doc.title || !doc.band) continue;
+            if (!doc.title || !doc.band || !doc.url) continue;
             try {
-                const keyParam = VAGALUME_API_KEY ? `&apikey=${VAGALUME_API_KEY}` : '';
-                const lyricsUrl = `https://api.vagalume.com.br/search.php?musid=${doc.id}${keyParam}`;
-                const lyricsRes = await fetch(lyricsUrl);
-                const lyricsData = await lyricsRes.json();
+                // Lê a PÁGINA PÚBLICA do Vagalume (a mesma que qualquer pessoa vê no navegador),
+                // em vez do endpoint de API que agora exige apikey. Assim funciona sem cadastro.
+                const pageUrl = doc.url.startsWith('http') ? doc.url : `https://www.vagalume.com.br${doc.url}`;
+                const pageHtml = await fetchViaProxy(pageUrl);
+                if (!pageHtml) continue;
 
-                if (lyricsData.mus && lyricsData.mus[0] && lyricsData.mus[0].text) {
-                    const text = lyricsData.mus[0].text;
-                    if (text.length > 30) {
-                        const id = `vag_${Math.random()}`;
-                        cachedLyricsSearch[id] = { artist: doc.band, song: doc.title, lyrics: text, source: 'Vagalume' };
-                        addSearchResultToDOM(doc.title, doc.band, id, 'Vagalume');
-                        results.found = true;
-                    }
-                } else if (!VAGALUME_API_KEY) {
-                    console.warn('Vagalume: configure VAGALUME_API_KEY para liberar a letra de', doc.title);
+                const extracted = extractLyricsFromHtml(pageHtml);
+                if (extracted) {
+                    const id = `vag_${Math.random()}`;
+                    cachedLyricsSearch[id] = {
+                        artist: doc.band,
+                        song: doc.title,
+                        lyrics: extracted.lyrics,
+                        source: 'Vagalume'
+                    };
+                    addSearchResultToDOM(doc.title, doc.band, id, 'Vagalume');
+                    results.found = true;
                 }
             } catch (e) {
-                console.warn('Vagalume: falha ao buscar letra de', doc.title, e);
+                console.warn('Vagalume: falha ao ler página de', doc.title, e);
             }
         }
     } catch (e) {
         console.warn('Vagalume: busca de títulos falhou', e);
-    }
-}
-
-async function searchLetrasMus(query, results) {
-    try {
-        const searchUrl = `https://www.letras.mus.br/?q=${encodeURIComponent(query)}`;
-        const html = await fetchViaProxy(searchUrl);
-        if (!html) return;
-
-        const parser = new DOMParser();
-        const searchDoc = parser.parseFromString(html, 'text/html');
-
-        // Pega links que parecem página de música (/artista/musica/)
-        const links = Array.from(searchDoc.querySelectorAll('a[href]'))
-            .map(a => a.getAttribute('href'))
-            .filter(href => href && /^\/[a-z0-9-]+\/[a-z0-9-]+\/?$/i.test(href));
-
-        const uniqueLinks = [...new Set(links)].slice(0, 5);
-
-        for (const link of uniqueLinks) {
-            try {
-                const targetUrl = 'https://www.letras.mus.br' + link;
-                const pageHtml = await fetchViaProxy(targetUrl);
-                if (!pageHtml) continue;
-
-                const pageDoc = parser.parseFromString(pageHtml, 'text/html');
-                const element =
-                    pageDoc.querySelector('.lyric-original') ||
-                    pageDoc.querySelector('.lyric') ||
-                    pageDoc.querySelector('.letra') ||
-                    pageDoc.querySelector('#letra') ||
-                    pageDoc.querySelector('.js-lyric-text') ||
-                    pageDoc.querySelector('[data-client-id="lyric"]') ||
-                    pageDoc.querySelector('div[class*="lyric"]');
-
-                if (!element) continue;
-
-                const htmlStr = element.innerHTML.replace(/<br\s*\/?>/gi, '\n');
-                const plainText = htmlStr.replace(/<\/?[^>]+(>|$)/g, '').trim();
-
-                if (plainText.length > 50) {
-                    const titleEl = pageDoc.querySelector('h1');
-                    const artistEl = pageDoc.querySelector('h2 a, .artist-name, [class*="artist"] a');
-                    const song = titleEl ? titleEl.textContent.trim() : query;
-                    const artist = artistEl ? artistEl.textContent.trim() : 'Desconhecido';
-
-                    const id = `letras_${Math.random()}`;
-                    cachedLyricsSearch[id] = { artist, song, lyrics: plainText, source: 'Letras.mus' };
-                    addSearchResultToDOM(song, artist, id, 'Letras.mus');
-                    results.found = true;
-                }
-            } catch (e) {
-                console.warn('Letras.mus: falha ao ler página', link, e);
-            }
-        }
-    } catch (e) {
-        console.warn('Letras.mus: busca falhou', e);
     }
 }
 
@@ -1302,16 +1344,16 @@ async function searchMusicList() {
 
     if (!query) return;
 
-    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Vasculhando Vagalume, Letras.mus e Lyrics.ovh... Aguarde!</span>';
+    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Vasculhando Vagalume, Letras.mus, Cifra Club, Genius e mais... Aguarde!</span>';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
 
     const results = { found: false };
 
-    // As 3 fontes rodam em paralelo e TODAS contribuem — não para na primeira que der certo
+    // Todas as fontes rodam em paralelo e TODAS contribuem — não para na primeira que der certo
     await Promise.allSettled([
         searchVagalume(query, results),
-        searchLetrasMus(query, results),
+        searchWebWide(query, results),
         searchLyricsOvh(query, results),
     ]);
 
