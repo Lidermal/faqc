@@ -1174,6 +1174,34 @@ function openRepertoireModal() {
     updateSelectedVocalists();
 }
 
+// Confere se o texto extraído PARECE mesmo letra de música (e não um
+// crédito de composição, sinopse ou outro texto curto que passou pelo seletor).
+function looksLikeLyrics(text) {
+    if (!text || text.length < 150) return false;
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length < 6) return false;
+
+    const lower = text.toLowerCase();
+    // Texto curtinho de crédito ("Composição: Fulano/Beltrano") não é letra
+    if (lines.length <= 3 && /composi[cç][aã]o|compositor|copyright/.test(lower)) return false;
+
+    return true;
+}
+
+// Evita clicar em home/busca/categoria — só aceita links que parecem
+// realmente a página de UMA música específica.
+function isLikelySongPage(url) {
+    try {
+        const u = new URL(url);
+        const path = u.pathname.toLowerCase();
+        if (path === '/' || path === '') return false;
+        if (/busca|search|\?q=|login|cadastro|categoria|tema|charts|top-\d|premium/.test(path + u.search)) return false;
+        return path.split('/').filter(Boolean).length >= 1;
+    } catch (e) {
+        return false;
+    }
+}
+
 // Extrator GENÉRICO de letra — tenta os formatos mais comuns de site de letra/cifra.
 // Funciona em Letras.mus.br, Vagalume, Cifra Club, Genius, Musixmatch e variantes.
 function extractLyricsFromHtml(html) {
@@ -1207,12 +1235,17 @@ function extractLyricsFromHtml(html) {
             .replace(/\n{3,}/g, '\n\n')
             .trim();
 
-        if (text.length > 60) {
+        if (looksLikeLyrics(text)) {
             const titleEl = doc.querySelector('h1');
             const artistEl = doc.querySelector('h2 a, .artist-name, [class*="artist"] a, [class*="artista"] a');
+
+            let title = titleEl ? titleEl.textContent.trim() : null;
+            // Descarta título "genérico" de site (ex: "LETRAS.COM.BR - Letras de músicas")
+            if (title && /letras de m[uú]sica|desconhecido|^letras\.?(com|mus)/i.test(title)) title = null;
+
             return {
                 lyrics: text,
-                title: titleEl ? titleEl.textContent.trim() : null,
+                title,
                 artist: artistEl ? artistEl.textContent.trim() : null,
             };
         }
@@ -1220,31 +1253,48 @@ function extractLyricsFromHtml(html) {
     return null;
 }
 
+// Faz uma busca no DuckDuckGo e devolve os links encontrados
+async function ddgSearch(query) {
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    const html = await fetchViaProxy(searchUrl);
+    if (!html) return [];
+
+    const parser = new DOMParser();
+    const searchDoc = parser.parseFromString(html, 'text/html');
+
+    const anchors = Array.from(searchDoc.querySelectorAll('a.result__a, a[href*="uddg="]'));
+    const urls = anchors.map(a => {
+        let href = a.getAttribute('href') || '';
+        const match = href.match(/uddg=([^&]+)/);
+        return match ? decodeURIComponent(match[1]) : href;
+    }).filter(href => href.startsWith('http'));
+
+    return [...new Set(urls)];
+}
+
 // Busca ampla na web (não depende da busca interna de nenhum site específico).
-// Acha a página da música em QUALQUER site de letra/cifra e manda ler direto de lá.
+// Faz buscas DIRECIONADAS por site (site:letras.mus.br etc.) para cair direto
+// na página da música, em vez de cair na home/busca do site.
 async function searchWebWide(query, results) {
     try {
-        const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query + ' letra gospel')}`;
-        const html = await fetchViaProxy(searchUrl);
-        if (!html) return;
+        const targetedQueries = [
+            `${query} site:letras.mus.br`,
+            `${query} site:cifraclub.com.br`,
+            `${query} site:vagalume.com.br`,
+            `${query} site:genius.com`,
+            `${query} letra gospel`, // busca genérica de reforço
+        ];
 
-        const parser = new DOMParser();
-        const searchDoc = parser.parseFromString(html, 'text/html');
+        const searchResults = await Promise.allSettled(targetedQueries.map(q => ddgSearch(q)));
+        let urls = [];
+        for (const r of searchResults) {
+            if (r.status === 'fulfilled') urls.push(...r.value);
+        }
+        urls = [...new Set(urls)].filter(isLikelySongPage);
 
-        const anchors = Array.from(searchDoc.querySelectorAll('a.result__a, a[href*="uddg="]'));
-        let urls = anchors.map(a => {
-            let href = a.getAttribute('href') || '';
-            const match = href.match(/uddg=([^&]+)/);
-            return match ? decodeURIComponent(match[1]) : href;
-        }).filter(href => href.startsWith('http'));
-
-        urls = [...new Set(urls)];
-
-        // Prioriza domínios conhecidos de letra/cifra, mas não descarta o resto
-        // (se nenhum "conhecido" aparecer, tenta os primeiros resultados mesmo assim)
         const knownDomain = /letras\.(mus\.br|com)|vagalume\.com\.br|cifraclub\.com\.br|genius\.com|musixmatch\.com|ouvirmusica/i;
         const known = urls.filter(u => knownDomain.test(u));
-        const candidates = (known.length > 0 ? known : urls).slice(0, 6);
+        const candidates = (known.length > 0 ? known : urls).slice(0, 8);
 
         for (const url of candidates) {
             try {
