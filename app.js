@@ -1106,21 +1106,14 @@ async function deleteRepertoire(id) {
 // SUPER BUSCADOR DE LETRAS (CORRIGIDO)
 // ==========================================
 
-// IMPORTANTE: crie uma chave GRATUITA em https://api.vagalume.com.br
-// (opção "Documentação" > "Registre-se"). Sem essa chave, a Vagalume
-// acha o título da música mas BLOQUEIA o retorno da letra completa.
 const VAGALUME_API_KEY = ''; // <-- COLE SUA CHAVE AQUI
 
-// Proxies de CORS, tentados em ordem até um responder.
-// O allorigins sozinho tem rate limit baixo e cai com frequência,
-// por isso agora existe fallback.
 const CORS_PROXIES = [
     (url) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
     (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
     (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
 ];
 
-// Busca uma URL testando cada proxy da lista até um devolver conteúdo válido
 async function fetchViaProxy(targetUrl) {
     for (const buildProxyUrl of CORS_PROXIES) {
         try {
@@ -1130,12 +1123,10 @@ async function fetchViaProxy(targetUrl) {
 
             const raw = await res.text();
 
-            // allorigins devolve {"contents": "..."} — os outros devolvem HTML puro
             try {
                 const asJson = JSON.parse(raw);
                 if (asJson.contents) return asJson.contents;
             } catch (_) {
-                // não era JSON, é HTML puro mesmo — segue o jogo
             }
 
             if (raw && raw.length > 50) return raw;
@@ -1147,13 +1138,11 @@ async function fetchViaProxy(targetUrl) {
 }
 
 function openRepertoireModal() {
-    // Mídia não pode adicionar músicas
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para adicionar músicas.', 'Aviso');
         return;
     }
 
-    // Só faz sentido adicionar música se já estiver dentro de uma pasta
     if (!currentFolderId) {
         showCustomAlert('Abra uma pasta do ministério antes de adicionar uma música ao repertório.');
         return;
@@ -1167,7 +1156,6 @@ function openRepertoireModal() {
     document.getElementById('rep-key').value = '';
     document.getElementById('rep-lyrics').value = '';
 
-    // VOCALISTA AUTOMÁTICO = responsável (dono) da pasta atual
     let autoVocalist = { id: currentUserData.id, name: currentUserData.full_name };
 
     const folder = allFoldersCache.find(f => f.id === currentFolderId);
@@ -1178,27 +1166,21 @@ function openRepertoireModal() {
         }
     }
 
-    // Preenche o vocalista já selecionado (sem zerar o campo depois)
     selectedVocalists = [autoVocalist];
     updateSelectedVocalists();
 }
 
-// Confere se o texto extraído PARECE mesmo letra de música (e não um
-// crédito de composição, sinopse ou outro texto curto que passou pelo seletor).
 function looksLikeLyrics(text) {
     if (!text || text.length < 150) return false;
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     if (lines.length < 6) return false;
 
     const lower = text.toLowerCase();
-    // Texto curtinho de crédito ("Composição: Fulano/Beltrano") não é letra
     if (lines.length <= 3 && /composi[cç][aã]o|compositor|copyright/.test(lower)) return false;
 
     return true;
 }
 
-// Evita clicar em home/busca/categoria — só aceita links que parecem
-// realmente a página de UMA música específica.
 function isLikelySongPage(url) {
     try {
         const u = new URL(url);
@@ -1211,14 +1193,10 @@ function isLikelySongPage(url) {
     }
 }
 
-// Extrator GENÉRICO de letra — tenta os formatos mais comuns de site de letra/cifra.
-// Funciona em Letras.mus.br, Vagalume, Cifra Club, Genius, Musixmatch e variantes.
 function extractLyricsFromHtml(html) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
 
-    // Sites de CIFRA (ex: Cifra Club) marcam o acorde dentro de <b>.
-    // Removendo esses <b>, sobra só a letra pura.
     doc.querySelectorAll('pre.cifra_l b, .cifra_l b').forEach(b => b.remove());
 
     const selectors = [
@@ -1249,7 +1227,6 @@ function extractLyricsFromHtml(html) {
             const artistEl = doc.querySelector('h2 a, .artist-name, [class*="artist"] a, [class*="artista"] a');
 
             let title = titleEl ? titleEl.textContent.trim() : null;
-            // Descarta título "genérico" de site (ex: "LETRAS.COM.BR - Letras de músicas")
             if (title && /letras de m[uú]sica|desconhecido|^letras\.?(com|mus)/i.test(title)) title = null;
 
             return {
@@ -1262,7 +1239,6 @@ function extractLyricsFromHtml(html) {
     return null;
 }
 
-// Faz uma busca no DuckDuckGo e devolve os links encontrados
 async function ddgSearch(query) {
     const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
     const html = await fetchViaProxy(searchUrl);
@@ -1281,9 +1257,6 @@ async function ddgSearch(query) {
     return [...new Set(urls)];
 }
 
-// Busca ampla na web (não depende da busca interna de nenhum site específico).
-// Faz buscas DIRECIONADAS por site (site:letras.mus.br etc.) para cair direto
-// na página da música, em vez de cair na home/busca do site.
 async function searchWebWide(query, results) {
     try {
         const targetedQueries = [
@@ -1291,7 +1264,7 @@ async function searchWebWide(query, results) {
             `${query} site:cifraclub.com.br`,
             `${query} site:vagalume.com.br`,
             `${query} site:genius.com`,
-            `${query} letra gospel`, // busca genérica de reforço
+            `${query} letra gospel`, 
         ];
 
         const searchResults = await Promise.allSettled(targetedQueries.map(q => ddgSearch(q)));
@@ -1340,8 +1313,6 @@ async function searchVagalume(query, results) {
         for (const doc of docs) {
             if (!doc.title || !doc.band || !doc.url) continue;
             try {
-                // Lê a PÁGINA PÚBLICA do Vagalume (a mesma que qualquer pessoa vê no navegador),
-                // em vez do endpoint de API que agora exige apikey. Assim funciona sem cadastro.
                 const pageUrl = doc.url.startsWith('http') ? doc.url : `https://www.vagalume.com.br${doc.url}`;
                 const pageHtml = await fetchViaProxy(pageUrl);
                 if (!pageHtml) continue;
@@ -1371,7 +1342,6 @@ async function searchLyricsOvh(query, results) {
     const parts = query.split(/[-–]/).map(p => p.trim()).filter(Boolean);
     if (parts.length < 2) return;
 
-    // Tenta nas duas ordens possíveis: "Artista - Música" e "Música - Artista"
     const combos = [
         { artist: parts[0], song: parts.slice(1).join(' ') },
         { artist: parts[parts.length - 1], song: parts.slice(0, -1).join(' ') },
@@ -1409,7 +1379,6 @@ async function searchMusicList() {
 
     const results = { found: false };
 
-    // Todas as fontes rodam em paralelo e TODAS contribuem — não para na primeira que der certo
     await Promise.allSettled([
         searchVagalume(query, results),
         searchWebWide(query, results),
@@ -1451,7 +1420,6 @@ function importPreCheckedLyrics(id) {
 }
 
 async function saveNewRepertoire() {
-    // Mídia não pode salvar músicas
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para adicionar músicas.', 'Aviso');
         return;
@@ -1468,9 +1436,6 @@ async function saveNewRepertoire() {
     }
 
     try {
-        // folder_id fica preenchido -> a música pertence à pasta atual
-        // Se sua tela "Geral" já lista repertoire sem filtrar por folder_id,
-        // essa música vai aparecer lá automaticamente também.
         const folderId = currentFolderId || null;
 
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
@@ -1555,162 +1520,9 @@ function updateSelectedVocalists() {
 }
 
 // ==========================================
-// NOVA FUNÇÃO: ABRIR MODAL PARA EDITAR REPERTÓRIO DA ESCALA
-// ==========================================
-async function openScaleRepertoireModal(scaleId) {
-    // Mídia não pode editar repertório da escala
-    if (currentUserData.role === 'midia') {
-        showCustomAlert('Mídia não tem permissão para editar o repertório.', 'Aviso');
-        return;
-    }
-
-    try {
-        // Carregar dados básicos da escala
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes`, { headers });
-        if (!res.ok) throw new Error('Falha ao carregar escala');
-        const scaleData = await res.json();
-        if (scaleData.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
-        const scale = scaleData[0];
-        
-        // Carregar músicas selecionadas desta escala
-        const resSongs = await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}&select=repertoire_id`, { headers });
-        if (!resSongs.ok) throw new Error('Falha ao carregar músicas da escala');
-        const scaleSongs = await resSongs.json();
-        const selectedIds = scaleSongs.map(s => s.repertoire_id);
-        
-        // Carregar todas as pastas
-        let folders = [];
-        try {
-            const resFolders = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=id,name,is_general&order=is_general.desc,name.asc`, { headers });
-            if (resFolders.ok) {
-                folders = await resFolders.json();
-            }
-        } catch (e) {
-            console.warn('Erro ao carregar pastas:', e);
-        }
-        
-        // Carregar todo o repertório
-        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist,is_medley,folder_id&order=title.asc`, { headers });
-        if (!resRep.ok) throw new Error('Falha ao carregar repertório');
-        const allSongs = await resRep.json();
-        
-        // Criar modal
-        const modal = document.createElement('div');
-        modal.className = 'modal active';
-        modal.id = 'modal-scale-repertoire';
-        
-        // Agrupar músicas por pasta
-        const songsByFolder = {};
-        allSongs.forEach(song => {
-            const folderId = song.folder_id || 'geral';
-            if (!songsByFolder[folderId]) {
-                songsByFolder[folderId] = [];
-            }
-            songsByFolder[folderId].push(song);
-        });
-        
-        let folderTabs = '';
-        let folderContents = '';
-        let firstFolder = true;
-        
-        // Pasta Geral sempre primeiro
-        if (songsByFolder['geral']) {
-            folderTabs += `<button class="folder-tab ${firstFolder ? 'active' : ''}" data-folder="geral">📁 Pasta Geral</button>`;
-            folderContents += `<div class="folder-content ${firstFolder ? 'active' : ''}" data-folder="geral">`;
-            songsByFolder['geral'].forEach(song => {
-                const checked = selectedIds.includes(song.id) ? 'checked' : '';
-                const medleyBadge = song.is_medley ? '<span class="badge" style="font-size:0.7rem;">Medley</span>' : '';
-                folderContents += `
-                    <label class="song-checkbox">
-                        <input type="checkbox" value="${song.id}" class="scale-rep-song-cb" ${checked}>
-                        <span>${song.title} ${medleyBadge}</span>
-                        ${song.vocalist ? `<small style="color:var(--text-muted); display:block;"> ${song.vocalist}</small>` : ''}
-                    </label>
-                `;
-            });
-            folderContents += '</div>';
-            firstFolder = false;
-        }
-        
-        // Outras pastas
-        folders.filter(f => !f.is_general).forEach(folder => {
-            if (songsByFolder[folder.id]) {
-                folderTabs += `<button class="folder-tab ${firstFolder ? 'active' : ''}" data-folder="${folder.id}">📂 ${folder.name}</button>`;
-                folderContents += `<div class="folder-content ${firstFolder ? 'active' : ''}" data-folder="${folder.id}">`;
-                songsByFolder[folder.id].forEach(song => {
-                    const checked = selectedIds.includes(song.id) ? 'checked' : '';
-                    const medleyBadge = song.is_medley ? '<span class="badge" style="font-size:0.7rem;">Medley</span>' : '';
-                    folderContents += `
-                        <label class="song-checkbox">
-                            <input type="checkbox" value="${song.id}" class="scale-rep-song-cb" ${checked}>
-                            <span>${song.title} ${medleyBadge}</span>
-                            ${song.vocalist ? `<small style="color:var(--text-muted); display:block;">🎤 ${song.vocalist}</small>` : ''}
-                        </label>
-                    `;
-                });
-                folderContents += '</div>';
-                firstFolder = false;
-            }
-        });
-        
-        // Se não tiver nenhuma música em nenhuma pasta
-        if (firstFolder) {
-            folderTabs = '<p style="color:var(--text-muted); padding:20px; text-align:center;">Nenhuma música cadastrada no repertório.</p>';
-            folderContents = '';
-        }
-        
-        modal.innerHTML = `
-            <div class="modal-content" style="max-width:700px;">
-                <div class="modal-header">
-                    <div>
-                        <h3>Editar Repertório da Escala</h3>
-                        <p style="color:var(--text-muted); font-size:0.9rem;">Data: ${new Date(scale.event_date).toLocaleDateString('pt-BR')}</p>
-                    </div>
-                    <button class="close-btn" onclick="closeScaleRepertoireModal()">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <div class="folder-tabs" style="display:flex; gap:10px; margin-bottom:15px; border-bottom:2px solid var(--border-color); padding-bottom:10px; flex-wrap:wrap;">
-                        ${folderTabs}
-                    </div>
-                    <div class="folder-contents" style="max-height:400px; overflow-y:auto; padding:10px;">
-                        ${folderContents}
-                    </div>
-                    <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
-                        <button class="btn-secondary" onclick="closeScaleRepertoireModal()">Cancelar</button>
-                        <button class="btn-primary" onclick="saveScaleRepertoire('${scaleId}')">Salvar Repertório</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Adicionar event listeners nas tabs
-        const tabs = modal.querySelectorAll('.folder-tab');
-        if (tabs.length > 0) {
-            tabs.forEach(tab => {
-                tab.addEventListener('click', () => {
-                    modal.querySelectorAll('.folder-tab').forEach(t => t.classList.remove('active'));
-                    modal.querySelectorAll('.folder-content').forEach(c => c.classList.remove('active'));
-                    tab.classList.add('active');
-                    const folderId = tab.getAttribute('data-folder');
-                    const content = modal.querySelector(`.folder-content[data-folder="${folderId}"]`);
-                    if (content) content.classList.add('active');
-                });
-            });
-        }
-        
-    } catch (e) {
-        console.error('Erro ao abrir modal de repertório:', e);
-        showCustomAlert('Erro ao carregar repertório da escala: ' + e.message, 'Erro');
-    }
-}
-
-// ==========================================
 // MEDLEY (LAYOUT CORRIGIDO E VOCALISTA AUTOMÁTICO)
 // ==========================================
 function openMedleyModal() {
-    // Mídia não pode criar medley
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para criar medleys.', 'Aviso');
         return;
@@ -1734,7 +1546,6 @@ function resetMedleyFlow() {
 async function loadMedleySongsList() {
     const container = document.getElementById('medley-songs-list');
     
-    // CORREÇÃO DE UI: Garante que a lista não estoure a tela em mobile e desktop
     container.style.maxHeight = '230px';
     container.style.overflowY = 'auto';
     container.style.border = '1px solid var(--border-color)';
@@ -1780,9 +1591,6 @@ async function selectMedleySong(songId) {
     renderVersesSelector(song.title);
 }
 
-// ==========================================
-// FUNÇÃO MELHORADA PARA PARSEAR PARTES DA MÚSICA
-// ==========================================
 function parseLyricsIntoVerses(lyrics) {
     if (!lyrics || lyrics.trim() === '') return [];
     
@@ -1793,7 +1601,6 @@ function parseLyricsIntoVerses(lyrics) {
     let verseNumber = 1;
     let chorusCount = 0;
     
-    // Padrões para detectar seções
     const sectionPatterns = [
         { pattern: /^(intro|introdução)\s*:?\s*$/i, label: 'Intro' },
         { pattern: /^(verso|verse)\s*(\d+)?:?\s*$/i, label: 'Verso' },
@@ -1802,7 +1609,6 @@ function parseLyricsIntoVerses(lyrics) {
         { pattern: /^(ponte|bridge)\s*:?\s*$/i, label: 'Ponte' },
         { pattern: /^(final|outro|encerramento)\s*:?\s*$/i, label: 'Final' },
         { pattern: /^(ponte instrumental|interl[uú]dio|interlude)\s*:?\s*$/i, label: 'Interlúdio' },
-        // Padrões com colchetes
         { pattern: /^\[(intro|introdu[çc]ão)\]$/i, label: 'Intro' },
         { pattern: /^\[(verso|verse)\s*(\d+)?\]$/i, label: 'Verso' },
         { pattern: /^\[(pr[eé]-?refr[aã]o|pre-?chorus)\]$/i, label: 'Pré-Refrão' },
@@ -1811,12 +1617,10 @@ function parseLyricsIntoVerses(lyrics) {
         { pattern: /^\[(final|outro)\]$/i, label: 'Final' }
     ];
     
-    // Detecta se é uma linha de seção
     function getSectionLabel(line) {
         for (const { pattern, label } of sectionPatterns) {
             if (pattern.test(line.trim())) {
                 const match = line.trim().match(pattern);
-                // Se for verso, adiciona número
                 if (label === 'Verso' && match && match[2]) {
                     return `Verso ${match[2]}`;
                 }
@@ -1826,7 +1630,6 @@ function parseLyricsIntoVerses(lyrics) {
         return null;
     }
     
-    // Agrupa linhas consecutivas em blocos
     const blocks = [];
     let currentBlock = [];
     
@@ -1835,32 +1638,28 @@ function parseLyricsIntoVerses(lyrics) {
         const sectionLabel = getSectionLabel(line);
         
         if (sectionLabel) {
-            // Salva bloco anterior se existir
             if (currentBlock.length > 0) {
                 blocks.push({ label: currentLabel, lines: currentBlock });
                 currentBlock = [];
             }
             currentLabel = sectionLabel;
         } else if (line.trim() === '') {
-            // Linha em branco separa blocos
             if (currentBlock.length > 0) {
                 blocks.push({ label: currentLabel, lines: currentBlock });
                 currentBlock = [];
-                currentLabel = null; // Reset para detectar próxima seção
+                currentLabel = null; 
             }
         } else {
             currentBlock.push(line);
         }
     }
     
-    // Adiciona último bloco
     if (currentBlock.length > 0) {
         blocks.push({ label: currentLabel || 'Verso', lines: currentBlock });
     }
     
-    // Processa blocos para detectar refrões repetidos e numerar versos
     const processedVerses = [];
-    const seenContent = new Map(); // Para detectar refrões repetidos
+    const seenContent = new Map(); 
     
     blocks.forEach((block, index) => {
         const content = block.lines.join('\n').trim();
@@ -1868,13 +1667,10 @@ function parseLyricsIntoVerses(lyrics) {
         
         let label = block.label;
         
-        // Se não tem label definido, tenta inferir
         if (!label || label === 'Intro') {
-            // Verifica se é refrão (conteúdo repetido)
             if (seenContent.has(content)) {
                 label = 'Refrão';
             } else if (block.lines.length > 4) {
-                // Blocos longos sem label provavelmente são versos
                 label = `Verso ${verseNumber}`;
                 verseNumber++;
             } else {
@@ -1882,18 +1678,15 @@ function parseLyricsIntoVerses(lyrics) {
             }
         }
         
-        // Detecta refrões automaticamente por repetição
         if (label !== 'Refrão' && seenContent.has(content)) {
             label = 'Refrão';
         }
         
-        // Numera versos sequencialmente
         if (label.startsWith('Verso') && !label.match(/\d+/)) {
             label = `Verso ${verseNumber}`;
             verseNumber++;
         }
         
-        // Conta refrões
         if (label === 'Refrão') {
             chorusCount++;
             if (chorusCount > 1) {
@@ -1916,7 +1709,6 @@ function parseLyricsIntoVerses(lyrics) {
 function renderVersesSelector(songTitle) {
     const container = document.getElementById('medley-verses-selector');
     
-    // CORREÇÃO DE UI: Garante que os versos caibam na tela e ganhem barra de rolagem
     container.style.maxHeight = '280px';
     container.style.overflowY = 'auto';
     container.style.border = '1px solid var(--border-color)';
@@ -2019,7 +1811,6 @@ function renderMedleyPreview() {
 }
 
 async function saveNewMedley() {
-    // Mídia não pode salvar medley
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para criar medleys.', 'Aviso');
         return;
@@ -2032,7 +1823,6 @@ async function saveNewMedley() {
     try {
         const folderId = currentFolderId || null;
 
-        // CORREÇÃO: Autopreencher o nome do Vocalista no Medley também!
         let autoVocalist = currentUserData.full_name;
         if (folderId) {
             const folder = allFoldersCache.find(f => f.id === folderId);
@@ -2048,7 +1838,7 @@ async function saveNewMedley() {
                 title: title, 
                 is_medley: true, 
                 created_by: currentUserData.id, 
-                vocalist: autoVocalist, // Agora o medley também terá o vocalista certo da pasta!
+                vocalist: autoVocalist,
                 lyrics_text: generateMedleyLyrics(), 
                 folder_id: folderId 
             })
@@ -2118,21 +1908,18 @@ async function loadScales() {
 // NOVA FUNÇÃO: ABRIR MODAL PARA EDITAR REPERTÓRIO DA ESCALA
 // ==========================================
 async function openScaleRepertoireModal(scaleId) {
-    // Mídia não pode editar repertório da escala
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para editar o repertório.', 'Aviso');
         return;
     }
 
     try {
-        // Carregar dados da escala
         const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes,scale_songs(repertoire_id,title,vocalist,is_medley)`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar escala');
         const data = await res.json();
         if (data.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
         const scale = data[0];
         
-        // Carregar todas as pastas
         let folders = [];
         try {
             const resFolders = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=id,name,is_general&order=is_general.desc,name.asc`, { headers });
@@ -2143,17 +1930,14 @@ async function openScaleRepertoireModal(scaleId) {
             console.warn('Erro ao carregar pastas:', e);
         }
         
-        // Carregar todo o repertório
         const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist,is_medley,folder_id&order=title.asc`, { headers });
         if (!resRep.ok) throw new Error('Falha ao carregar repertório');
         const allSongs = await resRep.json();
         
-        // Criar modal
         const modal = document.createElement('div');
         modal.className = 'modal active';
         modal.id = 'modal-scale-repertoire';
         
-        // Agrupar músicas por pasta
         const songsByFolder = {};
         allSongs.forEach(song => {
             const folderId = song.folder_id || 'geral';
@@ -2163,14 +1947,12 @@ async function openScaleRepertoireModal(scaleId) {
             songsByFolder[folderId].push(song);
         });
         
-        // Músicas selecionadas atualmente
         const selectedIds = scale.scale_songs.map(s => s.repertoire_id);
         
         let folderTabs = '';
         let folderContents = '';
         let firstFolder = true;
         
-        // Pasta Geral sempre primeiro
         if (songsByFolder['geral']) {
             folderTabs += `<button class="folder-tab ${firstFolder ? 'active' : ''}" data-folder="geral"> Pasta Geral</button>`;
             folderContents += `<div class="folder-content ${firstFolder ? 'active' : ''}" data-folder="geral">`;
@@ -2189,7 +1971,6 @@ async function openScaleRepertoireModal(scaleId) {
             firstFolder = false;
         }
         
-        // Outras pastas
         folders.filter(f => !f.is_general).forEach(folder => {
             if (songsByFolder[folder.id]) {
                 folderTabs += `<button class="folder-tab ${firstFolder ? 'active' : ''}" data-folder="${folder.id}"> ${folder.name}</button>`;
@@ -2236,7 +2017,6 @@ async function openScaleRepertoireModal(scaleId) {
         
         document.body.appendChild(modal);
         
-        // Adicionar event listeners nas tabs
         modal.querySelectorAll('.folder-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 modal.querySelectorAll('.folder-tab').forEach(t => t.classList.remove('active'));
@@ -2268,13 +2048,11 @@ async function saveScaleRepertoire(scaleId) {
     const selectedSongIds = Array.from(selectedCbs).map(cb => cb.value);
     
     try {
-        // Deletar músicas atuais
         await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}`, { 
             method: 'DELETE', 
             headers 
         });
         
-        // Adicionar novas músicas
         for (const songId of selectedSongIds) {
             await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, {
                 method: 'POST',
@@ -2352,7 +2130,6 @@ function renderScaleCards(scaleArray, isFuture) {
         }
         songsHtml += '</div></div>';
 
-        // Mídia NÃO pode editar ou excluir escalas
         const isMedia = currentUserData.role === 'midia';
         const actionsHtml = (!isMedia) ? `
             <div class="scale-folder-actions">
@@ -2391,7 +2168,6 @@ function renderScaleCards(scaleArray, isFuture) {
 }
 
 async function deleteScale(scaleId) {
-    // Mídia não pode excluir escalas
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para excluir escalas.', 'Aviso');
         return;
@@ -2413,7 +2189,6 @@ async function deleteScale(scaleId) {
 // CORREÇÃO: EDITAR ESCALA CARREGANDO MEMBROS
 // ==========================================
 async function openEditScaleModal(scaleId) {
-    // Mídia não pode editar escalas
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para editar escalas.', 'Aviso');
         return;
@@ -2432,7 +2207,6 @@ async function openEditScaleModal(scaleId) {
         document.getElementById('scale-date').value = scale.event_date;
         document.getElementById('scale-notes').value = scale.notes || '';
         
-        // CORREÇÃO: Carregar membros antes de renderizar
         try {
             const resMembers = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,role,is_leader&order=full_name.asc`, { headers });
             if (resMembers.ok) {
@@ -2443,7 +2217,6 @@ async function openEditScaleModal(scaleId) {
             console.error('Erro ao carregar membros:', e);
         }
         
-        // Carregar equipe atual
         scaleDraftTeam = scale.scale_items.map(i => ({ 
             memberId: i.member_id, 
             role: i.role, 
@@ -2451,7 +2224,6 @@ async function openEditScaleModal(scaleId) {
         }));
         renderScaleDraftTeam();
         
-        // Carregar repertório se necessário
         if (allRepertoireCache.length === 0) {
             const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist,is_medley&order=title.asc`, { headers });
             if (resRep.ok) {
@@ -2484,7 +2256,6 @@ async function openEditScaleModal(scaleId) {
 // CORREÇÃO: CARREGAR MEMBROS NA ESCALA
 // ==========================================
 async function openScaleModal() {
-    // Mídia não pode criar escalas
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para criar escalas.', 'Aviso');
         return;
@@ -2496,7 +2267,6 @@ async function openScaleModal() {
     scaleDraftTeam = [];
     renderScaleDraftTeam();
     
-    // CORREÇÃO: Carregar membros corretamente
     try {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,role,is_leader&order=full_name.asc`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar membros');
@@ -2508,7 +2278,6 @@ async function openScaleModal() {
         return;
     }
     
-    // Carregar repertório
     try {
         const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist,is_medley&order=title.asc`, { headers });
         if (!resRep.ok) throw new Error('Falha ao carregar repertório');
@@ -2600,7 +2369,6 @@ function searchScaleSongs(input) {
 }
 
 async function saveNewScale() {
-    // Mídia não pode salvar escalas
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para criar/editar escalas.', 'Aviso');
         return;
