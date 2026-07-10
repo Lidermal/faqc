@@ -1555,114 +1555,156 @@ function updateSelectedVocalists() {
 }
 
 // ==========================================
-// VISUALIZADOR DE REPERTÓRIO E PERMISSÕES
+// NOVA FUNÇÃO: ABRIR MODAL PARA EDITAR REPERTÓRIO DA ESCALA
 // ==========================================
-async function openViewRepertoire(id, title, encodedLyrics, isMedley, encodedVocalist = '') {
-    currentViewingRepertoireId = id;
-    document.getElementById('view-rep-title').textContent = title;
-    document.getElementById('view-rep-lyrics').textContent = encodedLyrics ? decodeURIComponent(encodedLyrics) : '';
-    document.getElementById('modal-view-repertoire').classList.add('active');
-    
-    const vocalistDisplay = document.getElementById('view-rep-vocalist');
-    const currentVocalist = encodedVocalist ? decodeURIComponent(encodedVocalist) : '';
-    
-    const isMedia = currentUserData.role === 'midia';
-    
-    if (!isMedia) {
-        vocalistDisplay.innerHTML = `
-            <div class="vocalist-editor">
-                <label><span class="material-symbols-outlined" style="font-size:1rem; vertical-align:middle;">mic</span> Voz / Cantor:</label>
-                <div style="display:flex; gap:8px; margin-top:5px;">
-                    <input type="text" id="edit-vocalist-input" value="${currentVocalist}" placeholder="Ex: Ana Silva" style="flex:1; padding:8px; border-radius:6px; border:1px solid #ccc;">
-                    <button class="btn-secondary" onclick="saveVocalistToRepertoire('${id}')" style="padding:8px 12px;">💾</button>
+async function openScaleRepertoireModal(scaleId) {
+    // Mídia não pode editar repertório da escala
+    if (currentUserData.role === 'midia') {
+        showCustomAlert('Mídia não tem permissão para editar o repertório.', 'Aviso');
+        return;
+    }
+
+    try {
+        // Carregar dados básicos da escala
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes`, { headers });
+        if (!res.ok) throw new Error('Falha ao carregar escala');
+        const scaleData = await res.json();
+        if (scaleData.length === 0) { showCustomAlert('Escala não encontrada.'); return; }
+        const scale = scaleData[0];
+        
+        // Carregar músicas selecionadas desta escala
+        const resSongs = await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}&select=repertoire_id`, { headers });
+        if (!resSongs.ok) throw new Error('Falha ao carregar músicas da escala');
+        const scaleSongs = await resSongs.json();
+        const selectedIds = scaleSongs.map(s => s.repertoire_id);
+        
+        // Carregar todas as pastas
+        let folders = [];
+        try {
+            const resFolders = await fetch(`${SUPABASE_URL}/rest/v1/folders?select=id,name,is_general&order=is_general.desc,name.asc`, { headers });
+            if (resFolders.ok) {
+                folders = await resFolders.json();
+            }
+        } catch (e) {
+            console.warn('Erro ao carregar pastas:', e);
+        }
+        
+        // Carregar todo o repertório
+        const resRep = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?select=id,title,vocalist,is_medley,folder_id&order=title.asc`, { headers });
+        if (!resRep.ok) throw new Error('Falha ao carregar repertório');
+        const allSongs = await resRep.json();
+        
+        // Criar modal
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.id = 'modal-scale-repertoire';
+        
+        // Agrupar músicas por pasta
+        const songsByFolder = {};
+        allSongs.forEach(song => {
+            const folderId = song.folder_id || 'geral';
+            if (!songsByFolder[folderId]) {
+                songsByFolder[folderId] = [];
+            }
+            songsByFolder[folderId].push(song);
+        });
+        
+        let folderTabs = '';
+        let folderContents = '';
+        let firstFolder = true;
+        
+        // Pasta Geral sempre primeiro
+        if (songsByFolder['geral']) {
+            folderTabs += `<button class="folder-tab ${firstFolder ? 'active' : ''}" data-folder="geral">📁 Pasta Geral</button>`;
+            folderContents += `<div class="folder-content ${firstFolder ? 'active' : ''}" data-folder="geral">`;
+            songsByFolder['geral'].forEach(song => {
+                const checked = selectedIds.includes(song.id) ? 'checked' : '';
+                const medleyBadge = song.is_medley ? '<span class="badge" style="font-size:0.7rem;">Medley</span>' : '';
+                folderContents += `
+                    <label class="song-checkbox">
+                        <input type="checkbox" value="${song.id}" class="scale-rep-song-cb" ${checked}>
+                        <span>${song.title} ${medleyBadge}</span>
+                        ${song.vocalist ? `<small style="color:var(--text-muted); display:block;"> ${song.vocalist}</small>` : ''}
+                    </label>
+                `;
+            });
+            folderContents += '</div>';
+            firstFolder = false;
+        }
+        
+        // Outras pastas
+        folders.filter(f => !f.is_general).forEach(folder => {
+            if (songsByFolder[folder.id]) {
+                folderTabs += `<button class="folder-tab ${firstFolder ? 'active' : ''}" data-folder="${folder.id}">📂 ${folder.name}</button>`;
+                folderContents += `<div class="folder-content ${firstFolder ? 'active' : ''}" data-folder="${folder.id}">`;
+                songsByFolder[folder.id].forEach(song => {
+                    const checked = selectedIds.includes(song.id) ? 'checked' : '';
+                    const medleyBadge = song.is_medley ? '<span class="badge" style="font-size:0.7rem;">Medley</span>' : '';
+                    folderContents += `
+                        <label class="song-checkbox">
+                            <input type="checkbox" value="${song.id}" class="scale-rep-song-cb" ${checked}>
+                            <span>${song.title} ${medleyBadge}</span>
+                            ${song.vocalist ? `<small style="color:var(--text-muted); display:block;">🎤 ${song.vocalist}</small>` : ''}
+                        </label>
+                    `;
+                });
+                folderContents += '</div>';
+                firstFolder = false;
+            }
+        });
+        
+        // Se não tiver nenhuma música em nenhuma pasta
+        if (firstFolder) {
+            folderTabs = '<p style="color:var(--text-muted); padding:20px; text-align:center;">Nenhuma música cadastrada no repertório.</p>';
+            folderContents = '';
+        }
+        
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:700px;">
+                <div class="modal-header">
+                    <div>
+                        <h3>Editar Repertório da Escala</h3>
+                        <p style="color:var(--text-muted); font-size:0.9rem;">Data: ${new Date(scale.event_date).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                    <button class="close-btn" onclick="closeScaleRepertoireModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="folder-tabs" style="display:flex; gap:10px; margin-bottom:15px; border-bottom:2px solid var(--border-color); padding-bottom:10px; flex-wrap:wrap;">
+                        ${folderTabs}
+                    </div>
+                    <div class="folder-contents" style="max-height:400px; overflow-y:auto; padding:10px;">
+                        ${folderContents}
+                    </div>
+                    <div style="margin-top:20px; display:flex; gap:10px; justify-content:flex-end;">
+                        <button class="btn-secondary" onclick="closeScaleRepertoireModal()">Cancelar</button>
+                        <button class="btn-primary" onclick="saveScaleRepertoire('${scaleId}')">Salvar Repertório</button>
+                    </div>
                 </div>
             </div>
         `;
-        document.getElementById('box-add-key').classList.remove('hidden');
-    } else {
-        vocalistDisplay.innerHTML = `<p><strong>Voz/Cantor:</strong> ${currentVocalist || 'Não definido'}</p>`;
-        document.getElementById('box-add-key').classList.add('hidden');
-    }
-    
-    loadKeysForRepertoire(id, !isMedia);
-    
-    const partsDisplay = document.getElementById('medley-parts-display');
-    if (isMedley) {
-        partsDisplay.classList.remove('hidden');
-        partsDisplay.innerHTML = '<div class="loading-spinner"></div>';
-        try {
-            const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_medley_parts?medley_repertoire_id=eq.${id}&select=section,section_content,repertoire!song_repertoire_id(title)&order=created_at.asc`, { headers });
-            const parts = await res.json();
-            if (parts.length > 0) {
-                let html = '<strong>Estrutura do Medley:</strong><br>';
-                parts.forEach((p, idx) => {
-                    html += `<div style="padding:6px 0; border-bottom:1px solid rgba(0,0,0,0.08);">
-                        <strong>${idx+1}.</strong> <em>${p.repertoire.title}</em>
-                        <span style="color:var(--primary-color); font-weight:600;">→ ${p.section}</span>
-                    </div>`;
+        
+        document.body.appendChild(modal);
+        
+        // Adicionar event listeners nas tabs
+        const tabs = modal.querySelectorAll('.folder-tab');
+        if (tabs.length > 0) {
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    modal.querySelectorAll('.folder-tab').forEach(t => t.classList.remove('active'));
+                    modal.querySelectorAll('.folder-content').forEach(c => c.classList.remove('active'));
+                    tab.classList.add('active');
+                    const folderId = tab.getAttribute('data-folder');
+                    const content = modal.querySelector(`.folder-content[data-folder="${folderId}"]`);
+                    if (content) content.classList.add('active');
                 });
-                partsDisplay.innerHTML = html;
-            }
-        } catch (e) { partsDisplay.innerHTML = 'Erro ao carregar estrutura.'; }
-    } else {
-        partsDisplay.classList.add('hidden');
+            });
+        }
+        
+    } catch (e) {
+        console.error('Erro ao abrir modal de repertório:', e);
+        showCustomAlert('Erro ao carregar repertório da escala: ' + e.message, 'Erro');
     }
 }
-
-async function saveVocalistToRepertoire(id) {
-    const input = document.getElementById('edit-vocalist-input');
-    if (!input) return;
-    const newVocalist = input.value.trim();
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?id=eq.${id}`, {
-            method: 'PATCH', headers, body: JSON.stringify({ vocalist: newVocalist || null })
-        });
-        if (res.ok) { showCustomAlert('Voz/Cantor atualizado!', 'Sucesso'); loadRepertoire(); }
-        else showCustomAlert('Erro ao atualizar.');
-    } catch (e) { showCustomAlert('Erro de conexão.'); }
-}
-
-async function loadKeysForRepertoire(id, canEdit = true) {
-    const container = document.getElementById('view-rep-keys');
-    container.innerHTML = '';
-    try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?repertoire_id=eq.${id}`, { headers });
-        const keys = await res.json();
-        let html = '';
-        keys.forEach(k => {
-            html += `<span class="badge tom" style="font-size:1rem; padding:6px 12px; border-radius:20px;">
-                        ${k.ton} 
-                        ${canEdit ? `<span style="cursor:pointer; color:#ff7675; margin-left:8px;" onclick="deleteKey('${k.id}')">✕</span>` : ''}
-                    </span>`;
-        });
-        container.innerHTML = html;
-    } catch (e) { }
-}
-
-async function addKeyToRepertoire() {
-    const newKey = document.getElementById('new-key-input').value.trim();
-    if (!newKey || !currentViewingRepertoireId) return;
-    try {
-        await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, {
-            method: 'POST', headers,
-            body: JSON.stringify({ repertoire_id: currentViewingRepertoireId, ton: newKey })
-        });
-        document.getElementById('new-key-input').value = '';
-        loadKeysForRepertoire(currentViewingRepertoireId, true);
-        loadRepertoire();
-    } catch (e) { showCustomAlert('Erro ao adicionar tom.'); }
-}
-
-async function deleteKey(keyId) {
-    showCustomConfirm('Deseja remover este tom?', async () => {
-        try {
-            await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys?id=eq.${keyId}`, { method: 'DELETE', headers });
-            loadKeysForRepertoire(currentViewingRepertoireId, true);
-            loadRepertoire();
-        } catch (e) { }
-    });
-}
-
 
 // ==========================================
 // MEDLEY (LAYOUT CORRIGIDO E VOCALISTA AUTOMÁTICO)
