@@ -138,12 +138,10 @@ function showSystemScreen() {
         document.getElementById('btn-add-scale').classList.remove('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
     } else if (isMedia) {
-        // Mídia: só visualização básica, sem permissões de edição
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
     } else {
-        // Membros normais: podem ver escalas e editar repertório das suas pastas
         document.getElementById('nav-admin').classList.add('hidden');
         document.getElementById('btn-add-scale').classList.add('hidden');
         document.getElementById('nav-escalas').classList.remove('hidden');
@@ -528,7 +526,6 @@ async function loadProfile() {
 function compressImage(file, maxWidth = 800, maxHeight = 800, quality = 0.8) {
     return new Promise((resolve, reject) => {
         if (!file.type.match(/image\/(jpeg|png|webp|jpg)/i)) {
-            console.warn("Formato de imagem não otimizável nativamente. Usando arquivo original.");
             resolve(file);
             return;
         }
@@ -731,8 +728,8 @@ function createMemberCard(member, type) {
                 <div class="member-photo-wrapper">
                     ${photoUrl ?
                     `<img src="${photoUrl}" alt="${member.full_name}" class="member-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-                    <div class="photo-placeholder" style="display:none">${member.full_name.charAt(0)}</div>` :
-                    `<div class="photo-placeholder">${member.full_name.charAt(0)}</div>`
+                    <div class="photo-placeholder" style="display:none">${(member.full_name||'A').charAt(0)}</div>` :
+                    `<div class="photo-placeholder">${(member.full_name||'A').charAt(0)}</div>`
                 }
                     ${member.is_leader ? '<div class="leader-crown">★</div>' : ''}
                 </div>
@@ -1103,7 +1100,7 @@ async function deleteRepertoire(id) {
 }
 
 // ==========================================
-// SUPER BUSCADOR DE LETRAS (CORRIGIDO)
+// SUPER BUSCADOR DE LETRAS (COM PESQUISA INTERNA ATUALIZADA)
 // ==========================================
 
 const VAGALUME_API_KEY = ''; // <-- COLE SUA CHAVE AQUI
@@ -1366,6 +1363,32 @@ async function searchLyricsOvh(query, results) {
     }
 }
 
+// -----------------------------------------------------
+// FUNÇÃO NOVA: BUSCAR DO PRÓPRIO SISTEMA ANTES (RESOLUÇÃO DO PEDIDO)
+// -----------------------------------------------------
+async function searchInternalMusic(query, results) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?title=ilike.*${encodeURIComponent(query)}*&select=id,title,vocalist,lyrics_text&limit=5`, { headers });
+        if (res.ok) {
+            const data = await res.json();
+            data.forEach(song => {
+                const id = `int_${song.id}`;
+                cachedLyricsSearch[id] = {
+                    artist: song.vocalist || 'Sistema',
+                    song: song.title,
+                    lyrics: song.lyrics_text,
+                    source: 'Banco Interno (Já Cadastrada)'
+                };
+                // Destaca os resultados internos
+                addSearchResultToDOM(`⭐ ${song.title}`, song.vocalist || 'Membro/Sistema', id, 'Banco Interno (Já Cadastrada)');
+                results.found = true;
+            });
+        }
+    } catch (e) {
+        console.warn('Erro ao buscar no banco interno:', e);
+    }
+}
+
 async function searchMusicList() {
     const query = document.getElementById('search-query').value.trim();
     const resultsContainer = document.getElementById('search-results');
@@ -1373,13 +1396,16 @@ async function searchMusicList() {
 
     if (!query) return;
 
-    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Vasculhando Vagalume, Letras.mus, Cifra Club, Genius e mais... Aguarde!</span>';
+    // Atualizado texto para informar busca interna
+    msgBox.innerHTML = '<span style="color:var(--primary-color);">🔍 Vasculhando Banco Interno, Vagalume, Letras.mus... Aguarde!</span>';
     resultsContainer.innerHTML = '';
     cachedLyricsSearch = {};
 
     const results = { found: false };
 
+    // Executa a busca interna junto com as buscas externas
     await Promise.allSettled([
+        searchInternalMusic(query, results), 
         searchVagalume(query, results),
         searchWebWide(query, results),
         searchLyricsOvh(query, results),
@@ -1401,6 +1427,10 @@ async function searchMusicList() {
 function addSearchResultToDOM(song, artist, id, fonte) {
     const div = document.createElement('div');
     div.className = 'search-result-item';
+    
+    // Deixa os retornos do sistema com uma cor de fundo sutil se quiser diferenciar
+    if(fonte.includes('Banco Interno')) div.style.backgroundColor = '#f1f8ff';
+    
     div.innerHTML = `
         <div style="flex:1; min-width:0;">
             <strong style="display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${song}</strong>
@@ -1415,8 +1445,12 @@ function addSearchResultToDOM(song, artist, id, fonte) {
 function importPreCheckedLyrics(id) {
     const data = cachedLyricsSearch[id];
     document.getElementById('rep-lyrics').value = data.lyrics;
-    document.getElementById('rep-title').value = `${data.song} - ${data.artist}`;
-    showCustomAlert(`Letra de "${data.song}" importada!`, "Sucesso");
+    
+    // Se a música veio interna, ela tem a "⭐", tira na hora de preencher o título
+    let pureTitle = data.song.replace('⭐ ', '');
+    document.getElementById('rep-title').value = `${pureTitle} - ${data.artist}`;
+    
+    showCustomAlert(`Letra importada!`, "Sucesso");
 }
 
 async function saveNewRepertoire() {
@@ -1477,7 +1511,7 @@ async function searchVocalists(input) {
         } catch (e) { }
     }
 
-    const filtered = allMembersCache.filter(m => m.full_name.toLowerCase().includes(query)).slice(0, 5);
+    const filtered = allMembersCache.filter(m => m.full_name && m.full_name.toLowerCase().includes(query)).slice(0, 5);
     if (filtered.length > 0) {
         dropdown.innerHTML = filtered.map(m => `
             <div class="dropdown-item" onclick="selectVocalist('${m.id}', '${m.full_name}')">
@@ -1904,9 +1938,6 @@ async function loadScales() {
     }
 }
 
-// ==========================================
-// NOVA FUNÇÃO: ABRIR MODAL PARA EDITAR REPERTÓRIO DA ESCALA
-// ==========================================
 async function openScaleRepertoireModal(scaleId) {
     if (currentUserData.role === 'midia') {
         showCustomAlert('Mídia não tem permissão para editar o repertório.', 'Aviso');
@@ -2211,7 +2242,6 @@ async function openEditScaleModal(scaleId) {
             const resMembers = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,role,is_leader&order=full_name.asc`, { headers });
             if (resMembers.ok) {
                 allMembersCache = await resMembers.json();
-                console.log('Membros carregados para edição:', allMembersCache.length);
             }
         } catch (e) {
             console.error('Erro ao carregar membros:', e);
@@ -2253,7 +2283,7 @@ async function openEditScaleModal(scaleId) {
 }
 
 // ==========================================
-// CORREÇÃO: CARREGAR MEMBROS NA ESCALA
+// CORREÇÃO: CARREGAR E PESQUISAR MEMBROS NA ESCALA (SEGURANÇA CONTRA NOMES NULL)
 // ==========================================
 async function openScaleModal() {
     if (currentUserData.role === 'midia') {
@@ -2271,7 +2301,6 @@ async function openScaleModal() {
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,role,is_leader&order=full_name.asc`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar membros');
         allMembersCache = await res.json();
-        console.log('Membros carregados:', allMembersCache.length);
     } catch (e) {
         console.error('Erro ao carregar membros:', e);
         showCustomAlert('Erro ao carregar lista de membros.', 'Erro');
@@ -2302,13 +2331,33 @@ async function openScaleModal() {
     });
 }
 
-function searchMembersForScale(input) {
+// FUNÇÃO ATUALIZADA: Evita o erro Cannot read properties of null (toLowerCase)
+async function searchMembersForScale(input) {
     const query = input.value.trim().toLowerCase();
     const dropdown = document.getElementById('member-scale-dropdown');
-    if (query.length < 2) { dropdown.style.display = 'none'; return; }
-    const filtered = allMembersCache.filter(m => m.full_name.toLowerCase().includes(query)).slice(0, 5);
+    if (query.length < 2) { 
+        dropdown.style.display = 'none'; 
+        return; 
+    }
+
+    // Fallback: se o array estiver vazio, recarrega
+    if (!allMembersCache || allMembersCache.length === 0) {
+        try {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/members?select=id,full_name,role,is_leader&order=full_name.asc`, { headers });
+            if (res.ok) allMembersCache = await res.json();
+        } catch(e) {
+            console.error('Falha ao re-puxar membros', e);
+        }
+    }
+
+    // O "m.full_name &&" previne o erro em bancos com membros de nome vazio
+    const filtered = allMembersCache.filter(m => m.full_name && m.full_name.toLowerCase().includes(query)).slice(0, 5);
+    
     if (filtered.length > 0) {
-        dropdown.innerHTML = filtered.map(m => `<div class="dropdown-item" onclick="selectMemberForScale('${m.id}', '${m.full_name}')"><span class="material-symbols-outlined">person</span> ${m.full_name}</div>`).join('');
+        dropdown.innerHTML = filtered.map(m => `
+            <div class="dropdown-item" onclick="selectMemberForScale('${m.id}', '${m.full_name}')">
+                <span class="material-symbols-outlined">person</span> ${m.full_name}
+            </div>`).join('');
         dropdown.style.display = 'block';
     } else {
         dropdown.innerHTML = '<div class="dropdown-empty">Nenhum membro encontrado</div>';
@@ -2317,15 +2366,31 @@ function searchMembersForScale(input) {
 }
 
 let selectedMemberForScale = null;
+
+// FUNÇÃO ATUALIZADA: Busca pelo input independentemente da classe usada
 function selectMemberForScale(id, name) {
     selectedMemberForScale = { id, name };
-    document.getElementById('member-scale-dropdown').style.display = 'none';
-    document.querySelector('.searchable-select-member .search-input').value = name;
+    const dropdown = document.getElementById('member-scale-dropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    
+    // Tentativa 1: Via classe
+    const inputClass = document.querySelector('.searchable-select-member .search-input');
+    if (inputClass) {
+        inputClass.value = name;
+    } 
+    // Tentativa 2: Busca ao redor do dropdown
+    else if (dropdown && dropdown.previousElementSibling && dropdown.previousElementSibling.tagName === 'INPUT') {
+        dropdown.previousElementSibling.value = name;
+    }
 }
 
+// FUNÇÃO ATUALIZADA: Limpeza segura após adicionar
 function addMemberToScaleDraft() {
     if (!selectedMemberForScale) { showCustomAlert('Selecione um membro da lista.'); return; }
-    const role = document.getElementById('scale-draft-role').value;
+    
+    const roleElem = document.getElementById('scale-draft-role');
+    const role = roleElem ? roleElem.value : 'vocal';
+    
     if (!scaleDraftTeam.find(m => m.memberId === selectedMemberForScale.id && m.role === role)) {
         scaleDraftTeam.push({ ...selectedMemberForScale, role });
         renderScaleDraftTeam();
@@ -2333,7 +2398,16 @@ function addMemberToScaleDraft() {
         showCustomAlert('Este membro já está na equipe com esta função.');
     }
     selectedMemberForScale = null;
-    document.querySelector('.searchable-select-member .search-input').value = '';
+    
+    const inputClass = document.querySelector('.searchable-select-member .search-input');
+    if (inputClass) {
+        inputClass.value = '';
+    } else {
+        const dropdown = document.getElementById('member-scale-dropdown');
+        if (dropdown && dropdown.previousElementSibling && dropdown.previousElementSibling.tagName === 'INPUT') {
+            dropdown.previousElementSibling.value = '';
+        }
+    }
 }
 
 function removeScaleDraftMember(index) {
