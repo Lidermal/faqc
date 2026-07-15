@@ -2397,6 +2397,23 @@ function selectMemberForScale(id, name) {
     else if (dropdown && dropdown.previousElementSibling && dropdown.previousElementSibling.tagName === 'INPUT') {
         dropdown.previousElementSibling.value = name;
     }
+
+    // NOVO: auto-seleciona a função de acordo com o cadastro do membro
+    // (vocal, violao, baixo, baterista, teclado ou lider). Se o membro
+    // tiver uma função fora dessa lista (ex: "midia"), mantém o que já
+    // estava selecionado no campo, para não forçar um valor inválido.
+    const member = allMembersCache.find(m => m.id === id);
+    if (member) {
+        const roleSelect = document.getElementById('scale-draft-role');
+        const validRoles = ['lider', 'vocal', 'baterista', 'teclado', 'violao', 'baixo'];
+        if (roleSelect) {
+            if (member.is_leader && validRoles.includes('lider')) {
+                roleSelect.value = 'lider';
+            } else if (member.role && validRoles.includes(member.role)) {
+                roleSelect.value = member.role;
+            }
+        }
+    }
 }
 
 // FUNÇÃO ATUALIZADA: Limpeza segura após adicionar
@@ -2492,18 +2509,35 @@ async function saveNewScale() {
             const savedScale = await resScale.json();
             scaleId = savedScale[0].id;
         }
+        // CORRIGIDO: antes, o resultado desses inserts nunca era checado.
+        // fetch() só rejeita (cai no catch) em erro de REDE — se o Supabase
+        // recusasse o insert (política RLS, dado inválido, etc.) com um
+        // status 400/401/403, o código seguia em frente como se tivesse
+        // dado certo, e mostrava "Escala atualizada!" mesmo sem ter
+        // salvado nada. Agora cada insert é conferido e, se falhar, o
+        // erro real do Supabase aparece no alerta.
         for (let item of scaleDraftTeam) {
-            await fetch(`${SUPABASE_URL}/rest/v1/scale_items`, {
+            const rItem = await fetch(`${SUPABASE_URL}/rest/v1/scale_items`, {
                 method: 'POST', headers,
                 body: JSON.stringify({ scale_id: scaleId, member_id: item.memberId, role: item.role })
             });
+            if (!rItem.ok) {
+                let detalhe = '';
+                try { detalhe = (await rItem.json()).message || ''; } catch (e) {}
+                throw new Error(`Falha ao salvar "${item.name}" na equipe (${rItem.status}). ${detalhe}`);
+            }
         }
         const songCbs = document.querySelectorAll('.scale-song-cb:checked');
         for (let cb of songCbs) {
-            await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, {
+            const rSong = await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, {
                 method: 'POST', headers,
                 body: JSON.stringify({ scale_id: scaleId, repertoire_id: cb.value })
             });
+            if (!rSong.ok) {
+                let detalhe = '';
+                try { detalhe = (await rSong.json()).message || ''; } catch (e) {}
+                throw new Error(`Falha ao salvar uma música do repertório (${rSong.status}). ${detalhe}`);
+            }
         }
         showCustomAlert(editingId ? 'Escala atualizada!' : 'Escala criada!', 'Sucesso');
         closeModals();
@@ -2511,7 +2545,7 @@ async function saveNewScale() {
         if (document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
     } catch (e) {
         console.error('Erro ao salvar escala:', e);
-        showCustomAlert('Erro ao salvar escala.');
+        showCustomAlert(e.message || 'Erro ao salvar escala.', 'Erro');
     }
 }
 
