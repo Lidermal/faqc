@@ -707,12 +707,16 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 }
 .remove-item { cursor: pointer; font-weight: bold; font-size: 1.1rem; line-height: 1; }
 .remove-item:hover { color: var(--danger); }
-/* CORRIGIDO: faltava "position: relative" aqui. O .search-dropdown é
-   position:absolute e usa o ancestral posicionado mais próximo como
-   referência. Sem essa linha, esse ancestral virava o .modal
-   (position:fixed, 100% da tela), e o dropdown caía com "top:100%"
-   bem abaixo da tela — por isso ele nunca aparecia visualmente. */
-.searchable-select-member { margin-bottom: 15px; position: relative; }
+/* CORRIGIDO (parte 1): sem position:relative aqui, o .search-dropdown
+   (que é position:absolute) usava o .modal (position:fixed, tela toda)
+   como referência, e caía bem abaixo da tela — por isso não aparecia. */
+.searchable-select-member { margin-bottom: 15px; }
+/* CORRIGIDO (parte 2): o dropdown ficava ancorado em "top:100%" da
+   CAIXA INTEIRA (campo + select + botão), por isso aparecia depois do
+   botão "Adicionar" em vez de colado embaixo do campo de busca.
+   Este wrapper isola só o campo + dropdown, então "top:100%" agora é
+   relativo à altura do campo de texto, exatamente onde deve ficar. */
+.member-search-box { position: relative; }
 .searchable-select-member .search-input {
   width: 100%; padding: 10px; border: 1px solid var(--border-color);
   border-radius: 8px; font-size: 0.9rem; margin-bottom: 10px;
