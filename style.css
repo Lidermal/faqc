@@ -707,7 +707,12 @@ h2 { font-size: 1.4rem; margin-bottom: 2rem; font-weight: 700; color: var(--text
 }
 .remove-item { cursor: pointer; font-weight: bold; font-size: 1.1rem; line-height: 1; }
 .remove-item:hover { color: var(--danger); }
-.searchable-select-member { margin-bottom: 15px; }
+/* CORRIGIDO: faltava "position: relative" aqui. O .search-dropdown é
+   position:absolute e usa o ancestral posicionado mais próximo como
+   referência. Sem essa linha, esse ancestral virava o .modal
+   (position:fixed, 100% da tela), e o dropdown caía com "top:100%"
+   bem abaixo da tela — por isso ele nunca aparecia visualmente. */
+.searchable-select-member { margin-bottom: 15px; position: relative; }
 .searchable-select-member .search-input {
   width: 100%; padding: 10px; border: 1px solid var(--border-color);
   border-radius: 8px; font-size: 0.9rem; margin-bottom: 10px;
