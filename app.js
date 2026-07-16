@@ -1945,10 +1945,6 @@ async function openScaleRepertoireModal(scaleId) {
     }
 
     try {
-        // CORRIGIDO: scale_songs não possui as colunas title/vocalist/is_medley diretamente
-        // (elas pertencem à tabela repertoire). Pedir essas colunas aqui fazia o Supabase
-        // retornar erro 400, que caía no catch abaixo e mostrava "Erro ao carregar repertório da escala".
-        // Só precisamos do repertoire_id para saber quais músicas já estão marcadas.
         const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}&select=id,event_date,notes,scale_songs(repertoire_id)`, { headers });
         if (!res.ok) throw new Error('Falha ao carregar escala');
         const data = await res.json();
@@ -2336,9 +2332,6 @@ async function openScaleModal() {
     });
 }
 
-// FUNÇÃO ATUALIZADA: Evita o erro Cannot read properties of null (toLowerCase)
-// CORRIGIDO: adicionadas checagens de nulidade para não travar silenciosamente
-// caso o HTML não tenha exatamente o elemento #member-scale-dropdown.
 async function searchMembersForScale(input) {
     if (!input) {
         console.error('searchMembersForScale: parâmetro "input" não foi passado. Confira o oninput/onkeyup no HTML, ex: oninput="searchMembersForScale(this)"');
@@ -2382,7 +2375,6 @@ async function searchMembersForScale(input) {
 
 let selectedMemberForScale = null;
 
-// FUNÇÃO ATUALIZADA: Busca pelo input independentemente da classe usada
 function selectMemberForScale(id, name) {
     selectedMemberForScale = { id, name };
     const dropdown = document.getElementById('member-scale-dropdown');
@@ -2398,10 +2390,6 @@ function selectMemberForScale(id, name) {
         dropdown.previousElementSibling.value = name;
     }
 
-    // NOVO: auto-seleciona a função de acordo com o cadastro do membro
-    // (vocal, violao, baixo, baterista, teclado ou lider). Se o membro
-    // tiver uma função fora dessa lista (ex: "midia"), mantém o que já
-    // estava selecionado no campo, para não forçar um valor inválido.
     const member = allMembersCache.find(m => m.id === id);
     if (member) {
         const roleSelect = document.getElementById('scale-draft-role');
@@ -2416,7 +2404,7 @@ function selectMemberForScale(id, name) {
     }
 }
 
-// FUNÇÃO ATUALIZADA: Limpeza segura após adicionar
+// CORREÇÃO: O objeto inserido no scaleDraftTeam agora utiliza a propriedade 'memberId' corretamente
 function addMemberToScaleDraft() {
     if (!selectedMemberForScale) { showCustomAlert('Selecione um membro da lista.'); return; }
     
@@ -2424,7 +2412,11 @@ function addMemberToScaleDraft() {
     const role = roleElem ? roleElem.value : 'vocal';
     
     if (!scaleDraftTeam.find(m => m.memberId === selectedMemberForScale.id && m.role === role)) {
-        scaleDraftTeam.push({ ...selectedMemberForScale, role });
+        scaleDraftTeam.push({
+            memberId: selectedMemberForScale.id, // CORRIGIDO (antes copiava como 'id' e salvava undefined)
+            name: selectedMemberForScale.name,
+            role: role
+        });
         renderScaleDraftTeam();
     } else {
         showCustomAlert('Este membro já está na equipe com esta função.');
@@ -2442,8 +2434,6 @@ function addMemberToScaleDraft() {
     }
 }
 
-// Aliases de segurança: caso o HTML chame a função com um nome ligeiramente
-// diferente (singular/plural), garantimos que ainda funcione.
 window.searchMemberForScale = searchMembersForScale;
 window.searchScaleMembers = searchMembersForScale;
 
@@ -2509,13 +2499,7 @@ async function saveNewScale() {
             const savedScale = await resScale.json();
             scaleId = savedScale[0].id;
         }
-        // CORRIGIDO: antes, o resultado desses inserts nunca era checado.
-        // fetch() só rejeita (cai no catch) em erro de REDE — se o Supabase
-        // recusasse o insert (política RLS, dado inválido, etc.) com um
-        // status 400/401/403, o código seguia em frente como se tivesse
-        // dado certo, e mostrava "Escala atualizada!" mesmo sem ter
-        // salvado nada. Agora cada insert é conferido e, se falhar, o
-        // erro real do Supabase aparece no alerta.
+
         for (let item of scaleDraftTeam) {
             const rItem = await fetch(`${SUPABASE_URL}/rest/v1/scale_items`, {
                 method: 'POST', headers,
