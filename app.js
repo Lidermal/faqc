@@ -605,7 +605,9 @@ async function uploadPhoto(event) {
             body: JSON.stringify({ photo_url: publicUrl })
         });
         
-        if (!res.ok) throw new Error('Erro ao atualizar banco');
+        if (!res.ok) throw new Error('Erro de conexão ao atualizar banco');
+        const updatedData = await res.json();
+        if (updatedData.length === 0) throw new Error('Permissão negada. A foto não foi salva no banco.');
         
         currentUserData.photo_url = publicUrl;
         localStorage.setItem('sessionUser', JSON.stringify(currentUserData));
@@ -640,7 +642,9 @@ async function updateProfile() {
             body: JSON.stringify(updateData)
         });
         
-        if (!res.ok) throw new Error('Erro ao atualizar no servidor');
+        if (!res.ok) throw new Error('Erro de conexão com o servidor');
+        const data = await res.json();
+        if (data.length === 0) throw new Error('Permissão negada ao atualizar perfil (RLS).');
         
         // ATUALIZAÇÃO LOCAL IMEDIATA
         currentUserData.full_name = fullname;
@@ -652,7 +656,7 @@ async function updateProfile() {
         showCustomAlert('Perfil atualizado com sucesso no banco de dados!', 'Sucesso');
     } catch (e) {
         console.error(e);
-        showCustomAlert('Erro ao atualizar perfil no banco.', 'Erro');
+        showCustomAlert(e.message || 'Erro ao atualizar perfil no banco.', 'Erro');
     }
 }
 
@@ -892,13 +896,15 @@ async function deleteFolder(folderId) {
             headers
         });
         
-        if (!res.ok) throw new Error('Falha ao excluir');
+        if (!res.ok) throw new Error('Falha na requisição');
+        const data = await res.json();
+        if (data.length === 0) throw new Error('Ação bloqueada (RLS). A pasta não foi excluída.');
         
         loadFolders();
         showCustomAlert('Pasta excluída com sucesso!', 'Sucesso');
     } catch (e) {
         console.error('Erro ao excluir pasta:', e);
-        showCustomAlert('Erro ao excluir pasta.', 'Erro');
+        showCustomAlert(e.message || 'Erro ao excluir pasta.', 'Erro');
     }
 }
 
@@ -973,12 +979,9 @@ function showCustomInputHTML(title, label, extraHTML, callback) {
 
 async function createFolder(name, memberId) {
     try {
-        const postHeaders = { ...headers };
-        delete postHeaders['Prefer']; 
-
         const res = await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
             method: 'POST',
-            headers: postHeaders, 
+            headers, 
             body: JSON.stringify({
                 name: name.trim(),
                 created_by: memberId,
@@ -986,13 +989,15 @@ async function createFolder(name, memberId) {
             })
         });
         
-        if (!res.ok) throw new Error('Falha ao criar banco. 401 Unauthorized.');
+        if (!res.ok) throw new Error('Falha ao conectar no banco.');
+        const data = await res.json();
+        if (data.length === 0) throw new Error('Ação bloqueada pelas políticas de segurança (RLS). A pasta não foi criada.');
         
         await loadFolders();
         showCustomAlert(`Pasta "${name}" criada com sucesso!`, 'Sucesso');
     } catch (e) {
         console.error('Erro ao criar pasta:', e);
-        showCustomAlert('Erro ao criar pasta. Verifique a política RLS (Insert) no Supabase.', 'Erro');
+        showCustomAlert(e.message || 'Erro ao criar pasta. Verifique a política RLS no Supabase.', 'Erro');
     }
 }
 
@@ -1091,11 +1096,15 @@ async function loadRepertoire() {
 async function deleteRepertoire(id) {
     if (!confirm('Deseja excluir esta música?')) return;
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/repertoire?id=eq.${id}`, { method: 'DELETE', headers });
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire?id=eq.${id}`, { method: 'DELETE', headers });
+        if (!res.ok) throw new Error('Falha na requisição.');
+        const data = await res.json();
+        if (data.length === 0) throw new Error('Ação bloqueada (RLS) ou música não encontrada.');
+        
         loadRepertoire();
         showCustomAlert('Música excluída!', 'Sucesso');
     } catch (e) {
-        showCustomAlert('Erro ao excluir.', 'Erro');
+        showCustomAlert(e.message || 'Erro ao excluir.', 'Erro');
     }
 }
 
@@ -1474,7 +1483,7 @@ async function saveNewRepertoire() {
 
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
             method: 'POST',
-            headers: { ...headers, 'Prefer': 'return=representation' },
+            headers,
             body: JSON.stringify({
                 title,
                 lyrics_text: lyrics,
@@ -1483,7 +1492,11 @@ async function saveNewRepertoire() {
                 folder_id: folderId
             })
         });
+        
+        if (!res.ok) throw new Error('Falha na requisição.');
         const savedData = await res.json();
+        if (savedData.length === 0) throw new Error('Ação bloqueada pelas políticas de segurança. Música não salva.');
+        
         if (initialKey && savedData.length > 0) {
             await fetch(`${SUPABASE_URL}/rest/v1/repertoire_keys`, {
                 method: 'POST', headers,
@@ -1495,7 +1508,7 @@ async function saveNewRepertoire() {
         loadRepertoire();
     } catch (e) {
         console.error('Erro ao salvar:', e);
-        showCustomAlert('Erro ao salvar no banco.');
+        showCustomAlert(e.message || 'Erro ao salvar no banco.', 'Erro');
     }
 }
 
@@ -1867,7 +1880,7 @@ async function saveNewMedley() {
         }
 
         const res = await fetch(`${SUPABASE_URL}/rest/v1/repertoire`, {
-            method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' },
+            method: 'POST', headers,
             body: JSON.stringify({ 
                 title: title, 
                 is_medley: true, 
@@ -1877,7 +1890,11 @@ async function saveNewMedley() {
                 folder_id: folderId 
             })
         });
+        
+        if (!res.ok) throw new Error('Falha na requisição.');
         const savedMedley = await res.json();
+        if (savedMedley.length === 0) throw new Error('Ação bloqueada (RLS). Medley não criado.');
+        
         const medleyId = savedMedley[0].id;
         for (let item of medleyDraft) {
             for (let section of item.sections) {
@@ -1892,7 +1909,7 @@ async function saveNewMedley() {
         loadRepertoire();
     } catch (e) {
         console.error(e);
-        showCustomAlert('Erro ao salvar medley.');
+        showCustomAlert(e.message || 'Erro ao salvar medley.', 'Erro');
     }
 }
 
@@ -2085,7 +2102,7 @@ async function saveScaleRepertoire(scaleId) {
         });
         
         for (const songId of selectedSongIds) {
-            await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, {
                 method: 'POST',
                 headers,
                 body: JSON.stringify({ 
@@ -2093,6 +2110,10 @@ async function saveScaleRepertoire(scaleId) {
                     repertoire_id: songId 
                 })
             });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.length === 0) throw new Error('Ação bloqueada ao adicionar música (RLS).');
+            }
         }
         
         showCustomAlert('Repertório atualizado com sucesso!', 'Sucesso');
@@ -2100,7 +2121,7 @@ async function saveScaleRepertoire(scaleId) {
         loadScales();
     } catch (e) {
         console.error('Erro ao salvar repertório:', e);
-        showCustomAlert('Erro ao salvar repertório.', 'Erro');
+        showCustomAlert(e.message || 'Erro ao salvar repertório.', 'Erro');
     }
 }
 
@@ -2208,11 +2229,18 @@ async function deleteScale(scaleId) {
         try {
             await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
-            await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}`, { method: 'DELETE', headers });
+            
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${scaleId}`, { method: 'DELETE', headers });
+            if (!res.ok) throw new Error('Falha na requisição.');
+            const data = await res.json();
+            if (data.length === 0) throw new Error('Ação bloqueada (RLS). A escala não foi excluída.');
+            
             showCustomAlert('Escala excluída!', 'Sucesso');
             loadScales();
             if (document.getElementById('page-home').classList.contains('active')) fetchNextScaleHome();
-        } catch (e) { showCustomAlert('Erro ao excluir escala.'); }
+        } catch (e) { 
+            showCustomAlert(e.message || 'Erro ao excluir escala.', 'Erro'); 
+        }
     });
 }
 
@@ -2480,23 +2508,29 @@ async function saveNewScale() {
     const editingId = document.getElementById('editing-scale-id').value;
     if (!date) { showCustomAlert('A data do culto é obrigatória.'); return; }
     if (scaleDraftTeam.length === 0) { showCustomAlert('Adicione pelo menos 1 membro na equipe.'); return; }
+    
     try {
         let scaleId;
         if (editingId) {
-            await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${editingId}`, {
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/scales?id=eq.${editingId}`, {
                 method: 'PATCH', headers,
                 body: JSON.stringify({ event_date: date, notes: notes, time_key: date.substring(0, 7) })
             });
+            if (!res.ok) throw new Error('Falha na requisição.');
+            const data = await res.json();
+            if (data.length === 0) throw new Error('Ação bloqueada (RLS) ou escala não encontrada.');
+            
             scaleId = editingId;
             await fetch(`${SUPABASE_URL}/rest/v1/scale_items?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
             await fetch(`${SUPABASE_URL}/rest/v1/scale_songs?scale_id=eq.${scaleId}`, { method: 'DELETE', headers });
         } else {
             const resScale = await fetch(`${SUPABASE_URL}/rest/v1/scales`, {
-                method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' },
+                method: 'POST', headers,
                 body: JSON.stringify({ time_key: date.substring(0, 7), event_date: date, notes: notes, created_by: currentUserData.id })
             });
             if (!resScale.ok) throw new Error('Falha ao criar escala');
             const savedScale = await resScale.json();
+            if (savedScale.length === 0) throw new Error('Ação bloqueada (RLS). Escala não criada.');
             scaleId = savedScale[0].id;
         }
 
@@ -2506,11 +2540,12 @@ async function saveNewScale() {
                 body: JSON.stringify({ scale_id: scaleId, member_id: item.memberId, role: item.role })
             });
             if (!rItem.ok) {
-                let detalhe = '';
-                try { detalhe = (await rItem.json()).message || ''; } catch (e) {}
-                throw new Error(`Falha ao salvar "${item.name}" na equipe (${rItem.status}). ${detalhe}`);
+                throw new Error(`Falha ao salvar "${item.name}" na equipe (${rItem.status}).`);
             }
+            const iData = await rItem.json();
+            if (iData.length === 0) throw new Error('Ação bloqueada ao adicionar membro na escala (RLS).');
         }
+        
         const songCbs = document.querySelectorAll('.scale-song-cb:checked');
         for (let cb of songCbs) {
             const rSong = await fetch(`${SUPABASE_URL}/rest/v1/scale_songs`, {
@@ -2518,11 +2553,12 @@ async function saveNewScale() {
                 body: JSON.stringify({ scale_id: scaleId, repertoire_id: cb.value })
             });
             if (!rSong.ok) {
-                let detalhe = '';
-                try { detalhe = (await rSong.json()).message || ''; } catch (e) {}
-                throw new Error(`Falha ao salvar uma música do repertório (${rSong.status}). ${detalhe}`);
+                throw new Error(`Falha ao salvar uma música do repertório (${rSong.status}).`);
             }
+            const sData = await rSong.json();
+            if (sData.length === 0) throw new Error('Ação bloqueada ao adicionar música (RLS).');
         }
+        
         showCustomAlert(editingId ? 'Escala atualizada!' : 'Escala criada!', 'Sucesso');
         closeModals();
         loadScales();
@@ -2581,17 +2617,17 @@ async function createNewMember() {
         }
 
         const res = await fetch(`${SUPABASE_URL}/rest/v1/members`, {
-            method: 'POST', headers: { ...headers, 'Prefer': 'return=representation' },
+            method: 'POST', headers,
             body: JSON.stringify(payload)
         });
         if (!res.ok) throw new Error('Usuário já existe ou erro no banco.');
         const saved = await res.json();
         
+        if (saved.length === 0) throw new Error('Ação bloqueada pelas políticas de segurança (RLS).');
+        
         if (role !== 'midia') {
-            const postHeaders = { ...headers };
-            delete postHeaders['Prefer']; 
             await fetch(`${SUPABASE_URL}/rest/v1/folders`, {
-                method: 'POST', headers: postHeaders,
+                method: 'POST', headers,
                 body: JSON.stringify({ name: `Repertório de ${fullname}`, created_by: saved[0].id, is_general: false })
             });
         }
@@ -2747,6 +2783,9 @@ async function saveEditMember() {
             throw new Error(err.message || 'Falha ao atualizar dados no servidor');
         }
         
+        const data = await res.json();
+        if (data.length === 0) throw new Error('Ação bloqueada (RLS) ou membro não encontrado. Nada foi alterado.');
+        
         showCustomAlert('Membro atualizado com sucesso!', 'Sucesso');
         closeModals();
         loadAdminMembers();
@@ -2766,10 +2805,16 @@ async function saveEditMember() {
 async function deleteMember(id) {
     showCustomConfirm('Deseja remover este membro?', async () => {
         try {
-            await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, { method: 'DELETE', headers });
+            const res = await fetch(`${SUPABASE_URL}/rest/v1/members?id=eq.${id}`, { method: 'DELETE', headers });
+            if (!res.ok) throw new Error('Falha na requisição.');
+            const data = await res.json();
+            if (data.length === 0) throw new Error('Ação bloqueada (RLS). Membro não excluído.');
+            
             showCustomAlert('Membro excluído!', 'Sucesso');
             loadAdminMembers();
-        } catch (e) { showCustomAlert('Erro ao excluir membro.'); }
+        } catch (e) { 
+            showCustomAlert(e.message || 'Erro ao excluir membro.', 'Erro'); 
+        }
     });
 }
 
